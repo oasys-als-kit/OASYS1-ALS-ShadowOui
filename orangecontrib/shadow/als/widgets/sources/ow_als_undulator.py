@@ -1,5 +1,7 @@
 import numpy
-import scipy.stats as stats
+from numpy.matlib import repmat
+from scipy import stats
+from scipy.signal import convolve2d
 
 from PyQt5 import QtGui, QtWidgets
 from PyQt5.QtWidgets import QApplication
@@ -78,6 +80,16 @@ class ALSUndulator(ALSShadowWidget):
 
     # ASCII FILE INPUT
 
+    x_positions_file = Setting("x_positions.txt")
+    z_positions_file = Setting("z_positions.txt")
+    x_positions_factor = Setting(0.01)
+    z_positions_factor = Setting(0.01)
+    x_divergences_file = Setting("x_divergences.txt")
+    z_divergences_file = Setting("z_divergences.txt")
+    x_divergences_factor = Setting(1.0)
+    z_divergences_factor = Setting(1.0)
+
+    combine_strategy = Setting(0)
 
     # SHADOW SETTINGS
 
@@ -347,52 +359,46 @@ class ALSUndulator(ALSShadowWidget):
 
             self.fix_Intensity(beam_out)
 
-
             self.progressBarSet(20)
 
-            if self.distribution_source <= 1: #SRW
-
+            if self.distribution_source == 0:
                 self.setStatusMessage("Running SRW")
 
-                if self.distribution_source == 0:
-                    x, z, intensity_source_dimension, x_first, z_first, intensity_angular_distribution = self.runSRWCalculation()
-                else:
-                    x, z, intensity_source_dimension, x_first, z_first, intensity_angular_distribution = self.loadSRWFiles()
-
-                self.progressBarSet(50)
-
-                self.setStatusMessage("Applying new Spatial/Angular Distribution")
-
-                # SWITCH FROM SRW METERS TO SHADOWOUI U.M.
-                x = x/self.workspace_units_to_m
-                z = z/self.workspace_units_to_m
-
-                self.progressBarSet(60)
-
-                self.generate_user_defined_distribution_from_srw(beam_out=beam_out,
-                                                                 coord_x=x,
-                                                                 coord_y=z,
-                                                                 intensity=intensity_source_dimension,
-                                                                 distribution_type=Distribution.POSITION)
-
-                self.progressBarSet(70)
-
-                self.generate_user_defined_distribution_from_srw(beam_out=beam_out,
-                                                                 coord_x=x_first,
-                                                                 coord_y=z_first,
-                                                                 intensity=intensity_angular_distribution,
-                                                                 distribution_type=Distribution.DIVERGENCE)
-
-
-
-
-            elif self.distribution_source == 1: # SRW FILES
-
+                x, z, intensity_source_dimension, x_first, z_first, intensity_angular_distribution = self.runSRWCalculation()
+            elif self.distribution_source == 1:
                 self.setStatusMessage("Loading SRW files")
 
+                x, z, intensity_source_dimension, x_first, z_first, intensity_angular_distribution = self.loadSRWFiles()
             elif self.distribution_source == 2: # ASCII FILES
-
                 self.setStatusMessage("Loading Ascii files")
+
+                x, z, intensity_source_dimension, x_first, z_first, intensity_angular_distribution = self.loadASCIIFiles()
+
+            self.progressBarSet(50)
+
+            self.setStatusMessage("Applying new Spatial/Angular Distribution")
+
+            # SWITCH FROM SRW METERS TO SHADOWOUI U.M.
+            x = x/self.workspace_units_to_m
+            z = z/self.workspace_units_to_m
+
+            self.progressBarSet(60)
+
+            self.generate_user_defined_distribution_from_srw(beam_out=beam_out,
+                                                             coord_x=x,
+                                                             coord_y=z,
+                                                             intensity=intensity_source_dimension,
+                                                             distribution_type=Distribution.POSITION)
+
+            self.progressBarSet(70)
+
+            self.generate_user_defined_distribution_from_srw(beam_out=beam_out,
+                                                             coord_x=x_first,
+                                                             coord_y=z_first,
+                                                             intensity=intensity_angular_distribution,
+                                                             distribution_type=Distribution.DIVERGENCE)
+
+
 
             self.setStatusMessage("Plotting Results")
 
@@ -408,10 +414,7 @@ class ALSUndulator(ALSShadowWidget):
                                        str(exception),
                 QtWidgets.QMessageBox.Ok)
 
-            #self.error_id = self.error_id + 1
-            #self.error(self.error_id, "Exception occurred: " + str(exception))
-
-            #raise exception
+            raise exception
 
         self.progressBarFinished()
 
@@ -479,8 +482,37 @@ class ALSUndulator(ALSShadowWidget):
                 beam_out._beam.rays[index, 17] = 0
 
     ####################################################################################
-    # SRW PROCEDURES
+    # SRW CALCULATION
     ####################################################################################
+
+    def resample_distribution(self, x_values, y_values, new_dim):
+        x_min = x_values[0]
+        x_max = x_values[len(x_values)-1]
+
+        new_x_values = x_min + numpy.arange(0, new_dim+1) * (x_max-x_min)/new_dim
+
+        return new_x_values, numpy.interp(new_x_values, x_values, y_values)
+
+    def sample_from_distribution(self, distribution, npoints):
+        y_values = distribution[:, 1]
+        x_values = distribution[:, 0]
+
+        coefficient = 1.0
+        if len(x_values) < 10000:
+            coefficient = 10000.0
+            x_values, y_values = self.resample_distribution(x_values*10000, y_values, 10000)
+
+
+        # normalize distribution function
+        y_values /= numpy.max(y_values)
+        y_values /= y_values.sum()
+
+        random_generator = stats.rv_discrete(a=numpy.min(x_values),
+                                             b=numpy.max(x_values),
+                                             name='user_defined_distribution', values=(x_values, y_values))
+
+        return random_generator.rvs(size=npoints)/coefficient
+
 
     def checkSRWFields(self):
 
@@ -741,35 +773,6 @@ class ALSUndulator(ALSShadowWidget):
 
         return numpy.array(distribution_x), numpy.array(distribution_y)
 
-    def resample_distribution(self, x_values, y_values, new_dim):
-        x_min = x_values[0]
-        x_max = x_values[len(x_values)-1]
-
-        new_x_values = x_min + numpy.arange(0, new_dim+1) * (x_max-x_min)/new_dim
-
-        return new_x_values, numpy.interp(new_x_values, x_values, y_values)
-
-    def sample_from_distribution(self, distribution, npoints):
-        y_values = distribution[:, 1]
-        x_values = distribution[:, 0]
-
-        coefficient = 1.0
-        if len(x_values) < 10000:
-            coefficient = 10000.0
-            x_values, y_values = self.resample_distribution(x_values*10000, y_values, 10000)
-
-
-        # normalize distribution function
-        y_values /= numpy.max(y_values)
-        y_values /= y_values.sum()
-
-        random_generator = stats.rv_discrete(a=numpy.min(x_values),
-                                             b=numpy.max(x_values),
-                                             name='user_defined_distribution', values=(x_values, y_values))
-
-        return random_generator.rvs(size=npoints)/coefficient
-
-
     def generate_user_defined_distribution_from_srw(self,
                                                     beam_out,
                                                     coord_x,
@@ -804,8 +807,17 @@ class ALSUndulator(ALSShadowWidget):
             beam_out._beam.rays[:, 4] =  numpy.cos(alpha_z)*numpy.cos(alpha_x)
             beam_out._beam.rays[:, 5] =  numpy.sin(alpha_z)
 
+    ####################################################################################
+    # SRW FILES
+    ####################################################################################
+
+    def checkSRWFilesFields(self):
+        congruence.checkFile(self.source_dimension_srw_file)
+        congruence.checkFile(self.angular_distribution_srw_file)
 
     def loadSRWFiles(self):
+
+        self.checkSRWFilesFields()
 
         x, z, intensity_source_dimension = self.loadNumpyFormat(self.source_dimension_srw_file)
         x_first, z_first, intensity_angular_distribution = self.loadNumpyFormat(self.angular_distribution_srw_file)
@@ -869,6 +881,97 @@ class ALSUndulator(ALSShadowWidget):
         y_coordinates = numpy.linspace(allrange[6], allrange[7], dim_y)
 
         return x_coordinates, y_coordinates, np_array
+
+    ####################################################################################
+    # ASCII FILES
+    ####################################################################################
+
+    def checkASCIIFilesFields(self):
+        congruence.checkFile(self.x_positions_file)
+        congruence.checkFile(self.z_positions_file)
+        congruence.checkFile(self.x_divergences_file)
+        congruence.checkFile(self.z_divergences_file)
+
+        self.x_positions_factor = float(self.x_positions_factor)
+        self.z_positions_factor = float(self.z_positions_factor)
+        self.x_divergences_factor = float(self.x_divergences_factor)
+        self.z_divergences_factor = float(self.z_divergences_factor)
+
+        congruence.checkStrictlyPositiveNumber(self.x_positions_factor, "X Position Units to Workspace Units")
+        congruence.checkStrictlyPositiveNumber(self.z_positions_factor, "Z Position Units to Workspace Units")
+        congruence.checkStrictlyPositiveNumber(self.x_divergences_factor, "X Divergence Units to rad")
+        congruence.checkStrictlyPositiveNumber(self.z_divergences_factor, "Z Divergence Units to rad")
+
+    def loadASCIIFiles(self):
+        self.checkASCIIFilesFields()
+
+        x_positions = self.extract_distribution_from_file(distribution_file_name=self.x_positions_file)
+        z_positions = self.extract_distribution_from_file(distribution_file_name=self.z_positions_file)
+
+        x_positions[:, 0] *= self.x_positions_factor
+        z_positions[:, 0] *= self.z_positions_factor
+
+        x_divergences = self.extract_distribution_from_file(distribution_file_name=self.x_divergences_file)
+        z_divergences = self.extract_distribution_from_file(distribution_file_name=self.z_divergences_file)
+
+        x_divergences[:, 0] *= self.x_divergences_factor
+        z_divergences[:, 0] *= self.z_divergences_factor
+
+        x, z, intensity_source_dimension = self.combine_distributions(x_positions, z_positions)
+        x_first, z_first, intensity_angular_distribution = self.combine_distributions(x_divergences, z_divergences)
+
+        return x, z, intensity_source_dimension, x_first, z_first, intensity_angular_distribution
+
+
+    def extract_distribution_from_file(self, distribution_file_name):
+        distribution = []
+
+        try:
+            distribution_file = open(distribution_file_name, "r")
+
+            rows = distribution_file.readlines()
+
+            for index in range(0, len(rows)):
+                row = rows[index]
+
+                if not row.strip() == "":
+                    values = row.split()
+
+                    if not len(values) == 2: raise Exception("Malformed file, must be: <value> <spaces> <frequency>")
+
+                    value = float(values[0].strip())
+                    frequency = float(values[1].strip())
+
+                    distribution.append([value, frequency])
+
+        except Exception as err:
+            raise Exception("Problems reading distribution file: {0}".format(err))
+        except:
+            raise Exception("Unexpected error reading distribution file: ", sys.exc_info()[0])
+
+        return numpy.array(distribution)
+
+
+
+    def combine_distributions(self, distribution_x, distribution_y):
+
+        coord_x = distribution_x[:, 0]
+        coord_y = distribution_y[:, 0]
+
+        intensity_x = repmat(distribution_x[:, 1], len(coord_y), 1).transpose()
+        intensity_y = repmat(distribution_y[:, 1], len(coord_x), 1)
+
+        if self.combine_strategy == 0:
+            convoluted_intensity = numpy.sqrt(intensity_x*intensity_y)
+        elif self.combine_strategy == 1:
+            convoluted_intensity = numpy.sqrt(intensity_x**2 + intensity_y**2)
+        elif self.combine_strategy == 2:
+            convoluted_intensity = convolve2d(intensity_x, intensity_y, boundary='fill', mode='same', fillvalue=0)
+        elif self.combine_strategy == 3:
+            convoluted_intensity = 0.5*(intensity_x + intensity_y)
+
+        return coord_x, coord_y, convoluted_intensity
+
 
 
 if __name__ == "__main__":
