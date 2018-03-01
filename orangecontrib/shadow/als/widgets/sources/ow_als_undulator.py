@@ -453,10 +453,6 @@ class ALSUndulator(GenericElement):
 
             self.setStatusMessage("Applying new Spatial/Angular Distribution")
 
-            # SWITCH FROM SRW METERS TO SHADOWOUI U.M.
-            x = x/self.workspace_units_to_m
-            z = z/self.workspace_units_to_m
-
             self.progressBarSet(60)
 
             self.generate_user_defined_distribution_from_srw(beam_out=beam_out,
@@ -802,6 +798,10 @@ class ALSUndulator(GenericElement):
 
         x, z, intensity_source_dimension = self.transform_srw_array(arI, wfrSouDim.mesh)
 
+        # SWITCH FROM SRW METERS TO SHADOWOUI U.M.
+        x = x/self.workspace_units_to_m
+        z = z/self.workspace_units_to_m
+
         # 2 calculate intensity distribution ME convoluted at far field to express it in angular coordinates
 
         print('   Performing Initial Single-E Electric Field calculation ... ', end='')
@@ -898,6 +898,11 @@ class ALSUndulator(GenericElement):
 
         x, z, intensity_source_dimension = self.loadNumpyFormat(self.source_dimension_srw_file)
         x_first, z_first, intensity_angular_distribution = self.loadNumpyFormat(self.angular_distribution_srw_file)
+
+
+        # SWITCH FROM SRW METERS TO SHADOWOUI U.M.
+        x = x/self.workspace_units_to_m
+        z = z/self.workspace_units_to_m
 
         return x, z, intensity_source_dimension, x_first, z_first, intensity_angular_distribution
 
