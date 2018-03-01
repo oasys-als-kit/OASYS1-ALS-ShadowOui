@@ -14,6 +14,7 @@ from orangewidget import widget
 
 from orangecontrib.shadow.util.shadow_objects import ShadowTriggerOut, ShadowBeam, ShadowSource
 from orangecontrib.shadow.als.widgets.gui.ow_als_shadow_widget import ALSShadowWidget
+from orangecontrib.shadow.widgets.gui.ow_generic_element import GenericElement
 
 import scipy.constants as codata
 
@@ -23,7 +24,10 @@ class Distribution:
     POSITION = 0
     DIVERGENCE = 1
 
-class ALSUndulator(ALSShadowWidget):
+#class ALSUndulator(ALSShadowWidget):
+class ALSUndulator(GenericElement):
+
+    TABS_AREA_HEIGHT = 620
 
     name = "ALS Undulator"
     description = "Shadow Source: ALS Undulator"
@@ -213,10 +217,25 @@ class ALSUndulator(ALSShadowWidget):
 
         tabs_srw = oasysgui.tabWidget(self.srw_box)
 
-        gui.separator(self.srw_box, height=10)
-
         gui.comboBox(self.srw_box, self, "save_srw_result", label="Save SRW results", labelWidth=310,
-                     items=["No", "Yes"], orientation="horizontal")
+                     items=["No", "Yes"], orientation="horizontal", callback=self.set_SaveFileSRW)
+
+        self.save_file_box = oasysgui.widgetBox(self.srw_box, "", addSpace=False, orientation="vertical")
+        self.save_file_box_empty = oasysgui.widgetBox(self.srw_box, "", addSpace=False, orientation="vertical", height=55)
+
+        file_box = oasysgui.widgetBox(self.save_file_box, "", addSpace=False, orientation="horizontal", height=25)
+
+        self.le_source_dimension_srw_file = oasysgui.lineEdit(file_box, self, "source_dimension_srw_file", "Source Dimension File", labelWidth=140,  valueType=str, orientation="horizontal")
+
+        gui.button(file_box, self, "...", callback=self.selectSourceDimensionFile)
+
+        file_box = oasysgui.widgetBox(self.save_file_box, "", addSpace=False, orientation="horizontal", height=25)
+
+        self.le_angular_distribution_srw_file = oasysgui.lineEdit(file_box, self, "angular_distribution_srw_file", "Angular Distribution File", labelWidth=140,  valueType=str, orientation="horizontal")
+
+        gui.button(file_box, self, "...", callback=self.selectAngularDistributionFile)
+
+        self.set_SaveFileSRW()
 
         tab_ls = oasysgui.createTabPage(tabs_srw, "Undulator Setting")
         tab_wf = oasysgui.createTabPage(tabs_srw, "Wavefront Setting")
@@ -234,7 +253,7 @@ class ALSUndulator(ALSShadowWidget):
         oasysgui.lineEdit(left_box_2, self, "electron_energy_spread", "Energy Spread", labelWidth=260, valueType=float, orientation="horizontal")
         oasysgui.lineEdit(left_box_2, self, "ring_current", "Ring Current [A]", labelWidth=260, valueType=float, orientation="horizontal")
         
-        gui.separator(left_box_2)
+        #gui.separator(left_box_2)
         
         oasysgui.lineEdit(left_box_2, self, "electron_beam_size_h",       "Horizontal Beam Size [m]", labelWidth=230, valueType=float, orientation="horizontal")
         oasysgui.lineEdit(left_box_2, self, "electron_beam_size_v",       "Vertical Beam Size [m]",  labelWidth=230, valueType=float, orientation="horizontal")
@@ -262,18 +281,57 @@ class ALSUndulator(ALSShadowWidget):
         ####################################################################################
         # SRW FILES
 
-        file_box = oasysgui.widgetBox(self.srw_files_box, "", addSpace=True, orientation="horizontal", height=25)
+        file_box = oasysgui.widgetBox(self.srw_files_box, "", addSpace=True, orientation="horizontal", height=45)
 
-        self.le_source_dimension_srw_file = oasysgui.lineEdit(file_box, self, "source_dimension_srw_file", "Source Dimension File", labelWidth=100,  valueType=str, orientation="horizontal")
+        self.le_source_dimension_srw_file = oasysgui.lineEdit(file_box, self, "source_dimension_srw_file", "Source Dimension File", labelWidth=180,  valueType=str, orientation="vertical")
 
-        gui.button(file_box, self, "...", callback=self.selectSourceDimensionFile)
+        gui.button(file_box, self, "...", height=45, callback=self.selectSourceDimensionFile)
 
-        file_box = oasysgui.widgetBox(self.srw_files_box, "", addSpace=True, orientation="horizontal", height=25)
+        file_box = oasysgui.widgetBox(self.srw_files_box, "", addSpace=True, orientation="horizontal", height=45)
 
-        self.le_angular_distribution_srw_file = oasysgui.lineEdit(file_box, self, "angular_distribution_srw_file", "Angular Distribution File", labelWidth=100,  valueType=str, orientation="horizontal")
+        self.le_angular_distribution_srw_file = oasysgui.lineEdit(file_box, self, "angular_distribution_srw_file", "Angular Distribution File", labelWidth=180,  valueType=str, orientation="vertical")
 
-        gui.button(file_box, self, "...", callback=self.selectAngularDistributionFile)
+        gui.button(file_box, self, "...", height=45, callback=self.selectAngularDistributionFile)
 
+
+        ####################################################################################
+        # ASCII FILES
+
+        file_box = oasysgui.widgetBox(self.ascii_box, "", addSpace=True, orientation="horizontal", height=45)
+
+        self.le_x_positions_file = oasysgui.lineEdit(file_box, self, "x_positions_file", "X Positions File", labelWidth=180,  valueType=str, orientation="vertical")
+
+        gui.button(file_box, self, "...", height=45, callback=self.selectXPositionsFile)
+
+        file_box = oasysgui.widgetBox(self.ascii_box, "", addSpace=True, orientation="horizontal", height=45)
+
+        self.le_z_positions_file = oasysgui.lineEdit(file_box, self, "z_positions_file", "Z Positions File", labelWidth=180,  valueType=str, orientation="vertical")
+
+        gui.button(file_box, self, "...", height=45, callback=self.selectZPositionsFile)
+
+        file_box = oasysgui.widgetBox(self.ascii_box, "", addSpace=True, orientation="horizontal", height=45)
+
+        self.le_x_divergences_file = oasysgui.lineEdit(file_box, self, "x_divergences_file", "X Divergences File", labelWidth=180,  valueType=str, orientation="vertical")
+
+        gui.button(file_box, self, "...", height=45, callback=self.selectXDivergencesFile)
+
+        file_box = oasysgui.widgetBox(self.ascii_box, "", addSpace=True, orientation="horizontal", height=45)
+
+        self.le_z_divergences_file = oasysgui.lineEdit(file_box, self, "z_divergences_file", "Z Divergences File", labelWidth=180,  valueType=str, orientation="vertical")
+
+        gui.button(file_box, self, "...", height=45, callback=self.selectZDivergencesFile)
+
+        gui.separator(self.ascii_box)
+
+        oasysgui.lineEdit(self.ascii_box, self, "x_positions_factor",   "X Positions UM to Workspace UM", labelWidth=230, valueType=float, orientation="horizontal")
+        oasysgui.lineEdit(self.ascii_box, self, "z_positions_factor",   "Z Positions UM to Workspace UM",  labelWidth=230, valueType=float, orientation="horizontal")
+        oasysgui.lineEdit(self.ascii_box, self, "x_divergences_factor", "X Divergences UM to rad", labelWidth=230, valueType=float, orientation="horizontal")
+        oasysgui.lineEdit(self.ascii_box, self, "z_divergences_factor", "X Divergences UM to rad", labelWidth=230, valueType=float, orientation="horizontal")
+
+        gui.separator(self.ascii_box)
+
+        gui.comboBox(self.ascii_box, self, "combine_strategy", label="2D Distribution Creation Strategy", labelWidth=310,
+                     items=["Sqrt(Product)", "Sqrt(Quadratic Sum)", "Convolution", "Average"], orientation="horizontal", callback=self.set_SaveFileSRW)
 
         gui.rubber(self.controlArea)
         gui.rubber(self.mainArea)
@@ -281,7 +339,6 @@ class ALSUndulator(ALSShadowWidget):
     ####################################################################################
     # GRAPHICS
     ####################################################################################
-
 
     def after_change_workspace_units(self):
         pass
@@ -315,6 +372,10 @@ class ALSUndulator(ALSShadowWidget):
     def set_OptimizeSource(self):
         self.optimize_file_name_box.setVisible(self.optimize_source != 0)
 
+    def set_SaveFileSRW(self):
+        self.save_file_box.setVisible(self.save_srw_result == 1)
+        self.save_file_box_empty.setVisible(self.save_srw_result == 0)
+
     def selectOptimizeFile(self):
         self.le_optimize_file_name.setText(oasysgui.selectFileFromDialog(self, self.optimize_file_name, "Open Optimize Source Parameters File"))
 
@@ -323,6 +384,20 @@ class ALSUndulator(ALSShadowWidget):
 
     def selectAngularDistributionFile(self):
         self.le_angular_distribution_srw_file.setText(oasysgui.selectFileFromDialog(self, self.angular_distribution_srw_file, "Open Angular Distribution File"))
+
+    def selectXPositionsFile(self):
+        self.le_x_positions_file.setText(oasysgui.selectFileFromDialog(self, self.x_positions_file, "Open X Positions File", file_extension_filter="*.dat, *.txt"))
+
+    def selectZPositionsFile(self):
+        self.le_z_positions_file.setText(oasysgui.selectFileFromDialog(self, self.z_positions_file, "Open Z Positions File", file_extension_filter="*.dat, *.txt"))
+
+    def selectXDivergencesFile(self):
+        self.le_x_divergences_file.setText(oasysgui.selectFileFromDialog(self, self.x_divergences_file, "Open X Divergences File", file_extension_filter="*.dat, *.txt"))
+
+    def selectZDivergencesFile(self):
+        self.le_z_divergences_file.setText(oasysgui.selectFileFromDialog(self, self.z_divergences_file, "Open Z Divergences File", file_extension_filter="*.dat, *.txt"))
+
+
 
     ####################################################################################
     # PROCEDURES
@@ -403,9 +478,8 @@ class ALSUndulator(ALSShadowWidget):
             self.setStatusMessage("Plotting Results")
 
             self.progressBarSet(80)
-            #self.plot_results(beam_out)
+            self.plot_results(beam_out)
 
-            #self.information()
             self.setStatusMessage("")
 
             self.send("Beam", beam_out)
@@ -516,9 +590,9 @@ class ALSUndulator(ALSShadowWidget):
 
     def checkSRWFields(self):
 
-        congruence.checkPositiveNumber(self.K_horizontal, "Horizontal K")
-        congruence.checkPositiveNumber(self.K_vertical, "Vertical K")
-        congruence.checkStrictlyPositiveNumber(self.period_length, "Period Length")
+        congruence.checkPositiveNumber(self.Kh, "Horizontal K")
+        congruence.checkPositiveNumber(self.Kv, "Vertical K")
+        congruence.checkStrictlyPositiveNumber(self.undulator_period, "Period Length")
         congruence.checkStrictlyPositiveNumber(self.number_of_periods, "Number of Periods")
 
         congruence.checkStrictlyPositiveNumber(self.electron_energy_in_GeV, "Energy")
@@ -545,12 +619,15 @@ class ALSUndulator(ALSShadowWidget):
         congruence.checkGreaterOrEqualThan(self.angular_distribution_wf_distance, self.get_minimum_propagation_distance(),
                                            "Wavefront Propagation Distance", "Minimum Distance out of the Source: " + str(self.get_minimum_propagation_distance()))
 
+        if self.save_srw_result == 1:
+            congruence.checkFile(self.source_dimension_srw_file)
+            congruence.checkFile(self.angular_distribution_srw_file)
+
     def get_minimum_propagation_distance(self):
         return round(self.get_source_length()*1.01, 6)
 
     def get_source_length(self):
-        return self.period_length*self.number_of_periods
-
+        return self.undulator_period*self.number_of_periods
 
     def magnetic_field_from_K(self):
         Bv = self.Kv * 2 * pi * codata.m_e * codata.c / (codata.e * self.undulator_period)
