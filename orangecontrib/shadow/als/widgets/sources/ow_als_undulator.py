@@ -99,7 +99,7 @@ class ALSUndulator(GenericElement):
 
     number_of_rays=Setting(5000)
     seed=Setting(6775431)
-    energy=Setting(15000.0)
+    energy=Setting(400.0)
 
     polarization = Setting(1)
     coherent_beam = Setting(0)
@@ -484,7 +484,7 @@ class ALSUndulator(GenericElement):
                                        str(exception),
                 QtWidgets.QMessageBox.Ok)
 
-            raise exception
+            #raise exception
 
         self.progressBarFinished()
 
@@ -616,8 +616,8 @@ class ALSUndulator(GenericElement):
                                            "Wavefront Propagation Distance", "Minimum Distance out of the Source: " + str(self.get_minimum_propagation_distance()))
 
         if self.save_srw_result == 1:
-            congruence.checkFile(self.source_dimension_srw_file)
-            congruence.checkFile(self.angular_distribution_srw_file)
+            congruence.checkDir(self.source_dimension_srw_file)
+            congruence.checkDir(self.angular_distribution_srw_file)
 
     def get_minimum_propagation_distance(self):
         return round(self.get_source_length()*1.01, 6)
