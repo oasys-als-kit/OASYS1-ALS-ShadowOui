@@ -1,11 +1,3 @@
-"""
-=========
-Associate
-=========
-
-Widgets for association rules.
-
-"""
 
 # Category description for the widget registry
 

@@ -65,6 +65,7 @@ PACKAGES = find_packages(
 
 PACKAGE_DATA = {"orangecontrib.shadow.als.widgets.sources":["icons/*.png", "icons/*.jpg"],
                 "orangecontrib.shadow.als.widgets.optical_elements":["icons/*.png", "icons/*.jpg"],
+                "orangecontrib.shadow.als.widgets.utility":["icons/*.png", "icons/*.jpg"],
 }
 
 NAMESPACE_PACAKGES = ["orangecontrib","orangecontrib.shadow", "orangecontrib.shadow.als", "orangecontrib.shadow.als.widgets"]
@@ -74,6 +75,7 @@ ENTRY_POINTS = {
     'oasys.widgets' : (
         "Shadow ALS Sources = orangecontrib.shadow.als.widgets.sources",
         "Shadow ALS Optical Elements = orangecontrib.shadow.als.widgets.optical_elements",
+        "Shadow ALS Utility = orangecontrib.shadow.als.widgets.utility",
     ),
 }
 

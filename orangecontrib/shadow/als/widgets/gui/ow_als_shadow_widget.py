@@ -25,10 +25,14 @@ class ALSShadowWidget(widget.OWWidget):
     MAX_HEIGHT = 700
 
     CONTROL_AREA_WIDTH = 405
-    TABS_AREA_HEIGHT = 620
 
     def __init__(self, show_automatic_box=True):
         super().__init__()
+
+        if not show_automatic_box:
+            self.TABS_AREA_HEIGHT = 620
+        else:
+            self.TABS_AREA_HEIGHT = 555
 
         geom = QApplication.desktop().availableGeometry()
         self.setGeometry(QRect(round(geom.width()*0.05),
