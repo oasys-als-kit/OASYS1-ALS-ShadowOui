@@ -9,10 +9,11 @@ from oasys.widgets import gui as oasysgui
 from oasys.widgets import congruence
 from orangewidget import widget
 from Shadow import ShadowTools as ST
+from silx.gui.plot import Plot2D
 from silx.gui.plot.StackView import StackViewMainWindow
 
 
-from orangecontrib.shadow.util.shadow_util import ShadowCongruence, ShadowPhysics
+from orangecontrib.shadow.util.shadow_util import ShadowCongruence, ShadowPhysics, ShadowPlot
 from orangecontrib.shadow.util.shadow_objects import ShadowBeam
 from orangecontrib.shadow.als.widgets.gui.ow_als_shadow_widget import ALSShadowWidget
 
@@ -26,12 +27,32 @@ class ALSGenericAnalyzer(ALSShadowWidget):
     inputs = [("Input Beam", ShadowBeam, "setBeam")]
 
     IMAGE_WIDTH = 860
-    IMAGE_HEIGHT = 545
+    IMAGE_HEIGHT = 540
 
     input_beam = None
+    widget_name = None
 
-    def __init__(self, show_automatic_box=True):
+    x_min = Setting(-0.005)
+    x_max = Setting(0.005)
+    z_min = Setting(-0.005)
+    z_max = Setting(0.005)
+    n_bins = Setting(501)
+    
+    variable_to_change = Setting(0)
+    current_value = ""
+    
+    v_min = Setting(-0.001)
+    v_max = Setting(0.001)
+    n_points = Setting(21)
+
+    image_plane=Setting(0)
+    image_plane_new_position=Setting(10.0)
+    image_plane_rel_abs_position=Setting(0)
+
+    def __init__(self, show_automatic_box=False):
         super().__init__(show_automatic_box=show_automatic_box)
+
+        self.general_options_box.setVisible(False)
 
         self.runaction = widget.OWAction("Analyze OE Parameters", self)
         self.runaction.triggered.connect(self.analyze)
@@ -67,9 +88,53 @@ class ALSGenericAnalyzer(ALSShadowWidget):
         tabs_setting = oasysgui.tabWidget(self.controlArea)
         tabs_setting.setFixedHeight(self.TABS_AREA_HEIGHT)
         tabs_setting.setFixedWidth(self.CONTROL_AREA_WIDTH-5)
-
+        
         self.tab_analysis = oasysgui.createTabPage(tabs_setting, "Analysis Setting")
 
+        self.oe_settings_box = oasysgui.widgetBox(self.tab_analysis, self.get_OE_name() + " Setting", addSpace=False, orientation="vertical")
+
+        self.cb_variable_to_change =  gui.comboBox(self.oe_settings_box, self, "variable_to_change", label="Variable to Change", labelWidth=180,
+                                                   items=self.get_variables_to_change_list(), sendSelectedValue=False, orientation="horizontal", callback=self.set_current_value)
+
+        self.le_current_value = oasysgui.lineEdit(self.oe_settings_box, self, "current_value", "Current Value", labelWidth=100, valueType=str, orientation="horizontal")
+        self.le_current_value.setReadOnly(True)
+        font = QFont(self.le_current_value.font())
+        font.setBold(True)
+        self.le_current_value.setFont(font)
+        palette = QPalette(self.le_current_value.palette())
+        palette.setColor(QPalette.Text, QColor('dark blue'))
+        palette.setColor(QPalette.Base, QColor(243, 240, 160))
+        self.le_current_value.setPalette(palette)
+        
+        gui.separator(self.oe_settings_box)
+        
+        oasysgui.lineEdit(self.oe_settings_box, self, "v_min",    "Scanning value min", labelWidth=250, valueType=float, orientation="horizontal")
+        oasysgui.lineEdit(self.oe_settings_box, self, "v_max",    "Scanning value max", labelWidth=250, valueType=float, orientation="horizontal")
+        oasysgui.lineEdit(self.oe_settings_box, self, "n_points", "Nr. Points", labelWidth=250, valueType=float, orientation="horizontal")
+        
+        left_box_1 = oasysgui.widgetBox(self.tab_analysis, "Plots Setting", addSpace=False, orientation="vertical")
+
+        self.le_x_min = oasysgui.lineEdit(left_box_1, self, "x_min", "X min", labelWidth=250, valueType=float, orientation="horizontal")
+        self.le_x_max = oasysgui.lineEdit(left_box_1, self, "x_max", "X max", labelWidth=250, valueType=float, orientation="horizontal")
+        self.le_z_min = oasysgui.lineEdit(left_box_1, self, "z_min", "Z min", labelWidth=250, valueType=float, orientation="horizontal")
+        self.le_z_max = oasysgui.lineEdit(left_box_1, self, "z_max", "Z max", labelWidth=250, valueType=float, orientation="horizontal")
+        oasysgui.lineEdit(left_box_1, self, "n_bins", "Nr. bins", labelWidth=250, valueType=int, orientation="horizontal")
+
+        screen_box = oasysgui.widgetBox(self.tab_analysis, "Screen Position Settings", addSpace=False, orientation="vertical", height=150)
+
+        self.image_plane_combo = gui.comboBox(screen_box, self, "image_plane", label="Position of the Image",
+                                            items=["On Image Plane", "Retraced"], labelWidth=260,
+                                            callback=self.set_ImagePlane, sendSelectedValue=False, orientation="horizontal")
+
+        self.image_plane_box = oasysgui.widgetBox(screen_box, "", addSpace=True, orientation="vertical", height=80)
+        self.image_plane_box_empty = oasysgui.widgetBox(screen_box, "", addSpace=True, orientation="vertical", height=80)
+
+        oasysgui.lineEdit(self.image_plane_box, self, "image_plane_new_position", "Image Plane new Position", labelWidth=220, valueType=float, orientation="horizontal")
+
+        gui.comboBox(self.image_plane_box, self, "image_plane_rel_abs_position", label="Position Type", labelWidth=250,
+                     items=["Absolute", "Relative"], sendSelectedValue=False, orientation="horizontal")
+
+        self.set_ImagePlane()
 
         ######################################
 
@@ -87,6 +152,20 @@ class ALSGenericAnalyzer(ALSShadowWidget):
         out_box = gui.widgetBox(out_tab, "System Output", addSpace=True, orientation="horizontal")
         out_box.layout().addWidget(self.shadow_output)
 
+    def after_change_workspace_units(self):
+        label = self.le_x_min.parent().layout().itemAt(0).widget()
+        label.setText(label.text() + " [" + self.workspace_units_label + "]")
+        label = self.le_x_max.parent().layout().itemAt(0).widget()
+        label.setText(label.text() + " [" + self.workspace_units_label + "]")
+        label = self.le_z_min.parent().layout().itemAt(0).widget()
+        label.setText(label.text() + " [" + self.workspace_units_label + "]")
+        label = self.le_z_max.parent().layout().itemAt(0).widget()
+        label.setText(label.text() + " [" + self.workspace_units_label + "]")
+
+    def set_ImagePlane(self):
+        self.image_plane_box.setVisible(self.image_plane==1)
+        self.image_plane_box_empty.setVisible(self.image_plane==0)
+
     def initializeTabs(self):
         current_tab = self.tabs.currentIndex()
 
@@ -100,7 +179,8 @@ class ALSGenericAnalyzer(ALSShadowWidget):
         self.tab = [oasysgui.createTabPage(self.tabs, titles[0]),
                     oasysgui.createTabPage(self.tabs, titles[1]),
                     oasysgui.createTabPage(self.tabs, titles[2]),
-                    oasysgui.createTabPage(self.tabs, titles[3])
+                    oasysgui.createTabPage(self.tabs, titles[3]),
+                    oasysgui.createTabPage(self.tabs, titles[4])
         ]
 
         for tab in self.tab:
@@ -118,11 +198,49 @@ class ALSGenericAnalyzer(ALSShadowWidget):
         if ShadowCongruence.checkEmptyBeam(beam):
             self.input_beam = beam
 
-            if self.is_automatic_run:
-                self.analyze()
+            beam_to_plot = self.input_beam._beam
 
+            if self.image_plane == 1:
+                new_shadow_beam = self.input_beam.duplicate(history=False)
 
-    def analyze(self):
+                if self.image_plane_rel_abs_position == 1:  # relative
+                    dist = self.image_plane_new_position
+                else:  # absolute
+                    historyItem = self.input_beam.getOEHistory(oe_number=self.input_beam._oe_number)
+
+                    if historyItem is None: image_plane = 0.0
+                    elif self.input_beam._oe_number == 0: image_plane = 0.0
+                    else: image_plane = historyItem._shadow_oe_end._oe.T_IMAGE
+
+                    dist = self.image_plane_new_position - image_plane
+
+                new_shadow_beam._beam.retrace(dist)
+
+                beam_to_plot = new_shadow_beam._beam
+
+            self.plot_data2D(0, beam_to_plot, 1, 3, 100, self.getTitles()[0], self.getXTitles()[0], self.getYTitles()[0])
+
+            self.tabs.setCurrentIndex(0)
+
+            self.complete_input_form()
+            self.set_current_value()
+
+    def complete_input_form(self):
+        pass
+
+    def check_fields(self):
+        congruence.checkNumber(self.x_min, "X min")
+        congruence.checkNumber(self.x_max, "X max")
+        congruence.checkNumber(self.z_min, "Z min")
+        congruence.checkNumber(self.z_max, "Z max")
+        congruence.checkGreaterThan(self.x_max, self.x_min, "X max", "X min")
+        congruence.checkGreaterThan(self.z_max, self.z_min, "Z max", "Z min")
+        congruence.checkStrictlyPositiveNumber(self.n_bins, "Nr. bins")
+
+        congruence.checkGreaterThan(self.v_max, self.v_min, "Scanning value max", "Scanning value min")
+        congruence.checkStrictlyPositiveNumber(self.n_points, "Nr. Points")
+
+    def get_shadowOui_objects(self):
         # TO ACCESS THE OPTICAL ELEMENT THAT GENERATE THE BEAM AT THIS IMAGE PLANE
         # YOU NEED TO SURF THE HISTORY OF THE BEAM
         oe_number = self.input_beam._oe_number
@@ -132,13 +250,31 @@ class ALSGenericAnalyzer(ALSShadowWidget):
         shadowOui_input_beam = history_element._input_beam
         shadowOui_OE_before_tracing = history_element._shadow_oe_start
         shadowOui_OE_after_tracing = history_element._shadow_oe_end
+        widget_class_name = history_element._widget_class_name
 
-        scanned_values = self.create_scanned_values(shadowOui_OE_before_tracing._oe, shadowOui_OE_after_tracing._oe)
+        return shadowOui_input_beam, oe_number, shadowOui_OE_before_tracing, shadowOui_OE_after_tracing, widget_class_name
+
+    def analyze(self):
+        
+        self.check_fields()
+        
+        shadowOui_input_beam, oe_number, shadowOui_OE_before_tracing, shadowOui_OE_after_tracing, widget_class_name = self.get_shadowOui_objects()
+
+        # NEW IMAGE PLANE POSITION
+        if self.image_plane == 1:
+            if self.image_plane_rel_abs_position == 1:  # relative
+                T_IMAGE = self.image_plane_new_position + shadowOui_OE_after_tracing._oe.T_IMAGE
+            else:  # absolute
+                T_IMAGE = self.image_plane_new_position
+        else:
+            T_IMAGE = shadowOui_OE_after_tracing._oe.T_IMAGE
+
+        scanned_values = self.v_min + numpy.arange(0, self.n_points+1)*numpy.abs((self.v_max-self.v_min)/self.n_points)
         auxiliary_data = self.create_auxiliary_data(shadowOui_OE_before_tracing._oe, shadowOui_OE_after_tracing._oe)
 
-        x_min, x_max, z_min, z_max, nbins = self.get_plot_ranges()
+        x_min, x_max, z_min, z_max, n_bins = self.get_plot_ranges()
 
-        stack_result = numpy.zeros((len(scanned_values), nbins, nbins))
+        stack_result = numpy.zeros((len(scanned_values), n_bins, n_bins))
         fwhms_h =  numpy.zeros(len(scanned_values))
         fwhms_v =  numpy.zeros(len(scanned_values))
         best_focus_positions = numpy.zeros(len(scanned_values))
@@ -151,18 +287,19 @@ class ALSGenericAnalyzer(ALSShadowWidget):
             shadow3_OE_before   = shadowOui_OE_before_tracing.duplicate()._oe                         # KEEP THE ORIGINAL UNTOUCHED
 
             self.modify_OE(shadow3_OE_before, scanned_values[index], auxiliary_data)
+            shadow3_OE_before.T_IMAGE = T_IMAGE
 
             shadow3_beam.traceOE(shadow3_OE_before, oe_number) #
 
             # 2D DISTRIBUTION X,Z TO OBTAIN THE FOCAL SPOT DIMENSION
-            ticket2D = shadow3_beam.histo2(col_h=1, col_v=3, nbins=nbins, ref=23, xrange=[x_min, x_max], yrange=[z_min, z_max])
+            ticket2D = shadow3_beam.histo2(col_h=1, col_v=3, nbins=n_bins, ref=23, xrange=[x_min, x_max], yrange=[z_min, z_max])
 
             histogram = ticket2D["histogram"]
             fwhms_h[index] = ticket2D["fwhm_h"]
             fwhms_v[index] = ticket2D["fwhm_v"]
 
-            for ix in range(nbins):
-                for iz in range(nbins):
+            for ix in range(n_bins):
+                for iz in range(n_bins):
                      stack_result[index, ix, iz] = histogram[ix, iz]
 
             # FOCUS POSITION
@@ -170,16 +307,37 @@ class ALSGenericAnalyzer(ALSShadowWidget):
 
             best_focus_positions[index] = ticketFocus['z_waist']
 
-        self.plot_data3D(0, stack_result, scanned_values, numpy.linspace(x_min, x_max, nbins)*self.workspace_units_to_m*1e6, numpy.linspace(z_min, z_max, nbins)*self.workspace_units_to_m*1e6,
-                                                                                    self.getTitles()[0], self.getXTitles()[0], self.getYTitles()[0])
-        self.plot_data1D(1,  scanned_values, fwhms_h*self.workspace_units_to_m*1e6, self.getTitles()[1], self.getXTitles()[1], self.getYTitles()[1])
-        self.plot_data1D(2,  scanned_values, fwhms_v*self.workspace_units_to_m*1e6, self.getTitles()[2], self.getXTitles()[2], self.getYTitles()[2])
-        self.plot_data1D(3,  scanned_values, best_focus_positions,                  self.getTitles()[3], self.getXTitles()[3], self.getYTitles()[3])
+        factor = self.workspace_units_to_m*1e6
+
+        self.plot_data3D(1,
+                         stack_result,
+                         scanned_values,
+                         numpy.linspace(x_min, x_max, n_bins)*factor,
+                         numpy.linspace(z_min, z_max, n_bins)*factor, self.getTitles()[1], self.getXTitles()[1], self.getYTitles()[1])
+        self.plot_data1D(2,  scanned_values, fwhms_h*factor,          self.getTitles()[2], self.getXTitles()[2], self.getYTitles()[2])
+        self.plot_data1D(3,  scanned_values, fwhms_v*factor,          self.getTitles()[3], self.getXTitles()[3], self.getYTitles()[3])
+        self.plot_data1D(4,  scanned_values, best_focus_positions,    self.getTitles()[4], self.getXTitles()[4], self.getYTitles()[4])
+
+        self.tabs.setCurrentIndex(1)
 
     def get_plot_ranges(self):
+        return self.x_min, self.x_max, self.z_min, self.z_max, self.n_bins
+    
+    def get_OE_name(self):
         raise NotImplementedError()
+    
+    def get_variables_to_change_list(self):
+        raise NotImplementedError()
+    
+    def set_current_value(self):
+        if not self.input_beam is None:
+            shadowOui_input_beam, oe_number, shadowOui_OE_before_tracing, shadowOui_OE_after_tracing, widget_class_name = self.get_shadowOui_objects()
 
-    def create_scanned_values(self, shadow_OE_before_tracing, shadow_OE_after_tracing):
+            self.le_current_value.setText(self.get_current_value(shadowOui_OE_before_tracing._oe, shadowOui_OE_after_tracing._oe))
+        else:
+            self.le_current_value.setText("")
+    
+    def get_current_value(self, shadow_OE_before_tracing, shadow_OE_after_tracing):
         raise NotImplementedError()
 
     def create_auxiliary_data(self, shadow_OE_before_tracing, shadow_OE_after_tracing):
@@ -199,13 +357,21 @@ class ALSGenericAnalyzer(ALSShadowWidget):
         self.plot_canvas[plot_canvas_index].resetZoom()
         self.plot_canvas[plot_canvas_index].setXAxisAutoScale(True)
         self.plot_canvas[plot_canvas_index].setYAxisAutoScale(True)
-        self.plot_canvas[plot_canvas_index].setGraphGrid(False)
+        self.plot_canvas[plot_canvas_index].setGraphGrid(True)
 
         self.plot_canvas[plot_canvas_index].setXAxisLogarithmic(False)
         self.plot_canvas[plot_canvas_index].setYAxisLogarithmic(False)
         self.plot_canvas[plot_canvas_index].setGraphXLabel(xtitle)
         self.plot_canvas[plot_canvas_index].setGraphYLabel(ytitle)
         self.plot_canvas[plot_canvas_index].setGraphTitle(title)
+
+    def plot_data2D(self, plot_canvas_index, beam_to_plot, var_x, var_y, nbins, title="", xtitle="", ytitle=""):
+        if self.plot_canvas[plot_canvas_index] is None:
+            self.plot_canvas[plot_canvas_index] = ShadowPlot.DetailedPlotWidget(y_scale_factor=1.14)
+            self.tab[plot_canvas_index].layout().addWidget(self.plot_canvas[plot_canvas_index])
+
+        self.plot_canvas[0].plot_xy(beam_to_plot, var_x, var_y, title, xtitle, ytitle, nbins=nbins, conv=self.workspace_units_to_cm, ref=23)
+
 
     def plot_data3D(self, plot_canvas_index, data3D, dataScan, dataX, dataY, title="", xtitle="", ytitle=""):
 
@@ -229,7 +395,7 @@ class ALSGenericAnalyzer(ALSShadowWidget):
         dim1_calib = (ymin, stepY)
         dim2_calib = (xmin, stepX)
 
-        data_to_plot = numpy.swapaxes(data3D,1,2)
+        data_to_plot = numpy.swapaxes(data3D, 1, 2)
 
         colormap = {"name":"temperature", "normalization":"linear", "autoscale":True, "vmin":0, "vmax":0, "colors":256}
 
@@ -243,16 +409,10 @@ class ALSGenericAnalyzer(ALSShadowWidget):
         self.initializeTabs()
 
     def getTitles(self):
-        return ["Scanned Variable, X,Z Spot", "Scanned Variable, X Spot Size", "Scanned Variable, Z Spot Size", "Scanned Variable, Focus Distance"]
+        return ["Original X,Z Spot", "Scanned Variable, X,Z Spot", "Scanned Variable, X Spot Size", "Scanned Variable, Z Spot Size", "Scanned Variable, Focus Distance"]
 
     def getXTitles(self):
-        return [r'X [$\mu$m]', "Scanned Variable", "Scanned Variable", "Scanned Variable"]
+        return [r'X [$\mu$m]', r'X [$\mu$m]', "Scanned Variable", "Scanned Variable", "Scanned Variable"]
 
     def getYTitles(self):
-        return [r'Z [$\mu$m]', "FWHM X [$\mu$m]", "FWHM Z [$\mu$m]", "Focus Distance [" + self.workspace_units_label + "]"]
-
-    def getXUM(self):
-        return ["X [" + u"\u03BC" + "m]", "Scanned Variable", "Scanned Variable", "Scanned Variable"]
-
-    def getYUM(self):
-        return ["Z [" + u"\u03BC" + "m]", "X [" + u"\u03BC" + "m]", "Z [" + u"\u03BC" + "m]", "Focus Distance [" + self.workspace_units_label + "]"]
+        return [r'Z [$\mu$m]', r'Z [$\mu$m]', "FWHM X [$\mu$m]", "FWHM Z [$\mu$m]", "Focus Distance [" + self.workspace_units_label + "]"]

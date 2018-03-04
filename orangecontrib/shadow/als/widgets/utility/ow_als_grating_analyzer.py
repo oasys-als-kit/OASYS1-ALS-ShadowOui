@@ -12,30 +12,42 @@ class ALSGratingAnalyzer(ALSGenericAnalyzer):
     def __init__(self):
         super().__init__()
 
-    def get_plot_ranges(self):
+    def get_OE_name(self):
+        return "VLS Grating"
 
-        x_min = -0.15
-        x_max = 0.15
-        z_min = -0.002
-        z_max = 0.002
-        nbins=101
+    def get_variables_to_change_list(self):
+        return ["Ruling Density Coefficient 0th",
+                "Ruling Density Coefficient 1th",
+                "Ruling Density Coefficient 2th",
+                "Ruling Density Coefficient 3th",
+                "Ruling Density Coefficient 4th"]
 
-        return x_min, x_max, z_min, z_max, nbins
+    def get_current_value(self, shadow_OE_before_tracing, shadow_OE_after_tracing):
+        if self.variable_to_change == 0:
+            return str(shadow_OE_before_tracing.RULING) + " [l/" + self.workspace_units_label + "]"
+        elif self.variable_to_change == 1:
+            return str(shadow_OE_before_tracing.RUL_A1) + " [(l/" + self.workspace_units_label + ")^2]"
+        elif self.variable_to_change == 2:
+            return str(shadow_OE_before_tracing.RUL_A2) + " [(l/" + self.workspace_units_label + ")^3]"
+        elif self.variable_to_change == 3:
+            return str(shadow_OE_before_tracing.RUL_A3) + " [(l/" + self.workspace_units_label + ")^4]"
+        elif self.variable_to_change == 4:
+            return str(shadow_OE_before_tracing.RUL_A4) + " [(l/" + self.workspace_units_label + ")^5]"
 
     def create_auxiliary_data(self, shadow_OE_before_tracing, shadow_OE_after_tracing):
         return None
 
-    def create_scanned_values(self, shadow_OE_before_tracing, shadow_OE_after_tracing):
-        C0 = shadow_OE_before_tracing.RULING
-        C1 = shadow_OE_before_tracing.RUL_A1
-        C2 = shadow_OE_before_tracing.RUL_A2
-        C3 = shadow_OE_before_tracing.RUL_A3
-
-        print("RULING DENSITY", C0, C1, C2, C3)
-
-        return -5 + C3 + numpy.arange(0, 41)*(10/40)
-
     def modify_OE(self, shadow_OE, scanned_value, auxiliary_data=None):
+        if self.variable_to_change == 0:
+            shadow_OE.RULING = scanned_value
+        elif self.variable_to_change == 1:
+            shadow_OE.RUL_A1 = scanned_value
+        elif self.variable_to_change == 2:
+            shadow_OE.RUL_A2 = scanned_value
+        elif self.variable_to_change == 3:
+            shadow_OE.RUL_A3 = scanned_value
+        elif self.variable_to_change == 4:
+            shadow_OE.RUL_A4 = scanned_value
 
-        shadow_OE.RUL_A3= scanned_value
+
 
