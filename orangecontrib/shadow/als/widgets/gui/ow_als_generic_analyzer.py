@@ -193,37 +193,43 @@ class ALSGenericAnalyzer(ALSShadowWidget):
 
 
     def setBeam(self, beam):
-        self.onReceivingInput()
+        try:
+            self.onReceivingInput()
 
-        if ShadowCongruence.checkEmptyBeam(beam):
-            self.input_beam = beam
+            if ShadowCongruence.checkEmptyBeam(beam):
+                self.input_beam = beam
 
-            beam_to_plot = self.input_beam._beam
+                beam_to_plot = self.input_beam._beam
 
-            if self.image_plane == 1:
-                new_shadow_beam = self.input_beam.duplicate(history=False)
+                if self.image_plane == 1:
+                    new_shadow_beam = self.input_beam.duplicate(history=False)
 
-                if self.image_plane_rel_abs_position == 1:  # relative
-                    dist = self.image_plane_new_position
-                else:  # absolute
-                    historyItem = self.input_beam.getOEHistory(oe_number=self.input_beam._oe_number)
+                    if self.image_plane_rel_abs_position == 1:  # relative
+                        dist = self.image_plane_new_position
+                    else:  # absolute
+                        historyItem = self.input_beam.getOEHistory(oe_number=self.input_beam._oe_number)
 
-                    if historyItem is None: image_plane = 0.0
-                    elif self.input_beam._oe_number == 0: image_plane = 0.0
-                    else: image_plane = historyItem._shadow_oe_end._oe.T_IMAGE
+                        if historyItem is None: image_plane = 0.0
+                        elif self.input_beam._oe_number == 0: image_plane = 0.0
+                        else: image_plane = historyItem._shadow_oe_end._oe.T_IMAGE
 
-                    dist = self.image_plane_new_position - image_plane
+                        dist = self.image_plane_new_position - image_plane
 
-                new_shadow_beam._beam.retrace(dist)
+                    new_shadow_beam._beam.retrace(dist)
 
-                beam_to_plot = new_shadow_beam._beam
+                    beam_to_plot = new_shadow_beam._beam
 
-            self.plot_data2D(0, beam_to_plot, 1, 3, 100, self.getTitles()[0], self.getXTitles()[0], self.getYTitles()[0])
+                self.plot_data2D(0, beam_to_plot, 1, 3, 100, self.getTitles()[0], self.getXTitles()[0], self.getYTitles()[0])
 
-            self.tabs.setCurrentIndex(0)
+                self.tabs.setCurrentIndex(0)
 
-            self.complete_input_form()
-            self.set_current_value()
+                self.complete_input_form()
+                self.set_current_value()
+        except Exception as exception:
+            QtWidgets.QMessageBox.critical(self, "Error", str(exception), QtWidgets.QMessageBox.Ok)
+
+            self.setStatusMessage("Error!")
+
 
     def complete_input_form(self):
         pass
@@ -255,70 +261,80 @@ class ALSGenericAnalyzer(ALSShadowWidget):
         return shadowOui_input_beam, oe_number, shadowOui_OE_before_tracing, shadowOui_OE_after_tracing, widget_class_name
 
     def analyze(self):
-        
-        self.check_fields()
-        
-        shadowOui_input_beam, oe_number, shadowOui_OE_before_tracing, shadowOui_OE_after_tracing, widget_class_name = self.get_shadowOui_objects()
+        try:
+            self.check_fields()
 
-        # NEW IMAGE PLANE POSITION
-        if self.image_plane == 1:
-            if self.image_plane_rel_abs_position == 1:  # relative
-                T_IMAGE = self.image_plane_new_position + shadowOui_OE_after_tracing._oe.T_IMAGE
-            else:  # absolute
-                T_IMAGE = self.image_plane_new_position
-        else:
-            T_IMAGE = shadowOui_OE_after_tracing._oe.T_IMAGE
+            shadowOui_input_beam, oe_number, shadowOui_OE_before_tracing, shadowOui_OE_after_tracing, widget_class_name = self.get_shadowOui_objects()
 
-        scanned_values = self.v_min + numpy.arange(0, self.n_points+1)*numpy.abs((self.v_max-self.v_min)/self.n_points)
-        auxiliary_data = self.create_auxiliary_data(shadowOui_OE_before_tracing._oe, shadowOui_OE_after_tracing._oe)
+            # NEW IMAGE PLANE POSITION
+            if self.image_plane == 1:
+                if self.image_plane_rel_abs_position == 1:  # relative
+                    T_IMAGE = self.image_plane_new_position + shadowOui_OE_after_tracing._oe.T_IMAGE
+                else:  # absolute
+                    T_IMAGE = self.image_plane_new_position
+            else:
+                T_IMAGE = shadowOui_OE_after_tracing._oe.T_IMAGE
 
-        x_min, x_max, z_min, z_max, n_bins = self.get_plot_ranges()
+            scanned_values = self.v_min + numpy.arange(0, self.n_points+1)*numpy.abs((self.v_max-self.v_min)/self.n_points)
+            auxiliary_data = self.create_auxiliary_data(shadowOui_OE_before_tracing._oe, shadowOui_OE_after_tracing._oe)
 
-        stack_result = numpy.zeros((len(scanned_values), n_bins, n_bins))
-        fwhms_h =  numpy.zeros(len(scanned_values))
-        fwhms_v =  numpy.zeros(len(scanned_values))
-        best_focus_positions = numpy.zeros(len(scanned_values))
+            x_min, x_max, z_min, z_max, n_bins = self.get_plot_ranges()
 
-        for index in range(0, len(scanned_values)):
+            stack_result = numpy.zeros((len(scanned_values), n_bins, n_bins))
+            fwhms_h =  numpy.zeros(len(scanned_values))
+            fwhms_v =  numpy.zeros(len(scanned_values))
+            best_focus_positions = numpy.zeros(len(scanned_values))
 
-            # NATIVE SHADOW3 OBJECTS
-            # MAKE A DUPLICATE TO BE SURE TO NOT AFFECT THE REST OF SHADOWOUI SIMULATION!
-            shadow3_beam = shadowOui_input_beam.duplicate(copy_rays=True, history=False)._beam # KEEP THE ORIGINAL UNTOUCHED
-            shadow3_OE_before   = shadowOui_OE_before_tracing.duplicate()._oe                         # KEEP THE ORIGINAL UNTOUCHED
+            for index in range(0, len(scanned_values)):
 
-            self.modify_OE(shadow3_OE_before, scanned_values[index], auxiliary_data)
-            shadow3_OE_before.T_IMAGE = T_IMAGE
+                # NATIVE SHADOW3 OBJECTS
+                # MAKE A DUPLICATE TO BE SURE TO NOT AFFECT THE REST OF SHADOWOUI SIMULATION!
+                shadow3_beam = shadowOui_input_beam.duplicate(copy_rays=True, history=False)._beam # KEEP THE ORIGINAL UNTOUCHED
+                shadow3_OE_before   = shadowOui_OE_before_tracing.duplicate()._oe                         # KEEP THE ORIGINAL UNTOUCHED
 
-            shadow3_beam.traceOE(shadow3_OE_before, oe_number) #
+                self.modify_OE(shadow3_OE_before, scanned_values[index], auxiliary_data)
+                shadow3_OE_before.T_IMAGE = T_IMAGE
 
-            # 2D DISTRIBUTION X,Z TO OBTAIN THE FOCAL SPOT DIMENSION
-            ticket2D = shadow3_beam.histo2(col_h=1, col_v=3, nbins=n_bins, ref=23, xrange=[x_min, x_max], yrange=[z_min, z_max])
+                shadow3_beam.traceOE(shadow3_OE_before, oe_number) #
 
-            histogram = ticket2D["histogram"]
-            fwhms_h[index] = ticket2D["fwhm_h"]
-            fwhms_v[index] = ticket2D["fwhm_v"]
+                # 2D DISTRIBUTION X,Z TO OBTAIN THE FOCAL SPOT DIMENSION
+                self.compute_spatial_distribution(shadow3_beam, stack_result, fwhms_h, fwhms_v, index, n_bins, x_max, x_min, z_max, z_min)
 
-            for ix in range(n_bins):
-                for iz in range(n_bins):
-                     stack_result[index, ix, iz] = histogram[ix, iz]
+                # FOCUS POSITION
+                self.compute_focus_position(shadow3_beam, best_focus_positions, index)
 
-            # FOCUS POSITION
-            ticketFocus = ST.focnew(shadow3_beam, mode=0, center=[0.0, 0.0])
+            factor = self.workspace_units_to_m*1e6
 
-            best_focus_positions[index] = ticketFocus['z_waist']
+            self.plot_data3D(1,
+                             stack_result,
+                             scanned_values,
+                             numpy.linspace(x_min, x_max, n_bins)*factor,
+                             numpy.linspace(z_min, z_max, n_bins)*factor, self.getTitles()[1], self.getXTitles()[1], self.getYTitles()[1])
+            self.plot_data1D(2,  scanned_values, fwhms_h*factor,          self.getTitles()[2], self.getXTitles()[2], self.getYTitles()[2])
+            self.plot_data1D(3,  scanned_values, fwhms_v*factor,          self.getTitles()[3], self.getXTitles()[3], self.getYTitles()[3])
+            self.plot_data1D(4,  scanned_values, best_focus_positions,    self.getTitles()[4], self.getXTitles()[4], self.getYTitles()[4])
 
-        factor = self.workspace_units_to_m*1e6
+            self.tabs.setCurrentIndex(1)
+        except Exception as exception:
+            QtWidgets.QMessageBox.critical(self, "Error", str(exception), QtWidgets.QMessageBox.Ok)
 
-        self.plot_data3D(1,
-                         stack_result,
-                         scanned_values,
-                         numpy.linspace(x_min, x_max, n_bins)*factor,
-                         numpy.linspace(z_min, z_max, n_bins)*factor, self.getTitles()[1], self.getXTitles()[1], self.getYTitles()[1])
-        self.plot_data1D(2,  scanned_values, fwhms_h*factor,          self.getTitles()[2], self.getXTitles()[2], self.getYTitles()[2])
-        self.plot_data1D(3,  scanned_values, fwhms_v*factor,          self.getTitles()[3], self.getXTitles()[3], self.getYTitles()[3])
-        self.plot_data1D(4,  scanned_values, best_focus_positions,    self.getTitles()[4], self.getXTitles()[4], self.getYTitles()[4])
+            self.setStatusMessage("Error!")
 
-        self.tabs.setCurrentIndex(1)
+    def compute_focus_position(self, shadow3_beam, best_focus_positions, index):
+        ticketFocus = ST.focnew(shadow3_beam, mode=0, center=[0.0, 0.0])
+
+        best_focus_positions[index] = ticketFocus['z_waist']
+
+    def compute_spatial_distribution(self, shadow3_beam, stack_result, fwhms_h, fwhms_v, index, n_bins, x_max, x_min, z_max, z_min):
+        ticket2D = shadow3_beam.histo2(1, 3, nbins=n_bins, nolost=1, ref=23, xrange=[x_min, x_max], yrange=[z_min, z_max])
+
+        histogram = ticket2D["histogram"]
+        fwhms_h[index] = ticket2D["fwhm_h"]
+        fwhms_v[index] = ticket2D["fwhm_v"]
+
+        for x_index in range(0, n_bins):
+            for y_index in range(0, n_bins):
+                stack_result[index, x_index, y_index] = histogram[y_index][x_index]
 
     def get_plot_ranges(self):
         return self.x_min, self.x_max, self.z_min, self.z_max, self.n_bins
@@ -370,8 +386,8 @@ class ALSGenericAnalyzer(ALSShadowWidget):
             self.plot_canvas[plot_canvas_index] = ShadowPlot.DetailedPlotWidget(y_scale_factor=1.14)
             self.tab[plot_canvas_index].layout().addWidget(self.plot_canvas[plot_canvas_index])
 
-        self.plot_canvas[0].plot_xy(beam_to_plot, var_x, var_y, title, xtitle, ytitle, nbins=nbins, conv=self.workspace_units_to_cm, ref=23)
-
+        self.plot_canvas[plot_canvas_index].plot_xy(beam_to_plot, var_x, var_y, title, xtitle, ytitle,
+                                                    nbins=nbins, conv=self.workspace_units_to_cm, ref=23)
 
     def plot_data3D(self, plot_canvas_index, data3D, dataScan, dataX, dataY, title="", xtitle="", ytitle=""):
 
@@ -395,21 +411,21 @@ class ALSGenericAnalyzer(ALSShadowWidget):
         dim1_calib = (ymin, stepY)
         dim2_calib = (xmin, stepX)
 
-        data_to_plot = numpy.swapaxes(data3D, 1, 2)
+        calibrations=[dim0_calib, dim1_calib, dim2_calib]
 
         colormap = {"name":"temperature", "normalization":"linear", "autoscale":True, "vmin":0, "vmax":0, "colors":256}
 
         self.plot_canvas[plot_canvas_index].setGraphTitle(title)
         self.plot_canvas[plot_canvas_index].setLabels(["Scanned Variable", ytitle, xtitle])
         self.plot_canvas[plot_canvas_index].setColormap(colormap=colormap)
-        self.plot_canvas[plot_canvas_index].setStack(numpy.array(data_to_plot), calibrations=[dim0_calib, dim1_calib, dim2_calib] )
+        self.plot_canvas[plot_canvas_index].setStack(data3D, calibrations=calibrations)
 
 
     def onReceivingInput(self):
         self.initializeTabs()
 
     def getTitles(self):
-        return ["Original X,Z Spot", "Scanned Variable, X,Z Spot", "Scanned Variable, X Spot Size", "Scanned Variable, Z Spot Size", "Scanned Variable, Focus Distance"]
+        return ["Pristine (X,Z)", "Scanned Variable, (X,Z)", "Scanned Variable, X Spot Size", "Scanned Variable, Z Spot Size", "Scanned Variable, Focus Distance"]
 
     def getXTitles(self):
         return [r'X [$\mu$m]', r'X [$\mu$m]', "Scanned Variable", "Scanned Variable", "Scanned Variable"]
