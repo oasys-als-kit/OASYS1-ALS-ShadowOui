@@ -13,7 +13,7 @@ from silx.gui.plot import Plot2D
 from silx.gui.plot.StackView import StackViewMainWindow
 
 
-from orangecontrib.shadow.util.shadow_util import ShadowCongruence, ShadowPhysics, ShadowPlot
+from orangecontrib.shadow.util.shadow_util import ShadowCongruence, ShadowPlot
 from orangecontrib.shadow.util.shadow_objects import ShadowBeam
 from orangecontrib.shadow.als.widgets.gui.ow_als_shadow_widget import ALSShadowWidget
 
@@ -93,7 +93,7 @@ class ALSGenericAnalyzer(ALSShadowWidget):
 
         self.oe_settings_box = oasysgui.widgetBox(self.tab_analysis, self.get_OE_name() + " Setting", addSpace=False, orientation="vertical")
 
-        self.cb_variable_to_change =  gui.comboBox(self.oe_settings_box, self, "variable_to_change", label="Variable to Change", labelWidth=180,
+        self.cb_variable_to_change =  gui.comboBox(self.oe_settings_box, self, "variable_to_change", label="Variable to Change", labelWidth=150,
                                                    items=self.get_variables_to_change_list(), sendSelectedValue=False, orientation="horizontal", callback=self.set_current_value)
 
         self.le_current_value = oasysgui.lineEdit(self.oe_settings_box, self, "current_value", "Current Value", labelWidth=100, valueType=str, orientation="horizontal")
@@ -120,7 +120,7 @@ class ALSGenericAnalyzer(ALSShadowWidget):
         self.le_z_max = oasysgui.lineEdit(left_box_1, self, "z_max", "Z max", labelWidth=250, valueType=float, orientation="horizontal")
         oasysgui.lineEdit(left_box_1, self, "n_bins", "Nr. bins", labelWidth=250, valueType=int, orientation="horizontal")
 
-        screen_box = oasysgui.widgetBox(self.tab_analysis, "Screen Position Settings", addSpace=False, orientation="vertical", height=150)
+        screen_box = oasysgui.widgetBox(self.tab_analysis, "Screen Position Settings", addSpace=False, orientation="vertical", height=180)
 
         self.image_plane_combo = gui.comboBox(screen_box, self, "image_plane", label="Position of the Image",
                                             items=["On Image Plane", "Retraced"], labelWidth=260,
@@ -135,6 +135,9 @@ class ALSGenericAnalyzer(ALSShadowWidget):
                      items=["Absolute", "Relative"], sendSelectedValue=False, orientation="horizontal")
 
         self.set_ImagePlane()
+
+        gui.button(screen_box, self, "Refresh Input Beam", callback=self.refresh_input_beam)
+
 
         ######################################
 
@@ -180,14 +183,15 @@ class ALSGenericAnalyzer(ALSShadowWidget):
                     oasysgui.createTabPage(self.tabs, titles[1]),
                     oasysgui.createTabPage(self.tabs, titles[2]),
                     oasysgui.createTabPage(self.tabs, titles[3]),
-                    oasysgui.createTabPage(self.tabs, titles[4])
+                    oasysgui.createTabPage(self.tabs, titles[4]),
+                    oasysgui.createTabPage(self.tabs, titles[5])
         ]
 
         for tab in self.tab:
             tab.setFixedHeight(self.IMAGE_HEIGHT)
             tab.setFixedWidth(self.IMAGE_WIDTH)
 
-        self.plot_canvas = [None, None, None, None, None]
+        self.plot_canvas = [None, None, None, None, None, None]
 
         self.tabs.setCurrentIndex(current_tab)
 
@@ -199,37 +203,39 @@ class ALSGenericAnalyzer(ALSShadowWidget):
             if ShadowCongruence.checkEmptyBeam(beam):
                 self.input_beam = beam
 
-                beam_to_plot = self.input_beam._beam
-
-                if self.image_plane == 1:
-                    new_shadow_beam = self.input_beam.duplicate(history=False)
-
-                    if self.image_plane_rel_abs_position == 1:  # relative
-                        dist = self.image_plane_new_position
-                    else:  # absolute
-                        historyItem = self.input_beam.getOEHistory(oe_number=self.input_beam._oe_number)
-
-                        if historyItem is None: image_plane = 0.0
-                        elif self.input_beam._oe_number == 0: image_plane = 0.0
-                        else: image_plane = historyItem._shadow_oe_end._oe.T_IMAGE
-
-                        dist = self.image_plane_new_position - image_plane
-
-                    new_shadow_beam._beam.retrace(dist)
-
-                    beam_to_plot = new_shadow_beam._beam
-
-                self.plot_data2D(0, beam_to_plot, 1, 3, 100, self.getTitles()[0], self.getXTitles()[0], self.getYTitles()[0])
-
-                self.tabs.setCurrentIndex(0)
-
+                self.refresh_input_beam()
                 self.complete_input_form()
                 self.set_current_value()
+
         except Exception as exception:
             QtWidgets.QMessageBox.critical(self, "Error", str(exception), QtWidgets.QMessageBox.Ok)
 
             self.setStatusMessage("Error!")
 
+    def refresh_input_beam(self):
+        beam_to_plot = self.input_beam._beam
+        if self.image_plane == 1:
+            new_shadow_beam = self.input_beam.duplicate(history=False)
+
+            if self.image_plane_rel_abs_position == 1:  # relative
+                dist = self.image_plane_new_position
+            else:  # absolute
+                historyItem = self.input_beam.getOEHistory(oe_number=self.input_beam._oe_number)
+
+                if historyItem is None:
+                    image_plane = 0.0
+                elif self.input_beam._oe_number == 0:
+                    image_plane = 0.0
+                else:
+                    image_plane = historyItem._shadow_oe_end._oe.T_IMAGE
+
+                dist = self.image_plane_new_position - image_plane
+
+            new_shadow_beam._beam.retrace(dist)
+
+            beam_to_plot = new_shadow_beam._beam
+        self.plot_data2D(0, beam_to_plot, 1, 3, 100, self.getTitles()[0], self.getXTitles()[0], self.getYTitles()[0])
+        self.tabs.setCurrentIndex(0)
 
     def complete_input_form(self):
         pass
@@ -283,7 +289,8 @@ class ALSGenericAnalyzer(ALSShadowWidget):
             stack_result = numpy.zeros((len(scanned_values), n_bins, n_bins))
             fwhms_h =  numpy.zeros(len(scanned_values))
             fwhms_v =  numpy.zeros(len(scanned_values))
-            best_focus_positions = numpy.zeros(len(scanned_values))
+            sagittal_focus_positions = numpy.zeros(len(scanned_values))
+            tangential_focus_positions = numpy.zeros(len(scanned_values))
 
             for index in range(0, len(scanned_values)):
 
@@ -301,7 +308,7 @@ class ALSGenericAnalyzer(ALSShadowWidget):
                 self.compute_spatial_distribution(shadow3_beam, stack_result, fwhms_h, fwhms_v, index, n_bins, x_max, x_min, z_max, z_min)
 
                 # FOCUS POSITION
-                self.compute_focus_position(shadow3_beam, best_focus_positions, index)
+                self.compute_focus_position(shadow3_beam, sagittal_focus_positions, tangential_focus_positions, index)
 
             factor = self.workspace_units_to_m*1e6
 
@@ -312,7 +319,8 @@ class ALSGenericAnalyzer(ALSShadowWidget):
                              numpy.linspace(z_min, z_max, n_bins)*factor, self.getTitles()[1], self.getXTitles()[1], self.getYTitles()[1])
             self.plot_data1D(2,  scanned_values, fwhms_h*factor,          self.getTitles()[2], self.getXTitles()[2], self.getYTitles()[2])
             self.plot_data1D(3,  scanned_values, fwhms_v*factor,          self.getTitles()[3], self.getXTitles()[3], self.getYTitles()[3])
-            self.plot_data1D(4,  scanned_values, best_focus_positions,    self.getTitles()[4], self.getXTitles()[4], self.getYTitles()[4])
+            self.plot_data1D(4,  scanned_values, sagittal_focus_positions,  self.getTitles()[4], self.getXTitles()[4], self.getYTitles()[4])
+            self.plot_data1D(5,  scanned_values, tangential_focus_positions,self.getTitles()[5], self.getXTitles()[5], self.getYTitles()[5])
 
             self.tabs.setCurrentIndex(1)
         except Exception as exception:
@@ -320,10 +328,11 @@ class ALSGenericAnalyzer(ALSShadowWidget):
 
             self.setStatusMessage("Error!")
 
-    def compute_focus_position(self, shadow3_beam, best_focus_positions, index):
+    def compute_focus_position(self, shadow3_beam, sagittal_focus_positions, tangential_focus_positions, index):
         ticketFocus = ST.focnew(shadow3_beam, mode=0, center=[0.0, 0.0])
 
-        best_focus_positions[index] = ticketFocus['z_waist']
+        sagittal_focus_positions[index]   = ticketFocus['x_waist']
+        tangential_focus_positions[index] = ticketFocus['z_waist']
 
     def compute_spatial_distribution(self, shadow3_beam, stack_result, fwhms_h, fwhms_v, index, n_bins, x_max, x_min, z_max, z_min):
         ticket2D = shadow3_beam.histo2(1, 3, nbins=n_bins, nolost=1, ref=23, xrange=[x_min, x_max], yrange=[z_min, z_max])
@@ -425,10 +434,25 @@ class ALSGenericAnalyzer(ALSShadowWidget):
         self.initializeTabs()
 
     def getTitles(self):
-        return ["Pristine (X,Z)", "Scanned Variable, (X,Z)", "Scanned Variable, X Spot Size", "Scanned Variable, Z Spot Size", "Scanned Variable, Focus Distance"]
+        return ["Pristine (X,Z)",
+                "(X,Z)",
+                "X Spot Size",
+                "Z Spot Size",
+                "Focus (Sagittal)",
+                "Focus (Tangential)"]
 
     def getXTitles(self):
-        return [r'X [$\mu$m]', r'X [$\mu$m]', "Scanned Variable", "Scanned Variable", "Scanned Variable"]
+        return [r'X [$\mu$m]',
+                r'X [$\mu$m]',
+                "Scanned Variable",
+                "Scanned Variable",
+                "Scanned Variable",
+                "Scanned Variable"]
 
     def getYTitles(self):
-        return [r'Z [$\mu$m]', r'Z [$\mu$m]', "FWHM X [$\mu$m]", "FWHM Z [$\mu$m]", "Focus Distance [" + self.workspace_units_label + "]"]
+        return [r'Z [$\mu$m]',
+                r'Z [$\mu$m]',
+                "FWHM X [$\mu$m]",
+                "FWHM Z [$\mu$m]",
+                "Focus Distance [" + self.workspace_units_label + "]",
+                "Focus Distance [" + self.workspace_units_label + "]"]

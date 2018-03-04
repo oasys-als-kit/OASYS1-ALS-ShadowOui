@@ -42,6 +42,8 @@ class ALSCurvedElementAnalyzer(ALSGenericAnalyzer):
         for item in variables_to_change_list:
             self.cb_variable_to_change.addItem(item)
 
+        self.cb_variable_to_change.setCurrentIndex(self.variable_to_change)
+
     def get_OE_name(self):
         return self.oe_name
 
