@@ -445,7 +445,7 @@ class ALSGenericAnalyzer(ALSShadowWidget):
                 "Focus (Tangential)"]
 
     def getXTitles(self):
-        return [r'X [$\mu$m]',
+        return ["X [" + self.workspace_units_label + "]",
                 r'X [$\mu$m]',
                 "Scanned Variable",
                 "Scanned Variable",
@@ -453,7 +453,7 @@ class ALSGenericAnalyzer(ALSShadowWidget):
                 "Scanned Variable"]
 
     def getYTitles(self):
-        return [r'Z [$\mu$m]',
+        return ["X [" + self.workspace_units_label + "]",
                 r'Z [$\mu$m]',
                 "FWHM X [$\mu$m]",
                 "FWHM Z [$\mu$m]",
