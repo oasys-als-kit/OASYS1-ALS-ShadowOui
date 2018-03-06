@@ -234,7 +234,9 @@ class ALSGenericAnalyzer(ALSShadowWidget):
             new_shadow_beam._beam.retrace(dist)
 
             beam_to_plot = new_shadow_beam._beam
+        ShadowPlot.set_conversion_active(False)
         self.plot_data2D(0, beam_to_plot, 1, 3, 100, self.getTitles()[0], self.getXTitles()[0], self.getYTitles()[0])
+        ShadowPlot.set_conversion_active(True)
         self.tabs.setCurrentIndex(0)
 
     def complete_input_form(self):
@@ -396,7 +398,8 @@ class ALSGenericAnalyzer(ALSShadowWidget):
             self.tab[plot_canvas_index].layout().addWidget(self.plot_canvas[plot_canvas_index])
 
         self.plot_canvas[plot_canvas_index].plot_xy(beam_to_plot, var_x, var_y, title, xtitle, ytitle,
-                                                    nbins=nbins, conv=self.workspace_units_to_cm, ref=23)
+                                                    nbins=nbins, conv=self.workspace_units_to_cm, ref=23,
+                                                    xum="[" + self.workspace_units_label + "]", yum="[" + self.workspace_units_label + "]")
 
     def plot_data3D(self, plot_canvas_index, data3D, dataScan, dataX, dataY, title="", xtitle="", ytitle=""):
 
