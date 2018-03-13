@@ -1,0 +1,23 @@
+Metadata-Version: 1.1
+Name: OASYS1-ALS-ShadowOui
+Version: 0.0.3
+Summary: WIDGETS DEVELOPED FOR ALS TO EXTEND SHADOWOUI FUNCTIONALITIES
+Home-page: http://github.com/lucarebuffi/OASYS1-ALS-ShadowOui
+Author: Luca Rebuffi and Antoine Wojdyla
+Author-email: luca.rebuffi@elettra.eu
+License: MIT
+Download-URL: http://github.com/lucarebuffi/OASYS1-ALS-ShadowOui
+Description-Content-Type: UNKNOWN
+Description: WIDGETS DEVELOPED FOR ALS TO EXTEND SHADOWOUI FUNCTIONALITIES
+        
+        
+Keywords: ray-tracing,simulator,oasys1
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: X11 Applications :: Qt
+Classifier: Environment :: Console
+Classifier: Environment :: Plugins
+Classifier: Programming Language :: Cython
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Intended Audience :: Science/Research
