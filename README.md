@@ -1,9 +1,12 @@
 # OASYS1-ALS-ShadowOui
-ALS widgets to extend ShadowOui functionalities
+ALS widgets to extend ShadowOui functionalities.
 
+## Installation and use
+The widgets are available through the add-on menu of OASYS (Options>add-ons... or at the start-up menu)
 ![addons menu](https://github.com/awojdyla/OASYS1-ALS-ShadowOui/blob/master/images/addons.png "Add-on menu")
 
-![side menu](https://github.com/awojdyla/OASYS1-ALS-ShadowOui/blob/master/images/addons.png "side menu")
+Once it is installed, it should populate the widget bar on the side.
+![side menu](https://github.com/awojdyla/OASYS1-ALS-ShadowOui/blob/master/images/sidemenu.png "side menu")
 
 ## Shadow ALS Sources
 The Shadow ALS Sources add mostly one new element, the ALS undulator, which allows to use the SRW engine to compute realistic synchrotron sources, even when slightly detuned.
