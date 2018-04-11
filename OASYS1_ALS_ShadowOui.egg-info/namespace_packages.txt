@@ -1,0 +1,4 @@
+orangecontrib
+orangecontrib.shadow
+orangecontrib.shadow.als
+orangecontrib.shadow.als.widgets

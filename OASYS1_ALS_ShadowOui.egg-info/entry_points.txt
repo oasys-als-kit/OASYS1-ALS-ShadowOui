@@ -1,0 +1,7 @@
+[oasys.addons]
+ALS ShadowOui = orangecontrib.shadow.als
+
+[oasys.widgets]
+Shadow ALS Optical Elements = orangecontrib.shadow.als.widgets.optical_elements
+Shadow ALS Sources = orangecontrib.shadow.als.widgets.sources
+
