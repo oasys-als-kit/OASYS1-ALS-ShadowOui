@@ -11,8 +11,9 @@ from orangewidget.settings import Setting
 from oasys.widgets import gui as oasysgui
 from oasys.widgets import congruence
 from orangewidget import widget
+from oasys.util.oasys_util import TriggerOut
 
-from orangecontrib.shadow.util.shadow_objects import ShadowTriggerOut, ShadowBeam, ShadowSource
+from orangecontrib.shadow.util.shadow_objects import ShadowBeam, ShadowSource
 from orangecontrib.shadow.als.widgets.gui.ow_als_shadow_widget import ALSShadowWidget
 from orangecontrib.shadow.widgets.gui.ow_generic_element import GenericElement
 
@@ -38,7 +39,7 @@ class ALSUndulator(GenericElement):
     category = "Sources"
     keywords = ["data", "file", "load", "read"]
 
-    inputs = [("Trigger", ShadowTriggerOut, "sendNewBeam")]
+    inputs = [("Trigger", TriggerOut, "sendNewBeam")]
 
     outputs = [{"name":"Beam",
                 "type":ShadowBeam,
@@ -482,7 +483,7 @@ class ALSUndulator(GenericElement):
         self.progressBarFinished()
 
     def sendNewBeam(self, trigger):
-        if trigger and trigger.new_beam == True:
+        if trigger and trigger.new_object == True:
             self.runShadowSource()
 
     def checkFields(self):
