@@ -6,6 +6,7 @@ NAME = "Utility"
 
 DESCRIPTION = "Widgets for ALS Shadow - Utility."
 
+
 BACKGROUND = "#fffeb3"
 
 ICON = "icons/utility.png"
