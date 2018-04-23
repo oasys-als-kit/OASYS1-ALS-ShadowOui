@@ -8,9 +8,7 @@ from oasys.widgets import gui as oasysgui
 from oasys.widgets import congruence
 from orangewidget import widget
 
-from orangecontrib.shadow.util.shadow_objects import ShadowTriggerOut, ShadowBeam, ShadowSource
 from orangecontrib.shadow.als.widgets.gui.ow_als_shadow_widget import ALSShadowWidget
-from orangecontrib.shadow.widgets.gui.ow_generic_element import GenericElement
 
 from orangecontrib.shadow.util.shadow_objects import ShadowPreProcessorData
 
@@ -32,8 +30,6 @@ class ALSAnsysReader(ALSShadowWidget):
     maintainer_email = "awojdyla@lbl.gov"
     category = ""
     keywords = ["Ansys", "file", "load", "read","HHLO", "ALS-U"]
-
-    #inputs = [("Trigger", ShadowTriggerOut, "sendNewBeam")]
 
     outputs = [{"name": "PreProcessor_Data",
                 "type": ShadowPreProcessorData,
