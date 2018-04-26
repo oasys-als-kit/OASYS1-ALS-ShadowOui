@@ -1,5 +1,5 @@
 # OASYS1-ALS-ShadowOui
-ALS widgets to extend ShadowOui functionalities.
+Set of widgets to bring additional capabilities to the [OASYS](https://www.elettra.trieste.it/oasys.html) optical beamline simulation software, based on [Shadow](https://github.com/srio/shadow3). These tools were developed to serve the needs of synchrotron light source, in particular diffraction-limited storage rings, and free-electron lasers.
 
 ## Installation and use
 The widgets are available through the add-on menu of OASYS (Options>add-ons... or at the start-up menu)
@@ -9,6 +9,8 @@ The widgets are available through the add-on menu of OASYS (Options>add-ons... o
 Once it is installed, it should populate the widget bar on the side.
 
 ![side menu](https://github.com/oasys-als-kit/OASYS1-ALS-ShadowOui/blob/master/images/sidemenu.png "side menu")
+
+These widgets are made available through the [Python Packge Index](https://pypi.org/project/oasys1-als-shadowoui/) (PyPI)
 
 ## Examples of use
 Some examples of use can be found here: [ALS-U Examples](https://github.com/awojdyla/ALS-U_Examples)
