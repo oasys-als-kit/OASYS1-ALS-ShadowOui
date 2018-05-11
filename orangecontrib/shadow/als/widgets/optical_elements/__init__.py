@@ -8,4 +8,4 @@ BACKGROUND = "#fffeb3"
 
 ICON = "icons/opticalElements.png"
 
-PRIORITY = 202
+PRIORITY = 402
