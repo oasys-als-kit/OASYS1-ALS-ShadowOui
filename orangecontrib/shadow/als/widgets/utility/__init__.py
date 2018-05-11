@@ -11,4 +11,4 @@ BACKGROUND = "#fffeb3"
 
 ICON = "icons/utility.png"
 
-PRIORITY = 108
+PRIORITY = 208
