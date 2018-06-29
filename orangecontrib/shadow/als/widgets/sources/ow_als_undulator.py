@@ -19,6 +19,10 @@ from orangecontrib.shadow.widgets.gui.ow_generic_element import GenericElement
 
 import scipy.constants as codata
 
+from srxraylib.util.h5_simple_writer import H5SimpleWriter
+
+import h5py
+
 from srwlib import *
 
 class Distribution:
@@ -76,12 +80,17 @@ class ALSUndulator(GenericElement):
     angular_distribution_wf_v_slit_points=Setting(101)
     angular_distribution_wf_distance = Setting(100.0)
 
-    save_srw_result = Setting(1)
+    save_srw_result = Setting(2) # 0=nO 1=SRW FILES 2=HDF FILES
 
     # SRW FILE INPUT
 
     source_dimension_srw_file     = Setting("intensity_source_dimension.dat")
     angular_distribution_srw_file = Setting("intensity_angular_distribution.dat")
+
+    # HDF FILE INPUT
+
+    source_dimension_hdf5_file     = Setting("intensity_source_dimension.h5")
+    angular_distribution_hdf5_file = Setting("intensity_angular_distribution.h5")
 
     # ASCII FILE INPUT
 
@@ -112,6 +121,14 @@ class ALSUndulator(GenericElement):
     max_number_of_rejected_rays = Setting(10000000)
 
     file_to_write_out = Setting(0)
+
+    # for testing this widget outside OASYS
+    try:
+            tmp = self.workspace_units_to_m
+            tmp = self.workspace_units_to_cm
+    except:
+            workspace_units_to_m  = Setting(1.0)
+            workspace_units_to_cm = Setting(100.0)
 
     def __init__(self, show_automatic_box=False):
         super().__init__(show_automatic_box=show_automatic_box)
@@ -157,11 +174,12 @@ class ALSUndulator(GenericElement):
         tab_spdiv = oasysgui.createTabPage(tabs_setting, "Position/Divergence Setting")
 
         gui.comboBox(tab_spdiv, self, "distribution_source", label="Distribution Source", labelWidth=310,
-                     items=["SRW Calculation", "SRW Files", "ASCII Files"], orientation="horizontal", callback=self.set_DistributionSource)
+                     items=["SRW Calculation", "SRW Files", "ASCII Files", "HDF5 Files"], orientation="horizontal", callback=self.set_DistributionSource)
 
         self.srw_box = oasysgui.widgetBox(tab_spdiv, "SRW Setting", addSpace=False, orientation="vertical", height=540)
         self.srw_files_box = oasysgui.widgetBox(tab_spdiv, "SRW Files Load Setting", addSpace=False, orientation="vertical", height=540)
         self.ascii_box = oasysgui.widgetBox(tab_spdiv, "ASCII Files Load Setting", addSpace=False, orientation="vertical", height=540)
+        self.hdf5_files_box = oasysgui.widgetBox(tab_spdiv, "HDF5 Files Load Setting", addSpace=False, orientation="vertical", height=540)
 
         self.set_DistributionSource()
 
@@ -219,24 +237,39 @@ class ALSUndulator(GenericElement):
         tabs_srw = oasysgui.tabWidget(self.srw_box)
 
         gui.comboBox(self.srw_box, self, "save_srw_result", label="Save SRW results", labelWidth=310,
-                     items=["No", "Yes"], orientation="horizontal", callback=self.set_SaveFileSRW)
+                     items=["No", "Yes (srw)", "Yes (hdf5)"], orientation="horizontal", callback=self.set_SaveFileSRW)
 
-        self.save_file_box = oasysgui.widgetBox(self.srw_box, "", addSpace=False, orientation="vertical")
+        self.save_file_box_srw = oasysgui.widgetBox(self.srw_box, "", addSpace=False, orientation="vertical")
+        self.save_file_box_hdf5 = oasysgui.widgetBox(self.srw_box, "", addSpace=False, orientation="vertical")
         self.save_file_box_empty = oasysgui.widgetBox(self.srw_box, "", addSpace=False, orientation="vertical", height=55)
 
-        file_box = oasysgui.widgetBox(self.save_file_box, "", addSpace=False, orientation="horizontal", height=25)
+        file_box = oasysgui.widgetBox(self.save_file_box_srw, "", addSpace=False, orientation="horizontal", height=25)
 
-        self.le_source_dimension_srw_file = oasysgui.lineEdit(file_box, self, "source_dimension_srw_file", "Source Dimension File", labelWidth=140,  valueType=str, orientation="horizontal")
+        self.le_source_dimension_srw_file = oasysgui.lineEdit(file_box, self, "source_dimension_srw_file", "Source Dimension SRW File", labelWidth=140,  valueType=str, orientation="horizontal")
 
-        gui.button(file_box, self, "...", callback=self.selectSourceDimensionFile)
+        gui.button(file_box, self, "...", callback=self.selectSourceDimensionFileSrw)
 
-        file_box = oasysgui.widgetBox(self.save_file_box, "", addSpace=False, orientation="horizontal", height=25)
+        file_box = oasysgui.widgetBox(self.save_file_box_hdf5, "", addSpace=False, orientation="horizontal", height=25)
 
-        self.le_angular_distribution_srw_file = oasysgui.lineEdit(file_box, self, "angular_distribution_srw_file", "Angular Distribution File", labelWidth=140,  valueType=str, orientation="horizontal")
+        self.le_source_dimension_hdf5_file = oasysgui.lineEdit(file_box, self, "source_dimension_hdf5_file", "Source Dimension HDF5 File", labelWidth=140,  valueType=str, orientation="horizontal")
 
-        gui.button(file_box, self, "...", callback=self.selectAngularDistributionFile)
+        gui.button(file_box, self, "...", callback=self.selectSourceDimensionFileHdf5)
 
-        self.set_SaveFileSRW()
+
+        file_box = oasysgui.widgetBox(self.save_file_box_srw, "", addSpace=False, orientation="horizontal", height=25)
+
+        self.le_angular_distribution_srw_file = oasysgui.lineEdit(file_box, self, "angular_distribution_srw_file", "Angular Distribution SRW File", labelWidth=140,  valueType=str, orientation="horizontal")
+
+        gui.button(file_box, self, "...", callback=self.selectAngularDistributionFileSrw)
+
+        file_box = oasysgui.widgetBox(self.save_file_box_hdf5, "", addSpace=False, orientation="horizontal", height=25)
+
+        self.le_angular_distribution_hdf_file = oasysgui.lineEdit(file_box, self, "angular_distribution_hdf5_file", "Angular Distribution HDF5 File", labelWidth=140,  valueType=str, orientation="horizontal")
+
+        gui.button(file_box, self, "...", callback=self.selectAngularDistributionFileHdf5)
+
+
+        # self.set_SaveFileSRW()
 
         tab_ls = oasysgui.createTabPage(tabs_srw, "Undulator Setting")
         tab_wf = oasysgui.createTabPage(tabs_srw, "Wavefront Setting")
@@ -286,13 +319,13 @@ class ALSUndulator(GenericElement):
 
         self.le_source_dimension_srw_file = oasysgui.lineEdit(file_box, self, "source_dimension_srw_file", "Source Dimension File", labelWidth=180,  valueType=str, orientation="vertical")
 
-        gui.button(file_box, self, "...", height=45, callback=self.selectSourceDimensionFile)
+        gui.button(file_box, self, "...", height=45, callback=self.selectSourceDimensionFileSrw)
 
         file_box = oasysgui.widgetBox(self.srw_files_box, "", addSpace=True, orientation="horizontal", height=45)
 
-        self.le_angular_distribution_srw_file = oasysgui.lineEdit(file_box, self, "angular_distribution_srw_file", "Angular Distribution File", labelWidth=180,  valueType=str, orientation="vertical")
+        self.le_angular_distribution_srw_file = oasysgui.lineEdit(file_box, self, "angular_distribution_srw_file", "Angular Distribution SRW File", labelWidth=180,  valueType=str, orientation="vertical")
 
-        gui.button(file_box, self, "...", height=45, callback=self.selectAngularDistributionFile)
+        gui.button(file_box, self, "...", height=45, callback=self.selectAngularDistributionFileSrw)
 
 
         ####################################################################################
@@ -321,6 +354,24 @@ class ALSUndulator(GenericElement):
         self.le_z_divergences_file = oasysgui.lineEdit(file_box, self, "z_divergences_file", "Z Divergences File", labelWidth=180,  valueType=str, orientation="vertical")
 
         gui.button(file_box, self, "...", height=45, callback=self.selectZDivergencesFile)
+
+        ####################################################################################
+        # HDF5 FILES
+
+        file_box = oasysgui.widgetBox(self.hdf5_files_box, "", addSpace=True, orientation="horizontal", height=45)
+
+        self.le_source_dimension_hdf5_file = oasysgui.lineEdit(file_box, self, "source_dimension_hdf5_file", "Source Dimension HDF5 File", labelWidth=180,  valueType=str, orientation="vertical")
+
+        gui.button(file_box, self, "...", height=45, callback=self.selectSourceDimensionHDF5File)
+
+        file_box = oasysgui.widgetBox(self.hdf5_files_box, "", addSpace=True, orientation="horizontal", height=45)
+
+        self.le_angular_distribution_hdf5_file = oasysgui.lineEdit(file_box, self, "angular_distribution_hdf5_file", "Angular Distribution HDF5 File", labelWidth=180,  valueType=str, orientation="vertical")
+
+        gui.button(file_box, self, "...", height=45, callback=self.selectAngularDistributionHDF5File)
+
+
+        self.set_SaveFileSRW()
 
         gui.separator(self.ascii_box)
 
@@ -366,6 +417,8 @@ class ALSUndulator(GenericElement):
         self.srw_box.setVisible(self.distribution_source == 0)
         self.srw_files_box.setVisible(self.distribution_source == 1)
         self.ascii_box.setVisible(self.distribution_source == 2)
+        self.hdf5_files_box.setVisible(self.distribution_source == 3)
+
 
     def set_Polarization(self):
         self.ewp_box_8.setVisible(self.polarization==1)
@@ -374,17 +427,50 @@ class ALSUndulator(GenericElement):
         self.optimize_file_name_box.setVisible(self.optimize_source != 0)
 
     def set_SaveFileSRW(self):
-        self.save_file_box.setVisible(self.save_srw_result == 1)
-        self.save_file_box_empty.setVisible(self.save_srw_result == 0)
+        if self.save_srw_result ==1:
+            self.save_file_box_srw.setVisible(True)
+            self.save_file_box_hdf5.setVisible(False)
+            self.save_file_box_empty.setVisible(False)
+
+            # self.srw_files_box.setVisible(True)
+            # self.hdf5_files_box.setVisible(False)
+
+        elif self.save_srw_result ==2:
+            self.save_file_box_srw.setVisible(False)
+            self.save_file_box_hdf5.setVisible(True)
+            self.save_file_box_empty.setVisible(False)
+
+            # self.srw_files_box.setVisible(False)
+            # self.hdf5_files_box.setVisible(True)
+        else:
+            # self.save_file_box_srw.setVisible(self.save_srw_result == 2)
+            self.save_file_box_srw.setVisible(False)
+            self.save_file_box_hdf5.setVisible(False)
+            self.save_file_box_empty.setVisible(True)
+
 
     def selectOptimizeFile(self):
         self.le_optimize_file_name.setText(oasysgui.selectFileFromDialog(self, self.optimize_file_name, "Open Optimize Source Parameters File"))
 
-    def selectSourceDimensionFile(self):
-        self.le_source_dimension_srw_file.setText(oasysgui.selectFileFromDialog(self, self.source_dimension_srw_file, "Open Source Dimension File"))
+    def selectSourceDimensionFileSrw(self):
+        self.le_source_dimension_srw_file.setText(oasysgui.selectFileFromDialog(self, self.source_dimension_srw_file, "Open SRW Source Dimension File"))
 
-    def selectAngularDistributionFile(self):
-        self.le_angular_distribution_srw_file.setText(oasysgui.selectFileFromDialog(self, self.angular_distribution_srw_file, "Open Angular Distribution File"))
+    def selectAngularDistributionFileSrw(self):
+        self.le_angular_distribution_srw_file.setText(oasysgui.selectFileFromDialog(self, self.angular_distribution_srw_file, "Open SRW Angular Distribution File"))
+
+    def selectSourceDimensionFileHdf5(self):
+        self.le_source_dimension_hdf5_file.setText(oasysgui.selectFileFromDialog(self, self.source_dimension_hdf5_file, "Open HDF5 Source Dimension File"))
+
+    def selectAngularDistributionFileHdf5(self):
+        self.le_angular_distribution_hdf5_file.setText(oasysgui.selectFileFromDialog(self, self.angular_distribution_hdf5_file, "Open HDF5 Angular Distribution File"))
+
+
+    def selectSourceDimensionHDF5File(self):
+        self.le_source_dimension_hdf5_file.setText(oasysgui.selectFileFromDialog(self, self.source_dimension_hdf5_file, "Open HDF5 Source Dimension File"))
+
+    def selectAngularDistributionHDF5File(self):
+        self.le_angular_distribution_hdf5_file.setText(oasysgui.selectFileFromDialog(self, self.angular_distribution_hdf5_file, "Open HDF5 Angular Distribution File"))
+
 
     def selectXPositionsFile(self):
         self.le_x_positions_file.setText(oasysgui.selectFileFromDialog(self, self.x_positions_file, "Open X Positions File", file_extension_filter="*.dat, *.txt"))
@@ -439,16 +525,19 @@ class ALSUndulator(GenericElement):
 
             if self.distribution_source == 0:
                 self.setStatusMessage("Running SRW")
-
                 x, z, intensity_source_dimension, x_first, z_first, intensity_angular_distribution = self.runSRWCalculation()
             elif self.distribution_source == 1:
                 self.setStatusMessage("Loading SRW files")
-
                 x, z, intensity_source_dimension, x_first, z_first, intensity_angular_distribution = self.loadSRWFiles()
             elif self.distribution_source == 2: # ASCII FILES
                 self.setStatusMessage("Loading Ascii files")
-
                 x, z, intensity_source_dimension, x_first, z_first, intensity_angular_distribution = self.loadASCIIFiles()
+            elif self.distribution_source == 3: # HDF5 FILES
+                self.setStatusMessage("Loading HDF5 files")
+                x, z, intensity_source_dimension, x_first, z_first, intensity_angular_distribution = self.loadHDF5Files()
+
+            # from srxraylib.plot.gol import plot_image
+            # plot_image(intensity_angular_distribution,x_first, z_first,xtitle="X [%d pixels]"%x_first.size,ytitle="Y [%d pixels]"%z_first.size)
 
             self.progressBarSet(50)
 
@@ -456,7 +545,7 @@ class ALSUndulator(GenericElement):
 
             self.progressBarSet(60)
 
-            self.generate_user_defined_distribution_from_srw(beam_out=beam_out,
+            self.generate_user_defined_distribution_from_srw_srio(beam_out=beam_out,
                                                              coord_x=x,
                                                              coord_y=z,
                                                              intensity=intensity_source_dimension,
@@ -464,7 +553,7 @@ class ALSUndulator(GenericElement):
 
             self.progressBarSet(70)
 
-            self.generate_user_defined_distribution_from_srw(beam_out=beam_out,
+            self.generate_user_defined_distribution_from_srw_srio(beam_out=beam_out,
                                                              coord_x=x_first,
                                                              coord_y=z_first,
                                                              intensity=intensity_angular_distribution,
@@ -619,6 +708,10 @@ class ALSUndulator(GenericElement):
         if self.save_srw_result == 1:
             congruence.checkDir(self.source_dimension_srw_file)
             congruence.checkDir(self.angular_distribution_srw_file)
+
+        if self.save_srw_result == 2:
+            congruence.checkDir(self.source_dimension_hdf5_file)
+            congruence.checkDir(self.angular_distribution_hdf5_file)
 
     def get_minimum_propagation_distance(self):
         return round(self.get_source_length()*1.01, 6)
@@ -794,14 +887,22 @@ class ALSUndulator(GenericElement):
         arI = array('f', [0]*wfrSouDim.mesh.nx*wfrSouDim.mesh.ny) #"flat" 2D array to take intensity data
         srwl.CalcIntFromElecField(arI, wfrSouDim, 6, 1, 3, wfrSouDim.mesh.eStart, 0, 0)
 
-        if self.save_srw_result == 1: srwl_uti_save_intens_ascii(arI, wfrSouDim.mesh, "intensity_source_dimension.dat")
-        print('done')
-
         x, z, intensity_source_dimension = self.transform_srw_array(arI, wfrSouDim.mesh)
 
+        if self.save_srw_result == 1:
+            srwl_uti_save_intens_ascii(arI, wfrSouDim.mesh, "intensity_source_dimension.dat")
+        elif self.save_srw_result == 2:
+            self.save_hdf5(self.source_dimension_hdf5_file,x, z, intensity_source_dimension)
+        print('done')
+
+
+
         # SWITCH FROM SRW METERS TO SHADOWOUI U.M.
-        x = x/self.workspace_units_to_m
-        z = z/self.workspace_units_to_m
+        try:
+            x = x/self.workspace_units_to_m
+            z = z/self.workspace_units_to_m
+        except:
+            pass
 
         # 2 calculate intensity distribution ME convoluted at far field to express it in angular coordinates
 
@@ -823,10 +924,16 @@ class ALSUndulator(GenericElement):
         wfrAngDist.mesh.yStart /= distance
         wfrAngDist.mesh.yFin /= distance
 
-        if self.save_srw_result == 1: srwl_uti_save_intens_ascii(arI, wfrAngDist.mesh, "intensity_angular_distribution.dat")
+        x_first, z_first, intensity_angular_distribution = self.transform_srw_array(arI, wfrAngDist.mesh)
+
+        if self.save_srw_result == 1:
+            srwl_uti_save_intens_ascii(arI, wfrAngDist.mesh, "intensity_angular_distribution.dat")
+        elif self.save_srw_result == 2:
+            self.save_hdf5(self.angular_distribution_hdf5_file,x_first, z_first, intensity_angular_distribution)
         print('done')
 
-        x_first, z_first, intensity_angular_distribution = self.transform_srw_array(arI, wfrAngDist.mesh)
+        # from srxraylib.plot.gol import plot_image
+        # plot_image(intensity_angular_distribution,x_first, z_first, title="DATA WRITTEN TO FILE")
 
         return x, z, intensity_source_dimension, x_first, z_first, intensity_angular_distribution
 
@@ -866,6 +973,9 @@ class ALSUndulator(GenericElement):
         sampled_x = self.sample_from_distribution(distribution_x, len(beam_out._beam.rays))
         sampled_y = self.sample_from_distribution(distribution_y, len(beam_out._beam.rays))
 
+        # from srxraylib.plot.gol import plot_scatter
+        # plot_scatter(sampled_x,sampled_y)
+
         min_value_x = numpy.min(coord_x)
         step_x = numpy.abs(coord_x[1]-coord_x[0])
         min_value_y = numpy.min(coord_y)
@@ -885,6 +995,66 @@ class ALSUndulator(GenericElement):
             beam_out._beam.rays[:, 4] =  numpy.cos(alpha_z)*numpy.cos(alpha_x)
             beam_out._beam.rays[:, 5] =  numpy.sin(alpha_z)
 
+    def generate_user_defined_distribution_from_srw_srio(self,
+                                                    beam_out,
+                                                    coord_x,
+                                                    coord_y,
+                                                    intensity,
+                                                    distribution_type=Distribution.POSITION):
+        npoints = beam_out._beam.rays[:, 0].size
+
+        if distribution_type == Distribution.POSITION:
+            print("  Sampling %d points for position... [slow]"%npoints)
+            sampled_x, sampled_y = self.sample_2d_scattered_points_from_image(intensity,coord_x,coord_y,npoints=npoints)
+            print("  Sampling %d points for position... DONE"%npoints)
+
+            # from srxraylib.plot.gol import plot_scatter
+            # plot_scatter(sampled_x,sampled_y,title="POSITION")
+
+
+            beam_out._beam.rays[:, 0] = sampled_x
+            beam_out._beam.rays[:, 2] = sampled_y
+
+        elif distribution_type == Distribution.DIVERGENCE:
+            print("  Sampling %d points for angle... [slow]"%npoints)
+            alpha_x, alpha_z = self.sample_2d_scattered_points_from_image(intensity,coord_x,coord_y,npoints=npoints)
+            print("  Sampling %d points for angle... DONE"%npoints)
+
+            # from srxraylib.plot.gol import plot_scatter
+            # plot_scatter(alpha_x,alpha_z,title="ANGLE")
+
+            beam_out._beam.rays[:, 3] =  alpha_x # numpy.cos(alpha_z)*numpy.sin(alpha_x)
+            beam_out._beam.rays[:, 4] =  1.0 - numpy.sqrt(alpha_x**2 + alpha_z**2) # numpy.cos(alpha_z)*numpy.cos(alpha_x)
+            beam_out._beam.rays[:, 5] =  alpha_z # numpy.sin(alpha_z)
+
+
+    def sample_2d_scattered_points_from_image(self,image_data,x,y,npoints=10000):
+        from orangecontrib.shadow.als.util.random_distributions import distribution_from_grid, Distribution2D
+        from orangecontrib.shadow.als.util.enhanced_grid import Grid2D
+        from random import random
+
+        grid = Grid2D(image_data.shape)
+
+        grid[..., ...] = image_data.tolist()
+
+        probs = distribution_from_grid(grid, image_data.shape[0], image_data.shape[1])
+
+        d = Distribution2D(probs, (0, 0), (500, 500))
+
+
+        samples_x = numpy.zeros( npoints )
+        samples_y = numpy.zeros( npoints )
+
+
+        for k in range(npoints):
+            samples_x[k],samples_y[k] = (d(random(), random()))
+
+        samples_x = ( x[0] + (x[-1]-x[0])*samples_x)
+        samples_y = ( y[0] + (y[-1]-y[0])*samples_y)
+
+        return samples_x,samples_y
+
+
     ####################################################################################
     # SRW FILES
     ####################################################################################
@@ -902,9 +1072,38 @@ class ALSUndulator(GenericElement):
 
 
         # SWITCH FROM SRW METERS TO SHADOWOUI U.M.
-        x = x/self.workspace_units_to_m
-        z = z/self.workspace_units_to_m
+        try:
+            x = x/self.workspace_units_to_m
+            z = z/self.workspace_units_to_m
+        except:
+            pass
 
+        return x, z, intensity_source_dimension, x_first, z_first, intensity_angular_distribution
+
+    def loadHDF5Files(self):
+
+        self.checkSRWFilesFields()
+
+        print(">>>> reading files: ",self.angular_distribution_srw_file,self.source_dimension_srw_file)
+        try:
+            f = h5py.File(self.angular_distribution_hdf5_file, 'r')
+            x_first = f["intensity/axis_x"].value
+            z_first = f["intensity/axis_y"].value
+            intensity_angular_distribution = f["intensity/image_data"].value.T
+            f.close()
+        except:
+            raise Exception("Failed to load SRW intensity from h5 file: "+self.angular_distribution_srw_file)
+
+        try:
+            f = h5py.File(self.source_dimension_hdf5_file, 'r')
+            x = f["intensity/axis_x"].value
+            z = f["intensity/axis_y"].value
+            intensity_source_dimension = f["intensity/image_data"].value.T
+            f.close()
+        except:
+            raise Exception("Failed to load SRW intensity from h5 file: "+self.angular_distribution_srw_file)
+
+        print(">>>> read dimensions: ",x.shape, z.shape, intensity_source_dimension.shape, x_first.shape, z_first.shape, intensity_angular_distribution.shape)
         return x, z, intensity_source_dimension, x_first, z_first, intensity_angular_distribution
 
 
@@ -1006,6 +1205,9 @@ class ALSUndulator(GenericElement):
         return x, z, intensity_source_dimension, x_first, z_first, intensity_angular_distribution
 
 
+
+
+
     def extract_distribution_from_file(self, distribution_file_name):
         distribution = []
 
@@ -1055,6 +1257,16 @@ class ALSUndulator(GenericElement):
 
         return coord_x, coord_y, convoluted_intensity
 
+    def save_hdf5(self,filename,x,y,z):
+
+        h5w = H5SimpleWriter.initialize_file(filename,creator="oasys-ow_als_undulator")
+        # h5w.create_entry("wfr",nx_default="wfr")
+        # h5w.add_image(z,x,y,
+        #             entry_name="wfr",image_name="intensity",
+        #             title_x="X",title_y="Y")
+        h5w.add_image(z,x,y,
+                    image_name="intensity",
+                    title_x="X",title_y="Y")
 
 
 if __name__ == "__main__":
@@ -1063,3 +1275,4 @@ if __name__ == "__main__":
     ow.show()
     a.exec_()
     ow.saveSettings()
+
