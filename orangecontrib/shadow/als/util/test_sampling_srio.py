@@ -99,12 +99,33 @@ def sample_2d_scattered_points_from_image(image_data,x,y,npoints=10000):
 #Run any of these to see how they work.
 #demo_distribution_1d()
 if __name__ == "__main__":
-    filename="/users/srio/OASYS1.1/OASYS1-ALS-ShadowOui/orangecontrib/shadow/als/widgets/sources/intensity_angular_distribution.h5"
-    image_data,x,y = loadHDF5Files(filename)
+    # filename="/users/srio/Oasys/intensity_angular_distribution.h5"
+    # image_data,x,y = loadHDF5Files(filename)
+    #
+    # samples_x,samples_y = sample_2d_scattered_points_from_image(image_data,x,y,npoints=10000)
+    # print(">>>",samples_x.shape,samples_y.shape)
+    #
+    # plot_scatter(samples_x,samples_y)
 
-    samples_x,samples_y = sample_2d_scattered_points_from_image(image_data,x,y,npoints=10000)
+
+
+    from scipy.ndimage import imread
+    image_data = imread("/users/srio/OASYS1.1/OASYS1-ALS-ShadowOui/orangecontrib/shadow/als/util/test1.jpg",flatten=True)
+    image_data = numpy.flip(image_data.T,1)
+    print(image_data.min(),image_data.max())
+    image_data = image_data.max() - image_data
+    plot_image(image_data,cmap='binary')
+
+    x = numpy.arange(image_data.shape[0])
+    y = numpy.arange(image_data.shape[1])
+    print(image_data.shape)
+
+    samples_x,samples_y = sample_2d_scattered_points_from_image(image_data,x,y,npoints=1000000)
     print(">>>",samples_x.shape,samples_y.shape)
 
     plot_scatter(samples_x,samples_y)
-
+    # import matplotlib.pylab as plt
+    # # plt.scatter(samples_y,-samples_x,marker='.',s=0.01)
+    # plt.plot(samples_x,samples_y,marker='.',linestyle='',markersize=1)
+    # plt.show()
 
