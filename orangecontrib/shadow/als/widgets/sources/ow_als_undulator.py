@@ -23,7 +23,7 @@ from srxraylib.util.h5_simple_writer import H5SimpleWriter
 
 import h5py
 
-from srwlib import *
+from oasys_srw.srwlib import *
 
 class Distribution:
     POSITION = 0

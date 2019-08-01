@@ -12,10 +12,6 @@ from orangecontrib.shadow.als.widgets.gui.ow_als_shadow_widget import ALSShadowW
 
 from orangecontrib.shadow.util.shadow_objects import ShadowPreProcessorData
 
-import scipy.constants as codata
-
-from srwlib import *
-
 class Distribution:
     POSITION = 0
     DIVERGENCE = 1
