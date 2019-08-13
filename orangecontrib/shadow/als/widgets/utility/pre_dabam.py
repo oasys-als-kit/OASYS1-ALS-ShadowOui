@@ -98,7 +98,6 @@ class OWpre_dabam(OWWidget):
     USER_ADDED_BY           =  Setting("")
 
 
-    workspace_units_label = "m"
     si_to_user_units = 1.0
     undo_text_buffer = ""
     tab=[]
@@ -194,12 +193,13 @@ class OWpre_dabam(OWWidget):
         button = gui.button(tab_gener, self, "Create DABAM files", callback=self.export)
 
 
+        button = gui.button(tab_gener, self, "Clear Info", callback=self.clear)
+
         export_box = oasysgui.widgetBox(tab_gener, "Export DABAM file", addSpace=True, orientation="vertical", height=520)
 
         label_width = 250
 
         tmp = oasysgui.widgetBox(tab_gener, "", addSpace=True, orientation="horizontal")
-        button = gui.button(tmp, self, "Clear Info", callback=self.clear)
 
         oasysgui.lineEdit(export_box, self, "YEAR_FABRICATION", "Year of fabrication", labelWidth=label_width, valueType=str, orientation="horizontal")
 
@@ -250,6 +250,7 @@ class OWpre_dabam(OWWidget):
 
         oasysgui.lineEdit(export_box, self, "USER_ADDED_BY", "User name", labelWidth=label_width, valueType=str,
                           orientation="horizontal")
+
 
         gui.separator(tab_gener)
 
@@ -428,6 +429,13 @@ class OWpre_dabam(OWWidget):
 
         txt = self.raw_textarea.toPlainText()
 
+        if txt == "":
+            # self.raw_textarea.setText("No imported data")
+            QMessageBox.critical(self, "Error",
+                                 "No imported data",
+                                 QMessageBox.Ok)
+            return
+
         txt = txt.split("\n")
 
 
@@ -489,15 +497,15 @@ class OWpre_dabam(OWWidget):
                 "Slopes Profile. St.Dev.=%.3f $\mu$rad" % (self.server.stdev_profile_slopes() * 1e6))
             if self.detrending_option > 0: #use_undetrended == 0:
                 self.plot_dabam_graph(0, "heights_profile", self.si_to_user_units * self.server.y,
-                                      1e9 * self.server.zHeights, "Y [" + self.workspace_units_label + "]", "Z [nm]")
+                                      1e9 * self.server.zHeights, "Y [m]", "Z [nm]")
                 self.plot_dabam_graph(1, "slopes_profile", self.si_to_user_units * self.server.y, 1e6 * self.server.zSlopes,
-                                      "Y [" + self.workspace_units_label + "]", "Zp [$\mu$rad]")
+                                      "Y [m]", "Zp [$\mu$rad]")
             else:
                 self.plot_dabam_graph(0, "heights_profile", self.si_to_user_units * self.server.y,
-                                      1e9 * self.server.zHeightsUndetrended, "Y [" + self.workspace_units_label + "]",
+                                      1e9 * self.server.zHeightsUndetrended, "Y [m]",
                                       "Z [nm]")
                 self.plot_dabam_graph(1, "slopes_profile", self.si_to_user_units * self.server.y,
-                                      1e6 * self.server.zSlopesUndetrended, "Y [" + self.workspace_units_label + "]",
+                                      1e6 * self.server.zSlopesUndetrended, "Y [m]",
                                       "Zp [$\mu$rad]")
             y = self.server.f ** (self.server.powerlaw["hgt_pendent"]) * 10 ** self.server.powerlaw["hgt_shift"]
             i0 = self.server.powerlaw["index_from"]
