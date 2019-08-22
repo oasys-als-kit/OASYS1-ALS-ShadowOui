@@ -29,7 +29,7 @@ class OWpre_dabam(OWWidget):
     name = "DABAM Prepare Profile"
     id = "dabam_prepare_profile"
     description = "Import 1D surface error profile into DABAM"
-    icon = "icons/pre_dabam.png"
+    icon = "icons/predabam.png"
     author = "M Sanchez del Rio"
     maintainer_email = "srio@lbl.gov; lrebuffi@anl.gov"
     priority = 7
@@ -52,7 +52,7 @@ class OWpre_dabam(OWWidget):
     IMAGE_HEIGHT = 645
 
     CONTROL_AREA_WIDTH = 405
-    TABS_AREA_HEIGHT = 618
+    TABS_AREA_HEIGHT = 650 #18
 
     heigth_profile_file_name = Setting('dabam-XXX')
     raw_actions = Setting(0)
@@ -96,7 +96,7 @@ class OWpre_dabam(OWWidget):
     USER_EXAMPLE            =  Setting("")
     USER_REFERENCE          =  Setting("")
     USER_ADDED_BY           =  Setting("")
-
+    initialize_text         =  Setting("") # this is to store the raw data in the widget and then in workspace
 
     si_to_user_units = 1.0
     undo_text_buffer = ""
@@ -137,16 +137,20 @@ class OWpre_dabam(OWWidget):
         out_box = oasysgui.widgetBox(tab_input, "Raw data", addSpace=True, orientation="horizontal", height=600)
         self.raw_textarea = oasysgui.textArea(height=500,width=None,readOnly=False,noWrap=True)
         out_box.layout().addWidget(self.raw_textarea)
-        gui.comboBox(tab_input, self, "raw_actions", label="Modify:", labelWidth=300,
-                     items=["Select action: ",
+        self.raw_textarea.setText(self.initialize_text)
+
+        self.raw_actions_list = ["Select action: ",
                             "Load from file",
                             "Remove comment lines",
                             "Remove commas",
                             "Remove quotes",
+                            "Remove tabs",
                             "Clear",
                             "Undo last action",
                             "Load example",
-                            ], sendSelectedValue=False, orientation="horizontal",
+                            ]
+        gui.comboBox(tab_input, self, "raw_actions", label="Modify:", labelWidth=300,
+                     items=self.raw_actions_list, sendSelectedValue=False, orientation="horizontal",
                      callback=self.raw_edit)
 
         gui.separator(out_box)
@@ -157,7 +161,7 @@ class OWpre_dabam(OWWidget):
 
         button = gui.button(tab_calc, self, "Calculate", callback=self.calculate)
 
-        out_calc = oasysgui.widgetBox(tab_calc, "Calculation Parameters", addSpace=True, orientation="vertical", height=500)
+        out_calc = oasysgui.widgetBox(tab_calc, "Calculation Parameters", addSpace=True, orientation="vertical", height=600)
 
 
         gui.comboBox(out_calc, self, "useHeightsOrSlopes", label="data is", labelWidth=300,
@@ -195,7 +199,14 @@ class OWpre_dabam(OWWidget):
 
         button = gui.button(tab_gener, self, "Clear Info", callback=self.clear)
 
-        export_box = oasysgui.widgetBox(tab_gener, "Export DABAM file", addSpace=True, orientation="vertical", height=520)
+
+        select_file_box = oasysgui.widgetBox(tab_gener, "", addSpace=True, orientation="horizontal")
+
+        self.le_heigth_profile_file_name = oasysgui.lineEdit(select_file_box, self, "heigth_profile_file_name", "Output File Root",
+                                                        labelWidth=120, valueType=str, orientation="horizontal")
+
+
+        export_box = oasysgui.widgetBox(tab_gener, "Export DABAM file", addSpace=True, orientation="vertical", height=600)
 
         label_width = 250
 
@@ -254,10 +265,7 @@ class OWpre_dabam(OWWidget):
 
         gui.separator(tab_gener)
 
-        select_file_box = oasysgui.widgetBox(tab_gener, "", addSpace=True, orientation="horizontal")
 
-        self.le_heigth_profile_file_name = oasysgui.lineEdit(select_file_box, self, "heigth_profile_file_name", "Output File Root",
-                                                        labelWidth=120, valueType=str, orientation="horizontal")
 
 
 
@@ -365,7 +373,7 @@ class OWpre_dabam(OWWidget):
 
     def raw_edit(self):
 
-        if self.raw_actions != 6: # save buffer for undo, always except when undo is requested.
+        if self.raw_actions_list[self.raw_actions] != "Undo last action": # save buffer for undo, always except when undo is requested.
             self.undo_text_buffer = copy(self.raw_textarea.toPlainText())
 
         if self.raw_actions == 0:  # title
@@ -387,9 +395,6 @@ class OWpre_dabam(OWWidget):
                         txt1 += line+"\n"
 
             self.raw_textarea.setText(txt1)
-
-
-
         elif self.raw_actions == 3: # remove commas
             txt = self.raw_textarea.toPlainText()
             txt = txt.replace(","," ")
@@ -399,11 +404,15 @@ class OWpre_dabam(OWWidget):
             txt = txt.replace('"', " ")
             txt = txt.replace("'", " ")
             self.raw_textarea.setText(txt)
-        elif self.raw_actions == 5: # clear
+        elif self.raw_actions == 5: # remove tabs
+            txt = self.raw_textarea.toPlainText()
+            txt = txt.replace('\t', " ")
+            self.raw_textarea.setText(txt)
+        elif self.raw_actions == 6: # clear
             self.raw_textarea.setText("")
-        elif self.raw_actions == 6: # undo
+        elif self.raw_actions == 7: # undo
             self.raw_textarea.setText(self.undo_text_buffer)
-        elif self.raw_actions == 7: # example
+        elif self.raw_actions == 8: # example
             myfileurl = "http://ftp.esrf.eu/pub/scisoft/dabam/data/dabam-001.dat"
             self.to_SI_ordinates = 1e-6
             self.to_SI_abscissas = 1e-3
@@ -428,6 +437,8 @@ class OWpre_dabam(OWWidget):
         self.check_fields()
 
         txt = self.raw_textarea.toPlainText()
+
+        self.initialize_text = txt  # store value
 
         if txt == "":
             # self.raw_textarea.setText("No imported data")
