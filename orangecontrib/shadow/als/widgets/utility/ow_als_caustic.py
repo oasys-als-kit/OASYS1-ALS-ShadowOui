@@ -19,7 +19,7 @@ class ALSCaustic(ow_automatic_element.AutomaticElement):
     icon = "icons/caustic.png"
     maintainer = "APS team"
     maintainer_email = "srio@lbl.gov"
-    priority = 4
+    priority = 5
     category = "Data Display Tools"
     keywords = ["data", "file", "load", "read"]
 

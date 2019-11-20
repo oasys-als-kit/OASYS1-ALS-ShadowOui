@@ -44,7 +44,7 @@ def plot_data2D(data2D, dataX, dataY, title="", xtitle="", ytitle=""):
     return plot_canvas
 
 
-def plot_data1D(x, y,
+def plot_data1D(x, y, x2=None, y2=None,
                 title="", xtitle="", ytitle="",
                 log_x=False, log_y=False, color='blue', replace=True, control=False,
                 xrange=None, yrange=None, symbol=''):
@@ -78,6 +78,9 @@ def plot_data1D(x, y,
 
 
     plot_widget_id.addCurve(x, y, title, symbol=symbol, color=color, xlabel=xtitle, ylabel=ytitle, replace=replace)  # '+', '^', ','
+    if x2 is not None and y2 is not None:
+        plot_widget_id.addCurve(x2, y2)
+
 
     if not xtitle is None: plot_widget_id.setGraphXLabel(xtitle)
     if not ytitle is None: plot_widget_id.setGraphYLabel(ytitle)
