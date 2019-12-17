@@ -65,17 +65,20 @@ PACKAGES = find_packages(
 
 PACKAGE_DATA = {"orangecontrib.shadow.als.widgets.sources":["icons/*.png", "icons/*.jpg"],
                 "orangecontrib.shadow.als.widgets.optical_elements":["icons/*.png", "icons/*.jpg"],
-                "orangecontrib.shadow.als.widgets.utility":["icons/*.png", "icons/*.jpg"],
+                "orangecontrib.shadow.als.widgets.utility":["icons/*.png", "icons/*.jpg",],
+                "orangecontrib.xoppy.als.widgets.srcalc":["icons/*.png", "icons/*.jpg",],
 }
 
-NAMESPACE_PACAKGES = ["orangecontrib","orangecontrib.shadow", "orangecontrib.shadow.als", "orangecontrib.shadow.als.widgets"]
+NAMESPACE_PACAKGES = ["orangecontrib","orangecontrib.shadow", "orangecontrib.shadow.als", "orangecontrib.shadow.als.widgets",
+                      "orangecontrib.xoppy", "orangecontrib.xoppy.als", "orangecontrib.xoppy.als.widgets",]
 
 ENTRY_POINTS = {
-    'oasys.addons' : ("ALS ShadowOui = orangecontrib.shadow.als", ),
+    'oasys.addons' : ("ALS ShadowOui = orangecontrib.shadow.als","ALS XOPPY = orangecontrib.xoppy.als" ),
     'oasys.widgets' : (
         "Shadow ALS Sources = orangecontrib.shadow.als.widgets.sources",
         "Shadow ALS Optical Elements = orangecontrib.shadow.als.widgets.optical_elements",
         "Shadow ALS Utility = orangecontrib.shadow.als.widgets.utility",
+        "XOPPY ALS SRCALC = orangecontrib.xoppy.als.widgets.srcalc",
     ),
 }
 
