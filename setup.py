@@ -13,10 +13,10 @@ ISRELEASED = False
 DESCRIPTION = 'WIDGETS DEVELOPED FOR ALS TO EXTEND SHADOWOUI FUNCTIONALITIES'
 README_FILE = os.path.join(os.path.dirname(__file__), 'README.txt')
 LONG_DESCRIPTION = open(README_FILE).read()
-AUTHOR = 'Luca Rebuffi and Antoine Wojdyla'
-AUTHOR_EMAIL = 'luca.rebuffi@elettra.eu'
-URL = 'http://github.com/lucarebuffi/OASYS1-ALS-ShadowOui'
-DOWNLOAD_URL = 'http://github.com/lucarebuffi/OASYS1-ALS-ShadowOui'
+AUTHOR = 'Luca Rebuffi and Antoine Wojdyla and Manuel Sanchez del Rio'
+AUTHOR_EMAIL = 'awojdyla@lbl.gov, srio@lbl.gov'
+URL = 'https://github.com/oasys-als-kit/OASYS1-ALS-ShadowOui/OASYS1-ALS-ShadowOui'
+DOWNLOAD_URL = 'https://github.com/oasys-als-kit/OASYS1-ALS-ShadowOui/OASYS1-ALS-ShadowOui'
 LICENSE = 'MIT'
 
 KEYWORDS = (
@@ -69,8 +69,10 @@ PACKAGE_DATA = {"orangecontrib.shadow.als.widgets.sources":["icons/*.png", "icon
                 "orangecontrib.xoppy.als.widgets.srcalc":["icons/*.png", "icons/*.jpg",],
 }
 
-NAMESPACE_PACAKGES = ["orangecontrib","orangecontrib.shadow", "orangecontrib.shadow.als", "orangecontrib.shadow.als.widgets",
-                      "orangecontrib.xoppy", "orangecontrib.xoppy.als", "orangecontrib.xoppy.als.widgets",]
+NAMESPACE_PACAKGES = ["orangecontrib",
+                      "orangecontrib.shadow", "orangecontrib.shadow.als", "orangecontrib.shadow.als.widgets",
+                      "orangecontrib.xoppy", "orangecontrib.xoppy.als", "orangecontrib.xoppy.als.widgets",
+                      ]
 
 ENTRY_POINTS = {
     'oasys.addons' : ("ALS ShadowOui = orangecontrib.shadow.als","ALS XOPPY = orangecontrib.xoppy.als" ),
