@@ -3,4 +3,15 @@ recursive-include orangecontrib *.py
 
 recursive-include orangecontrib/shadow/als/widgets *.png *.svg *.ico *.jpg *.bmp
 
+recursive-include orangecontrib/xoppy/als/util/bin/darwin *
+recursive-include orangecontrib/xoppy/als/util/bin/linux *
+recursive-include orangecontrib/xoppy/als/util/bin/windows *
+recursive-include orangecontrib/xoppy/als/util/bin_run *.txt
+recursive-include orangecontrib/xoppy/als/util/data *
+recursive-include orangecontrib/xoppy/als/util/doc_txt *.txt *.par
+
+recursive-include libraries/darwin *
+recursive-include libraries/linux *
+
+
 include README.txt
