@@ -25,10 +25,11 @@
 	character*10 com(maxMirr)				! Mirror Coating
 	character*1 iPom(maxMirr)				! s,p or f
 	integer nMir							! Actual number of mirrors
-	character*120 root1
+	character*10240 root1
+
 
 	data pi/3.141592653589/,IDEBUG/0/
-!	
+!
 !	 ***************************************************************
 !	                   IDPower  -  VERSION 2.1		R. Reininger
 !	                   
@@ -40,12 +41,13 @@
 !	
 
 
-	root1='./reflect/'
+	!root1='./reflect/'
 
 	open (unit=1, file="IDPower.TXT",STATUS='unknown')
 	open (unit=2, file='O_IDPower.TXT',STATUS='unknown')
 	open (unit=3, file='D_IDPower.TXT',STATUS='unknown')
 
+    READ(1,'(a)') root1
 	READ(1,*) ky
 	READ(1,*) energy
 	READ(1,*) cur
@@ -685,7 +687,7 @@
 	character*10 com(nMir)					! Mirror coatings
 	character*1 iPom(nMir)					! Polarization or filter
 	integer miType(nMir)
-	character *64 root, root_D				! File names of OC files
+	character *10240 root, root_D				! File names of OC files
 
 	integer, parameter :: maxMirr=6			! Maximum number of mirrors
 	integer, parameter :: maxPoOC=1500		! Max. # points in OC Files
@@ -693,6 +695,7 @@
 	real*8 ref(maxMirr,maxPoOC)				! Matrix to store reflectivities
 	integer nRef(maxMirr)					! Number of points in eRef and ref
 	integer	nnMir,j							! Used number of mirrors. Here its loaded in common
+	integer iblank
 	common/reflectivities/eRef,ref,nRef,nnMir
 
 	real*8 stheta,ctheta,sttheta, sTheta2
@@ -705,11 +708,15 @@
 	ipos=index(root,'  ')
 
 	do j=1,nMir
-	  root_D=root(:ipos-1)//com(j)
+	  ! root_D=root(:ipos-1)//com(j)
+	  root_D=root(1:iblank(root))//com(j)
 	  stheta = sin(anM(j)* toDeg)
 	  ctheta = cos(anM(j)* toDeg)
 	  sTheta2 = stheta*stheta
 	  sttheta = stheta2/ctheta
+	  print*,">>>>>>>>>>>>>>>>>>>>>> opening file ",root_D
+	  print*,">>>>>>>>>>>>>>>>>>>>>> directory **"//root(1:iblank(root_D))//"**"
+	  print*,">>>>>>>>>>>>>>>>>>>>>> file ",com(j)
 	  OPEN (20,FILE=root_D,STATUS='OLD')
 	    do I=1,maxPoOC
 	      READ (20,*,end=300) eRef(j,I), n, k
@@ -1169,3 +1176,38 @@
 9999	format(//' *** OVERFLOW OF BESSEL function ARRAY ***')
         end
 
+!C +++
+!C 	integer 	function 	iblank
+!C
+!C	purpose		Returns the last non-white spot in the string.
+!C
+!C	input		a fortran character string.
+!C	output		Index of the last non-white char in the string.
+!C			If there are no empty spaces in the string, then
+!C			the lenght is simply returned.
+!C	hacker		Mumit Khan
+!C ---
+	function iblank (str)
+    implicit real*8 (a-H,O-Z)
+	character*(*) 	str
+	integer 	index, ilen, iblank
+!c
+!c if the last character in the declared string isn't a white space, simply
+!c return the length.
+!c
+	index = 1
+	ilen = len (str)
+	if (str(ilen:ilen).NE.' ') then
+	    index = ilen + 1
+	    goto 20
+	endif
+!c
+ 10	continue
+	if (str(index:index).NE.' ') then
+	    index = index + 1
+	    goto 10
+	endif
+ 20	continue
+	iblank = index - 1
+	return
+	end
