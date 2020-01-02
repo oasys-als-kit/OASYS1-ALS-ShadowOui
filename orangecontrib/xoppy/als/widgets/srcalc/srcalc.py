@@ -20,6 +20,8 @@ import orangecanvas.resources as resources
 
 from oasys.util.oasys_util import EmittingStream, TTYGrabber
 
+from srxraylib.plot.gol import plot_scatter
+
 #
 # TO DO: uncomment import and delete class when moving to xoppy
 #
@@ -80,52 +82,58 @@ class OWsrcalc(XoppyWidget):
     SIGMAXP = Setting(5.7e-3)
     SIGMAY = Setting(14.7e-3)
     SIGMAYP = Setting(4.7e-3)
-    NELEMENTS = Setting(2)
+    NELEMENTS = Setting(1)
 
     EL0_SHAPE = Setting(2)
+    EL0_POSITION = Setting(13.73)
     EL0_P = Setting(0.0)
     EL0_Q = Setting(0.0)
     EL0_ANG = Setting(88.75)
     EL0_THICKNESS = Setting(1000)
-    EL0_RELATIVE_TO_PREVIOUS = Setting(0)
+    EL0_RELATIVE_TO_PREVIOUS = Setting(2)
     EL0_COATING = Setting(1)
 
     EL1_SHAPE = Setting(2)
+    EL1_POSITION = Setting(10.0)
     EL1_P = Setting(0.0)
     EL1_Q = Setting(0.0)
-    EL1_ANG = Setting(90.0 - 2.5e-3 * 180 / numpy.pi )
+    EL1_ANG = Setting(88.75)
     EL1_THICKNESS = Setting(1000)
     EL1_RELATIVE_TO_PREVIOUS = Setting(0)
     EL1_COATING = Setting(9)
 
     EL2_SHAPE = Setting(2)
+    EL2_POSITION = Setting(10.0)
     EL2_P = Setting(0.0)
     EL2_Q = Setting(0.0)
-    EL2_ANG = Setting(90.0 - 2.5e-3 * 180 / numpy.pi )
+    EL2_ANG = Setting(88.75)
     EL2_THICKNESS = Setting(1000)
     EL2_RELATIVE_TO_PREVIOUS = Setting(0)
     EL2_COATING = Setting(9)
 
     EL3_SHAPE = Setting(2)
+    EL3_POSITION = Setting(10.0)
     EL3_P = Setting(0.0)
     EL3_Q = Setting(0.0)
-    EL3_ANG = Setting(90.0 - 2.5e-3 * 180 / numpy.pi )
+    EL3_ANG = Setting(88.75)
     EL3_THICKNESS = Setting(1000)
     EL3_RELATIVE_TO_PREVIOUS = Setting(0)
     EL3_COATING = Setting(9)
 
     EL4_SHAPE = Setting(2)
+    EL4_POSITION = Setting(10.0)
     EL4_P = Setting(0.0)
     EL4_Q = Setting(0.0)
-    EL4_ANG = Setting(90.0 - 2.5e-3 * 180 / numpy.pi )
+    EL4_ANG = Setting(88.75)
     EL4_THICKNESS = Setting(1000)
     EL4_RELATIVE_TO_PREVIOUS = Setting(0)
     EL4_COATING = Setting(9)
 
     EL5_SHAPE = Setting(2)
+    EL5_POSITION = Setting(10.0)
     EL5_P = Setting(0.0)
     EL5_Q = Setting(0.0)
-    EL5_ANG = Setting(90.0 - 2.5e-3 * 180 / numpy.pi )
+    EL5_ANG = Setting(88.75)
     EL5_THICKNESS = Setting(1000)
     EL5_RELATIVE_TO_PREVIOUS = Setting(0)
     EL5_COATING = Setting(9)
@@ -371,6 +379,14 @@ class OWsrcalc(XoppyWidget):
             #widget index xx
             idx += 1
             box1 = gui.widgetBox(self.tab_el[element_index])
+            oasysgui.lineEdit(box1, self, "EL%d_POSITION"%element_index,
+                         label=self.unitLabels()[idx], addSpace=False,
+                        valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
+            self.show_at(self.unitFlags()[idx], box1)
+
+            #widget index xx
+            idx += 1
+            box1 = gui.widgetBox(self.tab_el[element_index])
             oasysgui.lineEdit(box1, self, "EL%d_P"%element_index,
                          label=self.unitLabels()[idx], addSpace=False,
                         valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
@@ -454,10 +470,11 @@ class OWsrcalc(XoppyWidget):
          for i in range(6):
             labels = labels + [
                 'Type',
-                'Ent. Arm [mm]',
-                'Exit Arm [mm]',
-                'Inc. Angle [deg]',
-                'Reflecting (relative to previous)',
+                'Distance from previous oe [m]',
+                'Focus Ent. Arm [m]',
+                'Focus Exit Arm [m]',
+                'Inc. Angle to normal [deg]',
+                'Orientation (relative to previous)',
                 'Coating',
                 ]
 
@@ -473,12 +490,12 @@ class OWsrcalc(XoppyWidget):
                  "True", "True", "True",
                  "True", "True","True",
                  'True',
-                 "True", "True", "True", "True", "True", "True",  # OE fields
-                 "True", "True", "True", "True", "True", "True",  # OE fields
-                 "True", "True", "True", "True", "True", "True",  # OE fields
-                 "True", "True", "True", "True", "True", "True",  # OE fields
-                 "True", "True", "True", "True", "True", "True",  # OE fields
-                 "True", "True", "True", "True", "True", "True",  # OE fields
+                 "True", "True", "self.EL0_SHAPE not in (2,8,9)", "self.EL0_SHAPE not in (2,8,9)", "True", "True", "True",  # OE fields
+                 "True", "True", "self.EL1_SHAPE not in (2,8,9)", "self.EL1_SHAPE not in (2,8,9)", "True", "True", "True",  # OE fields
+                 "True", "True", "self.EL2_SHAPE not in (2,8,9)", "self.EL2_SHAPE not in (2,8,9)", "True", "True", "True",  # OE fields
+                 "True", "True", "self.EL3_SHAPE not in (2,8,9)", "self.EL3_SHAPE not in (2,8,9)", "True", "True", "True",  # OE fields
+                 "True", "True", "self.EL4_SHAPE not in (2,8,9)", "self.EL4_SHAPE not in (2,8,9)", "True", "True", "True",  # OE fields
+                 "True", "True", "self.EL5_SHAPE not in (2,8,9)", "self.EL5_SHAPE not in (2,8,9)", "True", "True", "True",  # OE fields
                  'True']
 
     def get_help_name(self):
@@ -526,20 +543,42 @@ class OWsrcalc(XoppyWidget):
                 # current_index = self.tabs.currentIndex()
 
                 # try:
+                index = -1
                 if True:
-                    for index in range(self.NELEMENTS+1):
-                        totPower = calculated_data["Zlist"][index].sum() * \
+                    for oe_n in range(self.NELEMENTS+1):
+                        totPower = calculated_data["Zlist"][oe_n].sum() * \
                                    (calculated_data["X"][1] - calculated_data["X"][0]) * \
                                    (calculated_data["Y"][1] - calculated_data["Y"][0])
-                        if index == 0:
+
+                        #
+                        # urgent results
+                        #
+                        if oe_n == 0:
                             title = 'Power density [W/mm2] at %4.1f m, Integrated Power: %6.1f W'%(self.SOURCE_SCREEN_DISTANCE,totPower)
                         else:
-                            title = 'Power density [W/mm2] transmitted after element %d Integrated Power: %6.1f W'%(index, totPower)
-
-                        self.plot_data2D(calculated_data["Zlist"][index], calculated_data["X"], calculated_data["Y"], index, 0,
+                            title = 'Power density [W/mm2] transmitted after element %d Integrated Power: %6.1f W'%(oe_n, totPower)
+                        index += 1
+                        self.plot_data2D(calculated_data["Zlist"][oe_n], calculated_data["X"], calculated_data["Y"], index, 0,
                                          xtitle='X [mm] (%d pixels)'%(calculated_data["X"].size),
                                          ytitle='Y [mm] (%d pixels)'%(calculated_data["Y"].size),
                                          title=title)
+                        #
+                        # ray tracing results
+                        #
+                        if oe_n > 0:
+
+                            # mirror
+                            index += 1
+                            dataX = calculated_data["OE_FOOTPRINT"][oe_n-1][0, :]
+                            dataY = calculated_data["OE_FOOTPRINT"][oe_n-1][1, :]
+                            self.plot_data1D(1e3*dataX, 1e3*dataY, index, 0, title="footprint oe %d"%oe_n, xtitle="Y [mm]",ytitle="X [mm]")
+                            # image
+                            index += 1
+                            dataX = calculated_data["OE_IMAGE"][oe_n-1][0, :]
+                            dataY = calculated_data["OE_IMAGE"][oe_n-1][1, :]
+                            self.plot_data1D(1e3*dataX, 1e3*dataY, index, 0, title="image just after oe %d perp to beam"%oe_n, xtitle="X [mm]",ytitle="Z [mm]")
+
+
                 # except:
                 #     pass
 
@@ -557,7 +596,10 @@ class OWsrcalc(XoppyWidget):
         # titles.append("[oe 0] Source screen")
 
         for oe_n in range(self.NELEMENTS+1):
-            titles.append("[oe %d ]"%oe_n)
+            titles.append("[oe %d (urgent)]"%oe_n)
+            if oe_n > 0:
+                titles.append("[oe %d (ray tracing mirror)]" % oe_n)
+                titles.append("[oe %d (ray tracing image)]" % oe_n)
 
         return titles
 
@@ -705,8 +747,95 @@ class OWsrcalc(XoppyWidget):
 
         out_dictionary = load_srcalc_output_file(filename="D_IDPower.TXT")
 
+
+        if True:
+            #
+            # do the ray tracing
+            #
+            oe_parameters = {
+                "EL0_SHAPE":                self.EL0_SHAPE               ,
+                "EL0_POSITION":             self.EL0_POSITION            ,
+                "EL0_P":                    self.EL0_P                   ,
+                "EL0_Q":                    self.EL0_Q                   ,
+                "EL0_ANG":                  self.EL0_ANG                 ,
+                "EL0_THICKNESS":            self.EL0_THICKNESS           ,
+                "EL0_RELATIVE_TO_PREVIOUS": self.EL0_RELATIVE_TO_PREVIOUS,
+                "EL1_SHAPE":                self.EL1_SHAPE               ,
+                "EL1_POSITION":             self.EL1_POSITION            ,
+                "EL1_P":                    self.EL1_P                   ,
+                "EL1_Q":                    self.EL1_Q                   ,
+                "EL1_ANG":                  self.EL1_ANG                 ,
+                "EL1_THICKNESS":            self.EL1_THICKNESS           ,
+                "EL1_RELATIVE_TO_PREVIOUS": self.EL1_RELATIVE_TO_PREVIOUS,
+                "EL2_SHAPE":                self.EL2_SHAPE               ,
+                "EL2_POSITION":             self.EL2_POSITION            ,
+                "EL2_P":                    self.EL2_P                   ,
+                "EL2_Q":                    self.EL2_Q                   ,
+                "EL2_ANG":                  self.EL2_ANG                 ,
+                "EL2_THICKNESS":            self.EL2_THICKNESS           ,
+                "EL2_RELATIVE_TO_PREVIOUS": self.EL2_RELATIVE_TO_PREVIOUS,
+                "EL3_SHAPE":                self.EL3_SHAPE               ,
+                "EL3_POSITION":             self.EL3_POSITION            ,
+                "EL3_P":                    self.EL3_P                   ,
+                "EL3_Q":                    self.EL3_Q                   ,
+                "EL3_ANG":                  self.EL3_ANG                 ,
+                "EL3_THICKNESS":            self.EL3_THICKNESS           ,
+                "EL3_RELATIVE_TO_PREVIOUS": self.EL3_RELATIVE_TO_PREVIOUS,
+                "EL4_SHAPE":                self.EL4_SHAPE               ,
+                "EL4_POSITION":             self.EL4_POSITION            ,
+                "EL4_P":                    self.EL4_P                   ,
+                "EL4_Q":                    self.EL4_Q                   ,
+                "EL4_ANG":                  self.EL4_ANG                 ,
+                "EL4_THICKNESS":            self.EL4_THICKNESS           ,
+                "EL4_RELATIVE_TO_PREVIOUS": self.EL4_RELATIVE_TO_PREVIOUS,
+                "EL5_SHAPE":                self.EL5_SHAPE               ,
+                "EL5_POSITION":             self.EL5_POSITION            ,
+                "EL5_P":                    self.EL5_P                   ,
+                "EL5_Q":                    self.EL5_Q                   ,
+                "EL5_ANG":                  self.EL5_ANG                 ,
+                "EL5_THICKNESS":            self.EL5_THICKNESS           ,
+                "EL5_RELATIVE_TO_PREVIOUS": self.EL5_RELATIVE_TO_PREVIOUS,
+
+            }
+
+            OE_FOOTPRINT, OE_IMAGE = ray_tracing(out_dictionary,
+                                                 SOURCE_SCREEN_DISTANCE=self.SOURCE_SCREEN_DISTANCE,
+                                                 number_of_elements=self.NELEMENTS,
+                                                 oe_parameters=oe_parameters,
+                                                 )
+
+            # add ray tracing results to output
+            out_dictionary["OE_FOOTPRINT"] = OE_FOOTPRINT
+            out_dictionary["OE_IMAGE"] = OE_IMAGE
+            # plot_scatter(OE_FOOTPRINT[0][0,:],OE_FOOTPRINT[0][1,:],plot_histograms=False,title="Footprint",show=False)
+            # plot_scatter(OE_IMAGE[0][0, :], OE_IMAGE[0][1, :], plot_histograms=False,title="Image")
+
+
         return out_dictionary
 
+    #
+    # overwritten methods
+    #
+    def plot_data1D(self, dataX, dataY, tabs_canvas_index, plot_canvas_index, title="", xtitle="", ytitle=""):
+
+        self.tab[tabs_canvas_index].layout().removeItem(self.tab[tabs_canvas_index].layout().itemAt(0))
+
+        self.plot_canvas[plot_canvas_index] = oasysgui.plotWindow()
+
+        self.plot_canvas[plot_canvas_index].addCurve(dataX, dataY, symbol=',', linestyle=' ')
+
+        self.plot_canvas[plot_canvas_index].resetZoom()
+        self.plot_canvas[plot_canvas_index].setXAxisAutoScale(True)
+        self.plot_canvas[plot_canvas_index].setYAxisAutoScale(True)
+        self.plot_canvas[plot_canvas_index].setGraphGrid(False)
+
+        self.plot_canvas[plot_canvas_index].setXAxisLogarithmic(False)
+        self.plot_canvas[plot_canvas_index].setYAxisLogarithmic(False)
+        self.plot_canvas[plot_canvas_index].setGraphXLabel(xtitle)
+        self.plot_canvas[plot_canvas_index].setGraphYLabel(ytitle)
+        self.plot_canvas[plot_canvas_index].setGraphTitle(title)
+
+        self.tab[tabs_canvas_index].layout().addWidget(self.plot_canvas[plot_canvas_index])
 #
 # auxiliar functions
 #
@@ -772,15 +901,17 @@ def load_srcalc_output_file(filename="D_IDPower.TXT",skiprows=5,four_quadrants=T
 
     return out_dictionary
 
-def 2d_interpolation(x,y,power_density):
-    return X,Y,P
+# def 2d_interpolation(x,y,power_density):
+#
+#     return None # X,Y,P
 
 
 def ray_tracing(
         out_dictionary,
         SOURCE_SCREEN_DISTANCE=13.73,
+        number_of_elements=1,
         oe_parameters=  {
-            "EL0_SHAPE":2,"EL0_P":0.0,"EL0_Q":0.0,"EL0_ANG":88.75,"EL0_THICKNESS":1000,"EL0_RELATIVE_TO_PREVIOUS":0,
+            "EL0_SHAPE":2,"EL0_POSITION":13.73,"EL0_P":0.0,"EL0_Q":0.0,"EL0_ANG":88.75,"EL0_THICKNESS":1000,"EL0_RELATIVE_TO_PREVIOUS":2,
                         } ):
 
     import shadow4
@@ -793,6 +924,9 @@ def ray_tracing(
     for key in out_dictionary.keys():
         print(">>>> ",key)
 
+    #
+    # compute shadow beam from urgent results
+    #
     vx = out_dictionary["X"] / ( 1e3 * SOURCE_SCREEN_DISTANCE )
     vz = out_dictionary["Y"] / ( 1e3 * SOURCE_SCREEN_DISTANCE )
 
@@ -811,77 +945,107 @@ def ray_tracing(
     # beam3.write('/home/manuel/Oasys/begin.dat')
 
 
+    OE_FOOTPRINT = []
+    OE_IMAGE = []
 
-    oe_index = 0
 
-    if   oe_parameters["EL%d_SHAPE"%oe_index] == 0:     # "Toroidal mirror",
-        raise Exception("Not implemented")
-    elif oe_parameters["EL%d_SHAPE"%oe_index] == 1:     # "Spherical mirror",
-        raise Exception("Not implemented")
-    elif oe_parameters["EL%d_SHAPE"%oe_index] == 2:     # "Plane mirror",
-        ccc = Conic.initialize_as_plane()
-        is_conic = True
-        alpha = 0
-        theta_grazing = 0
-        p = SOURCE_SCREEN_DISTANCE
+    for oe_index in range(number_of_elements):
+
+        p = oe_parameters["EL%d_POSITION" % oe_index]
         q = 0
 
-    elif oe_parameters["EL%d_SHAPE"%oe_index] == 3:     # "MerCyl mirror",
-        raise Exception("Not implemented")
-    elif oe_parameters["EL%d_SHAPE"%oe_index] == 4:     # "SagCyl mirror",
-        raise Exception("Not implemented")
-    elif oe_parameters["EL%d_SHAPE"%oe_index] == 5:     # "Ellipsoidal mirror",
-        raise Exception("Not implemented")
-    elif oe_parameters["EL%d_SHAPE"%oe_index] == 6:     # "MerEll mirror",
-        raise Exception("Not implemented")
-    elif oe_parameters["EL%d_SHAPE"%oe_index] == 7:     # "SagEllip mirror",
-        raise Exception("Not implemented")
-    elif oe_parameters["EL%d_SHAPE"%oe_index] == 8:     # "Filter",
-        raise Exception("Not implemented")
-    elif oe_parameters["EL%d_SHAPE"%oe_index] == 9:     # "Crystal"
-        raise Exception("Not implemented")
+        theta_grazing = (90.0 - oe_parameters["EL0_ANG"]) * numpy.pi / 180
+
+        if oe_parameters["EL%d_RELATIVE_TO_PREVIOUS"%oe_index] == 0:
+            alpha = 90.0 * numpy.pi / 180
+        elif oe_parameters["EL%d_RELATIVE_TO_PREVIOUS"%oe_index] == 1:
+            alpha = 270.0 * numpy.pi / 180
+        elif oe_parameters["EL%d_RELATIVE_TO_PREVIOUS"%oe_index] == 2:
+            alpha = 0.0
+        elif oe_parameters["EL%d_RELATIVE_TO_PREVIOUS"%oe_index] == 3:
+            alpha = 180.0 * numpy.pi / 180
+
+
+        if   oe_parameters["EL%d_SHAPE"%oe_index] == 0:     # "Toroidal mirror",
+            raise Exception("Not implemented")
+        elif oe_parameters["EL%d_SHAPE"%oe_index] == 1:     # "Spherical mirror",
+            is_conic = True
+            ccc = Conic.initialize_as_sphere_from_focal_distances(
+                oe_parameters["EL%d_P" % oe_index],
+                oe_parameters["EL%d_Q" % oe_index],
+                theta_grazing,cylindrical=0,cylangle=0,switch_convexity=0)
+        elif oe_parameters["EL%d_SHAPE"%oe_index] == 2:     # "Plane mirror",
+            is_conic = True
+            ccc = Conic.initialize_as_plane()
+        elif oe_parameters["EL%d_SHAPE"%oe_index] == 3:     # "MerCyl mirror",
+            is_conic = True
+            ccc = Conic.initialize_as_sphere_from_focal_distances(
+                oe_parameters["EL%d_P" % oe_index],
+                oe_parameters["EL%d_Q" % oe_index],
+                theta_grazing,cylindrical=1,cylangle=0,switch_convexity=0)
+        elif oe_parameters["EL%d_SHAPE"%oe_index] == 4:     # "SagCyl mirror",
+            raise Exception("Not implemented")
+        elif oe_parameters["EL%d_SHAPE"%oe_index] == 5:     # "Ellipsoidal mirror",
+            is_conic = True
+            ccc = Conic.initialize_as_ellipsoid_from_focal_distances(
+                oe_parameters["EL%d_P" % oe_index],
+                oe_parameters["EL%d_Q" % oe_index],
+                theta_grazing,cylindrical=0,cylangle=0,switch_convexity=0)
+        elif oe_parameters["EL%d_SHAPE"%oe_index] == 6:     # "MerEll mirror",
+            is_conic = True
+            ccc = Conic.initialize_as_ellipsoid_from_focal_distances(
+                oe_parameters["EL%d_P" % oe_index],
+                oe_parameters["EL%d_Q" % oe_index],
+                theta_grazing,cylindrical=1,cylangle=0,switch_convexity=0)
+        elif oe_parameters["EL%d_SHAPE"%oe_index] == 7:     # "SagEllip mirror",
+            raise Exception("Not implemented")
+        elif oe_parameters["EL%d_SHAPE"%oe_index] == 8:     # "Filter",
+            is_conic = True
+            ccc = Conic.initialize_as_plane()
+        elif oe_parameters["EL%d_SHAPE"%oe_index] == 9:     # "Crystal"
+            is_conic = True
+            ccc = Conic.initialize_as_plane()
 
 
 
-    theta_grazing = (90.0 - oe_parameters["EL0_ANG"]) * numpy.pi / 180
-    newbeam = beam.duplicate()
-    if oe_parameters["EL0_RELATIVE_TO_PREVIOUS"] == 0:
-        alpha = 90.0 * numpy.pi / 180
-    elif oe_parameters["EL0_RELATIVE_TO_PREVIOUS"] == 1:
-        alpha = 270.0 * numpy.pi / 180
-    elif oe_parameters["EL0_RELATIVE_TO_PREVIOUS"] == 2:
-        alpha = 0.0
-    elif oe_parameters["EL0_RELATIVE_TO_PREVIOUS"] == 3:
-        alpha = 180.0 * numpy.pi / 180
+        newbeam = beam.duplicate()
+
+        if is_conic:
+            #
+            # put beam in mirror reference system
+            #
+            # TODO: calculate rotation matrices? Invert them for putting back to the lab system?
+
+            newbeam.rotate(alpha, axis=2)
+            newbeam.rotate(theta_grazing, axis=1)
+            newbeam.translation([0.0, -p * numpy.cos(theta_grazing), p * numpy.sin(theta_grazing)])
+
+            #
+            # reflect beam in the mirror surface and dump mirr.01
+            #
+            newbeam = ccc.apply_specular_reflection_on_beam(newbeam)
+            Beam3.initialize_from_shadow4_beam(newbeam).write('/home/manuel/Oasys/minimirr.01')
+            OE_FOOTPRINT.append( newbeam.get_columns((2, 1)) )
+
+            #
+            # put beam in lab frame and compute image
+            #
+            newbeam.rotate(theta_grazing, axis=1)
+            # TODO what about alpha?
+            newbeam.retrace(q, resetY=True)
+            Beam3.initialize_from_shadow4_beam(newbeam).write('/home/manuel/Oasys/ministar.01')
+            OE_IMAGE.append(newbeam.get_columns((1, 3)))
+        else:
+            raise Exception("Mirror is not conic. Not yet implemented.")
+
+        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> alpha: ", alpha, oe_index)
+        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> EL%d_RELATIVE_TO_PREVIOUS: "%oe_index, oe_parameters["EL%d_RELATIVE_TO_PREVIOUS"%oe_index])
 
 
-    # p = oe_parameters["EL0_P"]
-    # q = oe_parameters["EL0_Q"]
+    print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Number of elements: ",number_of_elements)
 
-    if is_conic:
-        #
-        # put beam in mirror reference system
-        #
-        # TODO: calculate rotation matrices? Invert them for putting back to the lab system?
 
-        newbeam.rotate(alpha, axis=2)
-        newbeam.rotate(theta_grazing, axis=1)
-        newbeam.translation([0.0, -p * numpy.cos(theta_grazing), p * numpy.sin(theta_grazing)])
-
-        #
-        # reflect beam in the mirror surface and dump mirr.01
-        #
-        newbeam = ccc.apply_specular_reflection_on_beam(newbeam)
-        Beam3.initialize_from_shadow4_beam(newbeam).write('/home/manuel/Oasys/minimirr.01')
-
-        #
-        # put beam in lab frame and compute image
-        #
-        newbeam.rotate(theta_grazing, axis=1)
-        # TODO what about alpha?
-        newbeam.retrace(q, resetY=True)
-        Beam3.initialize_from_shadow4_beam(newbeam).write('/home/manuel/Oasys/ministar.01')
-
+    return OE_FOOTPRINT,OE_IMAGE
 
     # shape_vx = VX.shape
     #
@@ -895,7 +1059,9 @@ def ray_tracing(
 
 if __name__ == "__main__":
 
-    test = 2  # 0= widget, 1=load D_IDPower.TXT, 2 =ray tracing
+
+
+    test = 0  # 0= widget, 1=load D_IDPower.TXT, 2 =ray tracing
     if test == 0:
         app = QApplication(sys.argv)
         w = OWsrcalc()
@@ -906,4 +1072,7 @@ if __name__ == "__main__":
         dict1 = load_srcalc_output_file(filename="D_IDPower.TXT", skiprows=5, do_plot=1)
     elif test == 2:
         dict1 = load_srcalc_output_file(filename="D_IDPower.TXT", skiprows=5, do_plot=0)
-        out = ray_tracing(dict1)
+        OE_FOOTPRINT, OE_IMAGE = ray_tracing(dict1)
+        print(OE_FOOTPRINT[0].shape)
+        plot_scatter(OE_FOOTPRINT[0][0,:],OE_FOOTPRINT[0][1,:],plot_histograms=False,title="Footprint",show=False)
+        plot_scatter(OE_IMAGE[0][0, :], OE_IMAGE[0][1, :], plot_histograms=False,title="Image")
