@@ -82,16 +82,16 @@ class OWsrcalc(XoppyWidget):
     SIGMAXP = Setting(5.7e-3)
     SIGMAY = Setting(14.7e-3)
     SIGMAYP = Setting(4.7e-3)
-    NELEMENTS = Setting(1)
+    NELEMENTS = Setting(2)
 
     EL0_SHAPE = Setting(2)
-    EL0_POSITION = Setting(13.73)
+    EL0_POSITION = Setting(13.73)  # this is then copied from  SOURCE_SCREEN_DISTANCE
     EL0_P = Setting(0.0)
     EL0_Q = Setting(0.0)
     EL0_ANG = Setting(88.75)
     EL0_THICKNESS = Setting(1000)
-    EL0_RELATIVE_TO_PREVIOUS = Setting(2)
-    EL0_COATING = Setting(1)
+    EL0_RELATIVE_TO_PREVIOUS = Setting(0)
+    EL0_COATING = Setting(9)
 
     EL1_SHAPE = Setting(2)
     EL1_POSITION = Setting(10.0)
@@ -99,7 +99,7 @@ class OWsrcalc(XoppyWidget):
     EL1_Q = Setting(0.0)
     EL1_ANG = Setting(88.75)
     EL1_THICKNESS = Setting(1000)
-    EL1_RELATIVE_TO_PREVIOUS = Setting(0)
+    EL1_RELATIVE_TO_PREVIOUS = Setting(2)
     EL1_COATING = Setting(9)
 
     EL2_SHAPE = Setting(2)
@@ -140,6 +140,8 @@ class OWsrcalc(XoppyWidget):
 
 
     FILE_DUMP = 0
+
+    DO_PLOT_GRID = Setting(0)
 
     def __init__(self):
         super().__init__()
@@ -274,7 +276,8 @@ class OWsrcalc(XoppyWidget):
         box1 = gui.widgetBox(box)
         oasysgui.lineEdit(box1, self, "SOURCE_SCREEN_DISTANCE",
                      label=self.unitLabels()[idx], addSpace=False,
-                    valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
+                    valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250,
+                          callback=self.setdistance)
         self.show_at(self.unitFlags()[idx], box1)
 
         ########
@@ -384,6 +387,10 @@ class OWsrcalc(XoppyWidget):
                         valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
             self.show_at(self.unitFlags()[idx], box1)
 
+            # first element distance is the same as urgent screen position
+            if element_index == 0:
+                box1.setEnabled(False)
+
             #widget index xx
             idx += 1
             box1 = gui.widgetBox(self.tab_el[element_index])
@@ -441,7 +448,24 @@ class OWsrcalc(XoppyWidget):
 
         self.show_at(self.unitFlags()[idx], box1)
 
+
+        #widget index 43
+        idx += 1
+        box1 = gui.widgetBox(box)
+        gui.separator(box1, height=7)
+
+        gui.comboBox(box1, self, "DO_PLOT_GRID",
+                     label=self.unitLabels()[idx], addSpace=False,
+                    items=['No', 'Yes'],
+                    valueType=int, orientation="horizontal", labelWidth=250)
+
+        self.show_at(self.unitFlags()[idx], box1)
+
+
         self.mirror_tabs_visibility()
+
+    def setdistance(self):
+        self.EL0_POSITION = self.SOURCE_SCREEN_DISTANCE
 
     def set_NELEMENTS(self):
         self.initializeTabs()
@@ -478,7 +502,7 @@ class OWsrcalc(XoppyWidget):
                 'Coating',
                 ]
 
-         labels = labels + ["Dump file"]
+         labels = labels + ["Dump file","Plot raytracing grid"]
          return labels
 
 
@@ -496,7 +520,7 @@ class OWsrcalc(XoppyWidget):
                  "True", "True", "self.EL3_SHAPE not in (2,8,9)", "self.EL3_SHAPE not in (2,8,9)", "True", "True", "True",  # OE fields
                  "True", "True", "self.EL4_SHAPE not in (2,8,9)", "self.EL4_SHAPE not in (2,8,9)", "True", "True", "True",  # OE fields
                  "True", "True", "self.EL5_SHAPE not in (2,8,9)", "self.EL5_SHAPE not in (2,8,9)", "True", "True", "True",  # OE fields
-                 'True']
+                 'True','True']
 
     def get_help_name(self):
         return 'srcalc'
@@ -559,25 +583,43 @@ class OWsrcalc(XoppyWidget):
                             title = 'Power density [W/mm2] transmitted after element %d Integrated Power: %6.1f W'%(oe_n, totPower)
                         index += 1
                         self.plot_data2D(calculated_data["Zlist"][oe_n], calculated_data["X"], calculated_data["Y"], index, 0,
-                                         xtitle='X [mm] (%d pixels)'%(calculated_data["X"].size),
-                                         ytitle='Y [mm] (%d pixels)'%(calculated_data["Y"].size),
+                                         xtitle='H (urgent) [mm] (%d pixels)'%(calculated_data["X"].size),
+                                         ytitle='V (urgent) [mm] (%d pixels)'%(calculated_data["Y"].size),
                                          title=title)
                         #
                         # ray tracing results
                         #
                         if oe_n > 0:
-
-                            # mirror
+                            if self.DO_PLOT_GRID:
+                                # mirror grid
+                                index += 1
+                                dataX = calculated_data["OE_FOOTPRINT"][oe_n-1][0, :]
+                                dataY = calculated_data["OE_FOOTPRINT"][oe_n-1][1, :]
+                                self.plot_data1D(1e3*dataX, 1e3*dataY, index, 0, title="footprint oe %d"%oe_n, xtitle="Y (shadow col 2) [mm]",ytitle="X (shadow col 1) [mm]")
+                                # image grid
+                                index += 1
+                                dataX = calculated_data["OE_IMAGE"][oe_n-1][0, :]
+                                dataY = calculated_data["OE_IMAGE"][oe_n-1][1, :]
+                                self.plot_data1D(1e3*dataX, 1e3*dataY, index, 0, title="image just after oe %d perp to beam"%oe_n, xtitle="X (shadow col 1) [mm]",ytitle="Z (shadow col 2) [mm]")
+                            # mirror power density
                             index += 1
-                            dataX = calculated_data["OE_FOOTPRINT"][oe_n-1][0, :]
-                            dataY = calculated_data["OE_FOOTPRINT"][oe_n-1][1, :]
-                            self.plot_data1D(1e3*dataX, 1e3*dataY, index, 0, title="footprint oe %d"%oe_n, xtitle="Y [mm]",ytitle="X [mm]")
-                            # image
+                            data2D = calculated_data["POWER_DENSITY_FOOTPRINT"][oe_n - 1]
+                            H = 1e3 * calculated_data["POWER_DENSITY_FOOTPRINT_H"][oe_n - 1]
+                            V = 1e3 * calculated_data["POWER_DENSITY_FOOTPRINT_V"][oe_n - 1]
+                            tmp = data2D.shape
+                            self.plot_data2D(data2D,H[:,0],V[0,:],
+                                             index, 0,
+                                             xtitle='Y (shadow col 2) [mm]',
+                                             ytitle='X (shadow col 1) [mm]')
+                            # image power density
                             index += 1
-                            dataX = calculated_data["OE_IMAGE"][oe_n-1][0, :]
-                            dataY = calculated_data["OE_IMAGE"][oe_n-1][1, :]
-                            self.plot_data1D(1e3*dataX, 1e3*dataY, index, 0, title="image just after oe %d perp to beam"%oe_n, xtitle="X [mm]",ytitle="Z [mm]")
-
+                            data2D = calculated_data["POWER_DENSITY_IMAGE"][oe_n-1]
+                            H = 1e3 * calculated_data["POWER_DENSITY_IMAGE_H"][oe_n - 1]
+                            V = 1e3 * calculated_data["POWER_DENSITY_IMAGE_V"][oe_n - 1]
+                            self.plot_data2D(data2D,H[:,0],V[0,:],
+                                             index, 0,
+                                             xtitle='X (shadow col 1) [mm]',
+                                             ytitle='Z (shadow col 3) [mm]')
 
                 # except:
                 #     pass
@@ -598,8 +640,11 @@ class OWsrcalc(XoppyWidget):
         for oe_n in range(self.NELEMENTS+1):
             titles.append("[oe %d (urgent)]"%oe_n)
             if oe_n > 0:
-                titles.append("[oe %d (ray tracing mirror)]" % oe_n)
-                titles.append("[oe %d (ray tracing image)]" % oe_n)
+                if self.DO_PLOT_GRID:
+                    titles.append("[oe %d (ray tracing mirror grid)]" % oe_n)
+                    titles.append("[oe %d (ray tracing image grid)]" % oe_n)
+                titles.append("[oe %d (ray tracing mirror power)]" % oe_n)
+                titles.append("[oe %d (ray tracing image power)]" % oe_n)
 
         return titles
 
@@ -798,21 +843,22 @@ class OWsrcalc(XoppyWidget):
 
             }
 
-            OE_FOOTPRINT, OE_IMAGE = ray_tracing(out_dictionary,
+            out_dictionary_with_ray_tracing = ray_tracing(out_dictionary,
                                                  SOURCE_SCREEN_DISTANCE=self.SOURCE_SCREEN_DISTANCE,
                                                  number_of_elements=self.NELEMENTS,
                                                  oe_parameters=oe_parameters,
                                                  )
 
-            # add ray tracing results to output
-            out_dictionary["OE_FOOTPRINT"] = OE_FOOTPRINT
-            out_dictionary["OE_IMAGE"] = OE_IMAGE
+            out_dictionary_with_power_density = compute_power_density_on_optical_elements(out_dictionary_with_ray_tracing)
+
+            # # add ray tracing results to output
+            # out_dictionary["OE_FOOTPRINT"] = OE_FOOTPRINT
+            # out_dictionary["OE_IMAGE"] = OE_IMAGE
             # plot_scatter(OE_FOOTPRINT[0][0,:],OE_FOOTPRINT[0][1,:],plot_histograms=False,title="Footprint",show=False)
             # plot_scatter(OE_IMAGE[0][0, :], OE_IMAGE[0][1, :], plot_histograms=False,title="Image")
 
 
-        return out_dictionary
-
+        return out_dictionary_with_power_density
     #
     # overwritten methods
     #
@@ -1031,7 +1077,10 @@ def ray_tracing(
             # put beam in lab frame and compute image
             #
             newbeam.rotate(theta_grazing, axis=1)
+
             # TODO what about alpha?
+            newbeam.rotate(-alpha, axis=2) #?????????????????????????????????
+
             newbeam.retrace(q, resetY=True)
             Beam3.initialize_from_shadow4_beam(newbeam).write('/home/manuel/Oasys/ministar.01')
             OE_IMAGE.append(newbeam.get_columns((1, 3)))
@@ -1044,8 +1093,12 @@ def ray_tracing(
 
     print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Number of elements: ",number_of_elements)
 
+    # add ray tracing results to output
+    out_dictionary["OE_FOOTPRINT"] = OE_FOOTPRINT
+    out_dictionary["OE_IMAGE"] = OE_IMAGE
 
-    return OE_FOOTPRINT,OE_IMAGE
+
+    return out_dictionary
 
     # shape_vx = VX.shape
     #
@@ -1055,6 +1108,141 @@ def ray_tracing(
     # print(">>>>",shape_vx,VXf.shape,VXff.shape,numpy.min(VXff - VX),numpy.max(VXff - VX) )
 
     # print(">>>>",out_dictionary["RAWDATA"].shape,vx.shape,vz.shape)
+
+
+
+def calculate_pixel_areas(X,Y,suppress_last_row_and_column=True):
+    u1 = numpy.roll(X, -1, axis=0) - X
+    u2 = numpy.roll(Y, -1, axis=0) - Y
+    v1 = numpy.roll(X, -1, axis=1) - X
+    v2 = numpy.roll(Y, -1, axis=1) - Y
+
+    if suppress_last_row_and_column:
+        u1 = u1[0:-1, 0:-1].copy()
+        u2 = u2[0:-1, 0:-1].copy()
+        v1 = v1[0:-1, 0:-1].copy()
+        v2 = v2[0:-1, 0:-1].copy()
+        XX = X[0:-1, 0:-1].copy()
+        YY = Y[0:-1, 0:-1].copy()
+    else:
+        XX = X.copy()
+        YY = Y.copy()
+    return u1 * v2 - u2 * v1, XX, YY
+
+
+def compute_power_density_on_optical_elements(dict1,do_interpolation=True):
+    for key in dict1.keys():
+        print("<<<", key)
+
+    # first compute the area of the pixels at the screen used by usrgent
+
+    x = 1e-3 * dict1["X"]
+    y = 1e-3 * dict1["Y"]
+    X = numpy.outer(x, numpy.ones_like(y))
+    Y = numpy.outer(numpy.ones_like(x), y)
+
+    shapeXY = X.shape
+
+    AREA0,X0,Y0 = calculate_pixel_areas(X, Y)
+    # plot_scatter(X.flatten(), Y.flatten(), title="SCREEN")
+    print(AREA0, ">>>>", (x[1] - x[0]) * (y[1] - y[0]))
+    shapeXYbis = AREA0.shape
+
+    # now build maps for optical elements
+
+    try:
+        OE_FOOTPRINT = dict1["OE_FOOTPRINT"]
+        OE_IMAGE = dict1["OE_IMAGE"]
+        number_of_elements_traced = len(OE_FOOTPRINT)
+    except:
+        number_of_elements_traced = 0
+
+    print("Number of raytraced elements: %d"%number_of_elements_traced)
+
+    # AREAS_FACTOR_FOOTPRINT = []
+    # AREAS_FACTOR_IMAGE = []
+    POWER_DENSITY_FOOTPRINT = []
+    POWER_DENSITY_FOOTPRINT_H = []
+    POWER_DENSITY_FOOTPRINT_V = []
+
+    POWER_DENSITY_IMAGE = []
+    POWER_DENSITY_IMAGE_H = []
+    POWER_DENSITY_IMAGE_V = []
+
+    for element_index in range(number_of_elements_traced):
+        FOOTPRINT_H = OE_FOOTPRINT[element_index][0, :].copy().reshape(shapeXY)
+        FOOTPRINT_V = OE_FOOTPRINT[element_index][1, :].copy().reshape(shapeXY)
+        AREA_FOOTPRINT,XX_FOOTPRINT,YY_FOOTPRINT = calculate_pixel_areas(FOOTPRINT_H, FOOTPRINT_V)
+        areas_factor_footprint = numpy.abs(AREA0 / AREA_FOOTPRINT)
+        power_density_footprint = areas_factor_footprint * (dict1["Zlist"][element_index] - dict1["Zlist"][element_index+1])[0:(shapeXYbis[0]),0:(shapeXYbis[1])]
+
+
+        # plot_scatter(footprint_h.flatten(), AREA0.flatten() , title="OE %d" % (1 + element_index))
+
+        IMAGE_H = OE_IMAGE[element_index][0, :].copy().reshape(shapeXY)
+        IMAGE_V = OE_IMAGE[element_index][1, :].copy().reshape(shapeXY)
+        AREA_IMAGE,XX_IMAGE,YY_IMAGE = calculate_pixel_areas(IMAGE_H, IMAGE_V)
+        areas_factor_image = numpy.abs(AREA0 / AREA_IMAGE)
+        power_density_image = areas_factor_image * (dict1["Zlist"][element_index + 1])[0:(shapeXYbis[0]),0:(shapeXYbis[1])]
+
+        from scipy import interpolate
+        if do_interpolation:
+
+            XX_FOOTPRINT_old = XX_FOOTPRINT.copy()
+            YY_FOOTPRINT_old = YY_FOOTPRINT.copy()
+            xx_footprint = numpy.linspace(XX_FOOTPRINT_old.min(), XX_FOOTPRINT_old.max(), XX_FOOTPRINT_old.shape[0])
+            yy_footprint = numpy.linspace(YY_FOOTPRINT_old.min(), YY_FOOTPRINT_old.max(), YY_FOOTPRINT_old.shape[1])
+
+            XX_FOOTPRINT = numpy.outer(xx_footprint,numpy.ones_like(yy_footprint))
+            YY_FOOTPRINT = numpy.outer(numpy.ones_like(xx_footprint), yy_footprint)
+
+            power_density_footprint = interpolate.griddata(
+                (XX_FOOTPRINT_old.flatten(), YY_FOOTPRINT_old.flatten()),
+                power_density_footprint.flatten(),
+                (XX_FOOTPRINT, YY_FOOTPRINT), method='cubic',fill_value=0.0)
+
+            # print(">>>>> before: ", XX_FOOTPRINT_old.shape, YY_FOOTPRINT_old.shape, power_density_footprint.shape)
+            # print(">>>>> after: ", XX_FOOTPRINT.shape, YY_FOOTPRINT.shape, power_density_footprint.shape)
+
+            XX_IMAGE_old = XX_IMAGE.copy()
+            YY_IMAGE_old = YY_IMAGE.copy()
+            xx_image = numpy.linspace(XX_IMAGE_old.min(), XX_IMAGE_old.max(), XX_IMAGE_old.shape[0])
+            yy_image = numpy.linspace(YY_IMAGE_old.min(), YY_IMAGE_old.max(), YY_IMAGE_old.shape[1])
+
+            XX_IMAGE = numpy.outer(xx_image,numpy.ones_like(yy_image))
+            YY_IMAGE = numpy.outer(numpy.ones_like(xx_image), yy_image)
+
+            power_density_image = interpolate.griddata(
+                (XX_IMAGE_old.flatten(), YY_IMAGE_old.flatten()),
+                power_density_image.flatten(),
+                (XX_IMAGE, YY_IMAGE), method='cubic',fill_value=0.0)
+
+
+        # AREAS_FACTOR_FOOTPRINT.append( areas_factor_footprint )
+        POWER_DENSITY_FOOTPRINT.append( power_density_footprint )
+        POWER_DENSITY_FOOTPRINT_H.append(XX_FOOTPRINT)
+        POWER_DENSITY_FOOTPRINT_V.append(YY_FOOTPRINT)
+        # AREAS_FACTOR_IMAGE.append( areas_factor_image)
+        POWER_DENSITY_IMAGE.append(  power_density_image )
+        POWER_DENSITY_IMAGE_H.append(XX_IMAGE)
+        POWER_DENSITY_IMAGE_V.append(YY_IMAGE)
+
+        # POWER_DENSITY_FOOTPRINT.append( numpy.abs(AREA0 / AREA )
+
+    # dict1["AREAS_FACTOR_FOOTPRINT"] = AREAS_FACTOR_FOOTPRINT
+    # dict1["AREAS_FACTOR_IMAGE"] = AREAS_FACTOR_IMAGE
+    dict1["POWER_DENSITY_FOOTPRINT"] = POWER_DENSITY_FOOTPRINT
+    dict1["POWER_DENSITY_FOOTPRINT_H"] = POWER_DENSITY_FOOTPRINT_H
+    dict1["POWER_DENSITY_FOOTPRINT_V"] = POWER_DENSITY_FOOTPRINT_V
+    dict1["POWER_DENSITY_IMAGE"] = POWER_DENSITY_IMAGE
+    dict1["POWER_DENSITY_IMAGE_H"] = POWER_DENSITY_IMAGE_H
+    dict1["POWER_DENSITY_IMAGE_V"] = POWER_DENSITY_IMAGE_V
+
+    # print(">>>> shapes footprint",OE_FOOTPRINT[element_index].shape,footprint_h.shape,footprint_v.shape)
+    # print("??????",len(dict1["Zlist"]),dict1["Zlist"][0].shape)
+    return dict1
+
+
 
 
 if __name__ == "__main__":
@@ -1069,10 +1257,16 @@ if __name__ == "__main__":
         app.exec()
         w.saveSettings()
     elif test == 1:
-        dict1 = load_srcalc_output_file(filename="D_IDPower.TXT", skiprows=5, do_plot=1)
+        dict1 = load_srcalc_output_file(filename="D_IDPower.TXT", skiprows=5, do_plot=0)
+        dict2 = ray_tracing(dict1)
+        dict3 = compute_power_density_on_optical_elements(dict2)
+
+
     elif test == 2:
         dict1 = load_srcalc_output_file(filename="D_IDPower.TXT", skiprows=5, do_plot=0)
-        OE_FOOTPRINT, OE_IMAGE = ray_tracing(dict1)
+        dict2 = ray_tracing(dict1)
+        OE_FOOTPRINT = dict2["OE_FOOTPRINT"]
+        OE_IMAGE = dict2["OE_IMAGE"]
         print(OE_FOOTPRINT[0].shape)
         plot_scatter(OE_FOOTPRINT[0][0,:],OE_FOOTPRINT[0][1,:],plot_histograms=False,title="Footprint",show=False)
         plot_scatter(OE_IMAGE[0][0, :], OE_IMAGE[0][1, :], plot_histograms=False,title="Image")
