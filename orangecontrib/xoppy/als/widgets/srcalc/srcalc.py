@@ -87,7 +87,7 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
     SIGMAXP = Setting(5.7e-3)
     SIGMAY = Setting(14.7e-3)
     SIGMAYP = Setting(4.7e-3)
-    NELEMENTS = Setting(2)
+    NELEMENTS = Setting(1)
 
     EL0_SHAPE = Setting(2)
     EL0_POSITION = Setting(13.73)  # this is then copied from  SOURCE_SCREEN_DISTANCE
@@ -488,7 +488,7 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
         self.initializeTabs()
 
     def unitLabels(self):
-         labels =  ["Ring energy [eV]","Ring current [A]","Ky","Kx",
+         labels =  ["Ring energy [GeV]","Ring current [A]","Ky","Kx",
                  "Number of Periods","Period Length [m]",
                  "Sigma H [mm]", "Sigma Prime H [mrad]", "Sigma V [mm]", "Sigma Prime V [mrad]",
                  "Number of harmonics",
@@ -693,13 +693,19 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
                         #
                         if oe_n == 0:
                             title = 'Power density [W/mm2] at %4.1f m, Integrated Power: %6.1f W'%(self.SOURCE_SCREEN_DISTANCE,totPower)
+                            xtitle = 'H (urgent) [mm] (%d pixels)' % (calculated_data["X"].size)
+                            ytitle = 'V (urgent) [mm] (%d pixels)' % (calculated_data["Y"].size)
+                            x = calculated_data["X"]
+                            y = calculated_data["Y"]
                         else:
                             title = 'Power density [W/mm2] transmitted after element %d Integrated Power: %6.1f W'%(oe_n, totPower)
+                            xtitle = 'H [pixels]'
+                            ytitle = 'V [pixels]'
+                            x = numpy.arange(calculated_data["X"].size)
+                            y = numpy.arange(calculated_data["Y"].size)
                         index += 1
-                        self.plot_data2D(calculated_data["Zlist"][oe_n], calculated_data["X"], calculated_data["Y"], index, 0,
-                                         xtitle='H (urgent) [mm] (%d pixels)'%(calculated_data["X"].size),
-                                         ytitle='V (urgent) [mm] (%d pixels)'%(calculated_data["Y"].size),
-                                         title=title)
+                        self.plot_data2D(calculated_data["Zlist"][oe_n], x, y,  index, 0,
+                                         xtitle=xtitle, ytitle=ytitle, title=title)
                         #
                         # ray tracing results
                         #

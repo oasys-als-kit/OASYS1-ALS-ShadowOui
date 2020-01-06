@@ -2,6 +2,7 @@ recursive-include orangecontrib *.pyx
 recursive-include orangecontrib *.py
 
 recursive-include orangecontrib/shadow/als/widgets *.png *.svg *.ico *.jpg *.bmp
+recursive-include orangecontrib/xoppy/als/widgets *.png *.svg *.ico *.jpg *.bmp
 
 recursive-include orangecontrib/xoppy/als/util/bin/darwin *
 recursive-include orangecontrib/xoppy/als/util/bin/linux *
