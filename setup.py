@@ -7,7 +7,7 @@ import subprocess
 
 NAME = 'OASYS1-ALS-ShadowOui'
 
-VERSION = '0.0.11'
+VERSION = '0.0.12'
 ISRELEASED = False
 
 DESCRIPTION = 'WIDGETS DEVELOPED FOR ALS TO EXTEND SHADOWOUI FUNCTIONALITIES'
@@ -43,6 +43,7 @@ SETUP_REQUIRES = (
 
 INSTALL_REQUIRES = (
                     'setuptools',
+                    'shadow4>=0.0.11'
                    )
 
 if len({'develop', 'release', 'bdist_egg', 'bdist_rpm', 'bdist_wininst',

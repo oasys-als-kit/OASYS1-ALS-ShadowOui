@@ -20,7 +20,12 @@ import orangecanvas.resources as resources
 
 from oasys.util.oasys_util import EmittingStream, TTYGrabber
 
-from srxraylib.plot.gol import plot_scatter
+# from srxraylib.plot.gol import plot_scatter
+
+import syned.beamline.beamline as synedb
+import syned.storage_ring.magnetic_structures.insertion_device as synedid
+
+from syned.widget.widget_decorator import WidgetDecorator
 
 #
 # TO DO: uncomment import and delete class when moving to xoppy
@@ -53,11 +58,11 @@ class locations:
         return os.getcwd()
 
 
-class OWsrcalc(XoppyWidget):
+class OWsrcalc(XoppyWidget, WidgetDecorator):
     name = "SRCALC"
     id = "orange.widgets.srcalc"
     description = "Power Absorbed and Transmitted by Optical Elements"
-    icon = "icons/xoppy_xpower.png"
+    icon = "icons/srcalc.png"
     priority = 80
     category = ""
     keywords = ["srcalc", "power"]
@@ -86,8 +91,8 @@ class OWsrcalc(XoppyWidget):
 
     EL0_SHAPE = Setting(2)
     EL0_POSITION = Setting(13.73)  # this is then copied from  SOURCE_SCREEN_DISTANCE
-    EL0_P = Setting(0.0)
-    EL0_Q = Setting(0.0)
+    EL0_P = Setting(10.0)
+    EL0_Q = Setting(10.0)
     EL0_ANG = Setting(88.75)
     EL0_THICKNESS = Setting(1000)
     EL0_RELATIVE_TO_PREVIOUS = Setting(0)
@@ -95,8 +100,8 @@ class OWsrcalc(XoppyWidget):
 
     EL1_SHAPE = Setting(2)
     EL1_POSITION = Setting(10.0)
-    EL1_P = Setting(0.0)
-    EL1_Q = Setting(0.0)
+    EL1_P = Setting(10.0)
+    EL1_Q = Setting(10.0)
     EL1_ANG = Setting(88.75)
     EL1_THICKNESS = Setting(1000)
     EL1_RELATIVE_TO_PREVIOUS = Setting(2)
@@ -104,8 +109,8 @@ class OWsrcalc(XoppyWidget):
 
     EL2_SHAPE = Setting(2)
     EL2_POSITION = Setting(10.0)
-    EL2_P = Setting(0.0)
-    EL2_Q = Setting(0.0)
+    EL2_P = Setting(10.0)
+    EL2_Q = Setting(10.0)
     EL2_ANG = Setting(88.75)
     EL2_THICKNESS = Setting(1000)
     EL2_RELATIVE_TO_PREVIOUS = Setting(0)
@@ -113,8 +118,8 @@ class OWsrcalc(XoppyWidget):
 
     EL3_SHAPE = Setting(2)
     EL3_POSITION = Setting(10.0)
-    EL3_P = Setting(0.0)
-    EL3_Q = Setting(0.0)
+    EL3_P = Setting(10.0)
+    EL3_Q = Setting(10.0)
     EL3_ANG = Setting(88.75)
     EL3_THICKNESS = Setting(1000)
     EL3_RELATIVE_TO_PREVIOUS = Setting(0)
@@ -122,8 +127,8 @@ class OWsrcalc(XoppyWidget):
 
     EL4_SHAPE = Setting(2)
     EL4_POSITION = Setting(10.0)
-    EL4_P = Setting(0.0)
-    EL4_Q = Setting(0.0)
+    EL4_P = Setting(10.0)
+    EL4_Q = Setting(10.0)
     EL4_ANG = Setting(88.75)
     EL4_THICKNESS = Setting(1000)
     EL4_RELATIVE_TO_PREVIOUS = Setting(0)
@@ -131,17 +136,17 @@ class OWsrcalc(XoppyWidget):
 
     EL5_SHAPE = Setting(2)
     EL5_POSITION = Setting(10.0)
-    EL5_P = Setting(0.0)
-    EL5_Q = Setting(0.0)
+    EL5_P = Setting(10.0)
+    EL5_Q = Setting(10.0)
     EL5_ANG = Setting(88.75)
     EL5_THICKNESS = Setting(1000)
     EL5_RELATIVE_TO_PREVIOUS = Setting(0)
     EL5_COATING = Setting(9)
 
-
-    FILE_DUMP = 0
-
     DO_PLOT_GRID = Setting(0)
+    DUMP_SHADOW_FILES = Setting(0)
+
+    inputs = WidgetDecorator.syned_input_data()
 
     def __init__(self):
         super().__init__()
@@ -156,8 +161,6 @@ class OWsrcalc(XoppyWidget):
         pass
 
     def build_gui(self):
-
-
 
         self.leftWidgetPart.setSizePolicy(QSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding))
         self.leftWidgetPart.setMaximumWidth(self.CONTROL_AREA_WIDTH + 20)
@@ -176,7 +179,7 @@ class OWsrcalc(XoppyWidget):
         ########
         idx += 1
         box1 = gui.widgetBox(box)
-        oasysgui.lineEdit(box1, self, "RING_ENERGY",
+        self.id_RING_ENERGY = oasysgui.lineEdit(box1, self, "RING_ENERGY",
                      label=self.unitLabels()[idx], addSpace=False,
                     valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
         self.show_at(self.unitFlags()[idx], box1)
@@ -184,7 +187,7 @@ class OWsrcalc(XoppyWidget):
         ########
         idx += 1
         box1 = gui.widgetBox(box)
-        oasysgui.lineEdit(box1, self, "RING_CURRENT",
+        self.id_RING_CURRENT = oasysgui.lineEdit(box1, self, "RING_CURRENT",
                      label=self.unitLabels()[idx], addSpace=False,
                     valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
         self.show_at(self.unitFlags()[idx], box1)
@@ -192,7 +195,7 @@ class OWsrcalc(XoppyWidget):
         ########
         idx += 1
         box1 = gui.widgetBox(box)
-        oasysgui.lineEdit(box1, self, "KY",
+        self.id_KY = oasysgui.lineEdit(box1, self, "KY",
                      label=self.unitLabels()[idx], addSpace=False,
                     valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
         self.show_at(self.unitFlags()[idx], box1)
@@ -200,7 +203,7 @@ class OWsrcalc(XoppyWidget):
         ########
         idx += 1
         box1 = gui.widgetBox(box)
-        oasysgui.lineEdit(box1, self, "KX",
+        self.id_KX = oasysgui.lineEdit(box1, self, "KX",
                      label=self.unitLabels()[idx], addSpace=False,
                     valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
         self.show_at(self.unitFlags()[idx], box1)
@@ -208,7 +211,7 @@ class OWsrcalc(XoppyWidget):
         ########
         idx += 1
         box1 = gui.widgetBox(box)
-        oasysgui.lineEdit(box1, self, "NUMBER_OF_PERIODS",
+        self.id_NUMBER_OF_PERIODS = oasysgui.lineEdit(box1, self, "NUMBER_OF_PERIODS",
                      label=self.unitLabels()[idx], addSpace=False,
                     valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
         self.show_at(self.unitFlags()[idx], box1)
@@ -216,7 +219,7 @@ class OWsrcalc(XoppyWidget):
         ########
         idx += 1
         box1 = gui.widgetBox(box)
-        oasysgui.lineEdit(box1, self, "PERIOD_LENGTH",
+        self.id_PERIOD_LENGTH = oasysgui.lineEdit(box1, self, "PERIOD_LENGTH",
                      label=self.unitLabels()[idx], addSpace=False,
                     valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
         self.show_at(self.unitFlags()[idx], box1)
@@ -224,7 +227,7 @@ class OWsrcalc(XoppyWidget):
         ########
         idx += 1
         box1 = gui.widgetBox(box)
-        oasysgui.lineEdit(box1, self, "SIGMAX",
+        self.id_SIGMAX = oasysgui.lineEdit(box1, self, "SIGMAX",
                      label=self.unitLabels()[idx], addSpace=False,
                     valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
         self.show_at(self.unitFlags()[idx], box1)
@@ -232,7 +235,7 @@ class OWsrcalc(XoppyWidget):
         ########
         idx += 1
         box1 = gui.widgetBox(box)
-        oasysgui.lineEdit(box1, self, "SIGMAXP",
+        self.id_SIGMAXP = oasysgui.lineEdit(box1, self, "SIGMAXP",
                      label=self.unitLabels()[idx], addSpace=False,
                     valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
         self.show_at(self.unitFlags()[idx], box1)
@@ -240,7 +243,7 @@ class OWsrcalc(XoppyWidget):
         ########
         idx += 1
         box1 = gui.widgetBox(box)
-        oasysgui.lineEdit(box1, self, "SIGMAY",
+        self.id_SIGMAY = oasysgui.lineEdit(box1, self, "SIGMAY",
                      label=self.unitLabels()[idx], addSpace=False,
                     valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
         self.show_at(self.unitFlags()[idx], box1)
@@ -248,7 +251,7 @@ class OWsrcalc(XoppyWidget):
         ########
         idx += 1
         box1 = gui.widgetBox(box)
-        oasysgui.lineEdit(box1, self, "SIGMAYP",
+        self.id_SIGMAYP = oasysgui.lineEdit(box1, self, "SIGMAYP",
                      label=self.unitLabels()[idx], addSpace=False,
                     valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
         self.show_at(self.unitFlags()[idx], box1)
@@ -436,32 +439,34 @@ class OWsrcalc(XoppyWidget):
 
 
 
-        #widget index 42
-        idx += 1
-        box1 = gui.widgetBox(box)
-        gui.separator(box1, height=7)
 
-        gui.comboBox(box1, self, "FILE_DUMP",
-                     label=self.unitLabels()[idx], addSpace=False,
-                    items=['No', 'Yes (srcalc.h5) [NOT YET WORKING]'],
-                    valueType=int, orientation="horizontal", labelWidth=250)
-
-        self.show_at(self.unitFlags()[idx], box1)
-
-
-        #widget index 43
+        #widget index xx
         idx += 1
         box1 = gui.widgetBox(box)
         gui.separator(box1, height=7)
 
         gui.comboBox(box1, self, "DO_PLOT_GRID",
-                     label=self.unitLabels()[idx], addSpace=False,
+                    label=self.unitLabels()[idx], addSpace=False,
                     items=['No', 'Yes'],
                     valueType=int, orientation="horizontal", labelWidth=250)
 
         self.show_at(self.unitFlags()[idx], box1)
 
+        #widget index xx
+        idx += 1
+        box1 = gui.widgetBox(box)
+        gui.separator(box1, height=7)
 
+        gui.comboBox(box1, self, "DUMP_SHADOW_FILES",
+                     label=self.unitLabels()[idx], addSpace=False,
+                    items=['No', 'Yes (begin.dat mirr.xx star.xx'],
+                    valueType=int, orientation="horizontal", labelWidth=250)
+
+        self.show_at(self.unitFlags()[idx], box1)
+
+        #
+        #
+        #
         self.mirror_tabs_visibility()
 
     def setdistance(self):
@@ -502,7 +507,8 @@ class OWsrcalc(XoppyWidget):
                 'Coating',
                 ]
 
-         labels = labels + ["Dump file","Plot raytracing grid"]
+         labels = labels + ["Plot ray-traced grid","Dump SHADOW files"]
+
          return labels
 
 
@@ -530,27 +536,136 @@ class OWsrcalc(XoppyWidget):
 
 
     def check_fields(self):
-        pass
 
-        # if self.SOURCE == 1:
-        #     self.ENER_MIN = congruence.checkPositiveNumber(self.ENER_MIN, "Energy from")
-        #     self.ENER_MAX = congruence.checkStrictlyPositiveNumber(self.ENER_MAX, "Energy to")
-        #     congruence.checkLessThan(self.ENER_MIN, self.ENER_MAX, "Energy from", "Energy to")
-        #     self.NPOINTS = congruence.checkStrictlyPositiveNumber(self.ENER_N, "Energy Points")
-        # elif self.SOURCE == 2:
-        #     congruence.checkFile(self.SOURCE_FILE)
+        self.RING_ENERGY       = congruence.checkPositiveNumber(self.RING_ENERGY      , "RING_ENERGY      ")
+        self.RING_CURRENT      = congruence.checkPositiveNumber(self.RING_CURRENT     , "RING_CURRENT     ")
+        self.KY                = congruence.checkPositiveNumber(self.KY               , "KY               ")
+        self.KX                = congruence.checkPositiveNumber(self.KX               , "KX               ")
+        self.NUMBER_OF_PERIODS = congruence.checkPositiveNumber(self.NUMBER_OF_PERIODS, "NUMBER_OF_PERIODS")
+        self.PERIOD_LENGTH     = congruence.checkPositiveNumber(self.PERIOD_LENGTH    , "PERIOD_LENGTH    ")
 
-        # if self.NELEMENTS >= 1:
-        #     self.EL1_FOR = congruence.checkEmptyString(self.EL1_FOR, "1st oe formula")
-        #
-        #     if self.EL1_FLAG == 0: # filter
-        #         self.EL1_THI = congruence.checkStrictlyPositiveNumber(self.EL1_THI, "1st oe filter thickness")
-        #     elif self.EL1_FLAG == 1: # mirror
-        #         self.EL1_ANG = congruence.checkStrictlyPositiveNumber(self.EL1_ANG, "1st oe mirror angle")
-        #         self.EL1_ROU = congruence.checkPositiveNumber(self.EL1_ROU, "1st oe mirror roughness")
-        #
-        #     if not self.EL1_DEN.strip() == "?":
-        #         self.EL1_DEN = str(congruence.checkStrictlyPositiveNumber(float(congruence.checkNumber(self.EL1_DEN, "1st oe density")), "1st oe density"))
+        self.NUMBER_OF_HARMONICS = congruence.checkNumber(self.NUMBER_OF_HARMONICS, "NUMBER_OF_HARMONICS")
+
+        self.SOURCE_SCREEN_DISTANCE = congruence.checkPositiveNumber(self.SOURCE_SCREEN_DISTANCE, "SOURCE_SCREEN_DISTANCE")
+        self.HORIZONTAL_ACCEPTANCE  = congruence.checkPositiveNumber(self.HORIZONTAL_ACCEPTANCE , "HORIZONTAL_ACCEPTANCE ")
+        self.VERTICAL_ACCEPTANCE    = congruence.checkPositiveNumber(self.VERTICAL_ACCEPTANCE   , "VERTICAL_ACCEPTANCE   ")
+        self.NUMBER_OF_POINTS_H     = congruence.checkPositiveNumber(self.NUMBER_OF_POINTS_H    , "NUMBER_OF_POINTS_H    ")
+        self.NUMBER_OF_POINTS_V     = congruence.checkPositiveNumber(self.NUMBER_OF_POINTS_V    , "NUMBER_OF_POINTS_V    ")
+        self.ELECTRON_SIGMAS        = congruence.checkPositiveNumber(self.ELECTRON_SIGMAS       , "ELECTRON_SIGMAS       ")
+        self.SIGMAX                 = congruence.checkPositiveNumber(self.SIGMAX                , "SIGMAX                ")
+        self.SIGMAXP                = congruence.checkPositiveNumber(self.SIGMAXP               , "SIGMAXP               ")
+        self.SIGMAY                 = congruence.checkPositiveNumber(self.SIGMAY                , "SIGMAY                ")
+        self.SIGMAYP                = congruence.checkPositiveNumber(self.SIGMAYP               , "SIGMAYP               ")
+
+        if self.NELEMENTS >=6:
+            self.EL5_POSITION  = congruence.checkPositiveNumber(self.EL5_POSITION,  "EL5_POSITION")
+            self.EL5_P         = congruence.checkPositiveNumber(self.EL5_P,         "EL5_P")
+            self.EL5_Q         = congruence.checkPositiveNumber(self.EL5_Q,         "EL5_Q")
+            self.EL5_ANG       = congruence.checkPositiveNumber(self.EL5_ANG,       "EL5_ANG")
+            self.EL5_THICKNESS = congruence.checkPositiveNumber(self.EL5_THICKNESS, "EL5_THICKNESS")
+
+        if self.NELEMENTS >=5:
+            self.EL4_POSITION  = congruence.checkPositiveNumber(self.EL4_POSITION,  "EL4_POSITION")
+            self.EL4_P         = congruence.checkPositiveNumber(self.EL4_P,         "EL4_P")
+            self.EL4_Q         = congruence.checkPositiveNumber(self.EL4_Q,         "EL4_Q")
+            self.EL4_ANG       = congruence.checkPositiveNumber(self.EL4_ANG,       "EL4_ANG")
+            self.EL4_THICKNESS = congruence.checkPositiveNumber(self.EL4_THICKNESS, "EL4_THICKNESS")
+
+        if self.NELEMENTS >=4:
+            self.EL3_POSITION  = congruence.checkPositiveNumber(self.EL3_POSITION,  "EL3_POSITION")
+            self.EL3_P         = congruence.checkPositiveNumber(self.EL3_P,         "EL3_P")
+            self.EL3_Q         = congruence.checkPositiveNumber(self.EL3_Q,         "EL3_Q")
+            self.EL3_ANG       = congruence.checkPositiveNumber(self.EL3_ANG,       "EL3_ANG")
+            self.EL3_THICKNESS = congruence.checkPositiveNumber(self.EL3_THICKNESS, "EL3_THICKNESS")
+
+        if self.NELEMENTS >=3:
+            self.EL2_POSITION  = congruence.checkPositiveNumber(self.EL2_POSITION,  "EL2_POSITION")
+            self.EL2_P         = congruence.checkPositiveNumber(self.EL2_P,         "EL2_P")
+            self.EL2_Q         = congruence.checkPositiveNumber(self.EL2_Q,         "EL2_Q")
+            self.EL2_ANG       = congruence.checkPositiveNumber(self.EL2_ANG,       "EL2_ANG")
+            self.EL2_THICKNESS = congruence.checkPositiveNumber(self.EL2_THICKNESS, "EL2_THICKNESS")
+
+        if self.NELEMENTS >=2:
+            self.EL1_POSITION  = congruence.checkPositiveNumber(self.EL1_POSITION,  "EL1_POSITION")
+            self.EL1_P         = congruence.checkPositiveNumber(self.EL1_P,         "EL1_P")
+            self.EL1_Q         = congruence.checkPositiveNumber(self.EL1_Q,         "EL1_Q")
+            self.EL1_ANG       = congruence.checkPositiveNumber(self.EL1_ANG,       "EL1_ANG")
+            self.EL1_THICKNESS = congruence.checkPositiveNumber(self.EL1_THICKNESS, "EL1_THICKNESS")
+
+        if self.NELEMENTS >=1:
+            self.EL0_POSITION  = congruence.checkPositiveNumber(self.EL0_POSITION,  "EL0_POSITION")
+            self.EL0_P         = congruence.checkPositiveNumber(self.EL0_P,         "EL0_P")
+            self.EL0_Q         = congruence.checkPositiveNumber(self.EL0_Q,         "EL0_Q")
+            self.EL0_ANG       = congruence.checkPositiveNumber(self.EL0_ANG,       "EL0_ANG")
+            self.EL0_THICKNESS = congruence.checkPositiveNumber(self.EL0_THICKNESS, "EL0_THICKNESS")
+
+    def receive_syned_data(self, data):
+
+        if isinstance(data, synedb.Beamline):
+            if not data._light_source is None and isinstance(data._light_source._magnetic_structure, synedid.InsertionDevice):
+                light_source = data._light_source
+
+                # RING_ENERGY = Setting(2.0)
+                # RING_CURRENT = Setting(0.5)
+                # KY = Setting(3.07)
+                # KX = Setting(0.0)
+                # NUMBER_OF_PERIODS = Setting(137)
+                # PERIOD_LENGTH = Setting(0.0288)
+                # NUMBER_OF_HARMONICS = Setting(-49)
+                # ELECTRON_SIGMAS = Setting(4)
+                # SIGMAX = Setting(12.1e-3)
+                # SIGMAXP = Setting(5.7e-3)
+                # SIGMAY = Setting(14.7e-3)
+                # SIGMAYP = Setting(4.7e-3)
+                # NELEMENTS = Setting(2)
+
+
+                self.RING_ENERGY = light_source._electron_beam._energy_in_GeV
+                self.RING_CURRENT = light_source._electron_beam._current
+
+                x, xp, y, yp = light_source._electron_beam.get_sigmas_all()
+
+                self.SIGMAX = x * 1e3
+                self.SIGMAY = y * 1e3
+                self.SIGMAXP = xp * 1e3
+                self.SIGMAYP = yp * 1e3
+                self.PERIOD_LENGTH = light_source._magnetic_structure._period_length
+                self.NUMBER_OF_PERIODS = int(light_source._magnetic_structure._number_of_periods)
+                self.KY = light_source._magnetic_structure._K_vertical
+                self.KX = light_source._magnetic_structure._K_horizontal
+
+                self.set_enabled(False)
+
+            else:
+                self.set_enabled(True)
+                # raise ValueError("Syned data not correct")
+        else:
+            self.set_enabled(True)
+            # raise ValueError("Syned data not correct")
+
+    def set_enabled(self,value):
+        if value == True:
+                self.id_RING_ENERGY.setEnabled(True)
+                self.id_SIGMAX.setEnabled(True)
+                self.id_SIGMAY.setEnabled(True)
+                self.id_SIGMAXP.setEnabled(True)
+                self.id_SIGMAYP.setEnabled(True)
+                self.id_RING_CURRENT.setEnabled(True)
+                self.id_PERIOD_LENGTH.setEnabled(True)
+                self.id_NUMBER_OF_PERIODS.setEnabled(True)
+                self.id_KX.setEnabled(True)
+                self.id_KY.setEnabled(True)
+        else:
+                self.id_RING_ENERGY.setEnabled(False)
+                self.id_SIGMAX.setEnabled(False)
+                self.id_SIGMAY.setEnabled(False)
+                self.id_SIGMAXP.setEnabled(False)
+                self.id_SIGMAYP.setEnabled(False)
+                self.id_RING_CURRENT.setEnabled(False)
+                self.id_PERIOD_LENGTH.setEnabled(False)
+                self.id_NUMBER_OF_PERIODS.setEnabled(False)
+                self.id_KX.setEnabled(False)
+                self.id_KY.setEnabled(False)
 
 
     def do_xoppy_calculation(self):
@@ -560,7 +675,6 @@ class OWsrcalc(XoppyWidget):
         return calculation_output
 
     def plot_results(self, calculated_data, progressBarValue=80):
-
 
         if not self.view_type == 0:
             if not calculated_data is None:
@@ -631,23 +745,17 @@ class OWsrcalc(XoppyWidget):
     def get_data_exchange_widget_name(self):
         return "SRCALC"
 
-
     def getTitles(self):
         titles = []
-
-        # titles.append("[oe 0] Source screen")
-
         for oe_n in range(self.NELEMENTS+1):
             titles.append("[oe %d (urgent)]"%oe_n)
             if oe_n > 0:
                 if self.DO_PLOT_GRID:
-                    titles.append("[oe %d (ray tracing mirror grid)]" % oe_n)
-                    titles.append("[oe %d (ray tracing image grid)]" % oe_n)
+                    titles.append("[oe %d (ray-traced mirror grid)]" % oe_n)
+                    titles.append("[oe %d (ray-traced image grid)]" % oe_n)
                 titles.append("[oe %d (ray tracing mirror power)]" % oe_n)
                 titles.append("[oe %d (ray tracing image power)]" % oe_n)
-
         return titles
-
 
     def xoppy_calc_srcalc(self):
 
@@ -660,14 +768,13 @@ class OWsrcalc(XoppyWidget):
 
         run_flag = True
 
-        self.progressBarSet(0)
 
+        self.progressBarSet(0)
 
         sys.stdout = EmittingStream(textWritten=self.writeStdOut)
 
-        if True:  # self.trace_shadow:
-            grabber = TTYGrabber()
-            grabber.start()
+        grabber = TTYGrabber()
+        grabber.start()
 
 
         if run_flag:
@@ -775,16 +882,17 @@ class OWsrcalc(XoppyWidget):
             print("\n--------------------------------------------------------\n")
 
 
-        if True:  # self.trace_shadow:
-            grabber.stop()
 
-            for row in grabber.ttyData:
-                self.writeStdOut(row)
+        grabber.stop()
+
+        for row in grabber.ttyData:
+            self.writeStdOut(row)
 
         self.progressBarSet(99)
 
-
-
+        #
+        # read urgent file
+        #
         f = open("O_IDPower.TXT",'r')
         txt = f.read()
         f.close()
@@ -792,73 +900,71 @@ class OWsrcalc(XoppyWidget):
 
         out_dictionary = load_srcalc_output_file(filename="D_IDPower.TXT")
 
+        #
+        # do additional calculations (ray-tracing and power density maps)
+        # Note that the results of these two calculations are added to out_dictionary
 
-        if True:
-            #
-            # do the ray tracing
-            #
-            oe_parameters = {
-                "EL0_SHAPE":                self.EL0_SHAPE               ,
-                "EL0_POSITION":             self.EL0_POSITION            ,
-                "EL0_P":                    self.EL0_P                   ,
-                "EL0_Q":                    self.EL0_Q                   ,
-                "EL0_ANG":                  self.EL0_ANG                 ,
-                "EL0_THICKNESS":            self.EL0_THICKNESS           ,
-                "EL0_RELATIVE_TO_PREVIOUS": self.EL0_RELATIVE_TO_PREVIOUS,
-                "EL1_SHAPE":                self.EL1_SHAPE               ,
-                "EL1_POSITION":             self.EL1_POSITION            ,
-                "EL1_P":                    self.EL1_P                   ,
-                "EL1_Q":                    self.EL1_Q                   ,
-                "EL1_ANG":                  self.EL1_ANG                 ,
-                "EL1_THICKNESS":            self.EL1_THICKNESS           ,
-                "EL1_RELATIVE_TO_PREVIOUS": self.EL1_RELATIVE_TO_PREVIOUS,
-                "EL2_SHAPE":                self.EL2_SHAPE               ,
-                "EL2_POSITION":             self.EL2_POSITION            ,
-                "EL2_P":                    self.EL2_P                   ,
-                "EL2_Q":                    self.EL2_Q                   ,
-                "EL2_ANG":                  self.EL2_ANG                 ,
-                "EL2_THICKNESS":            self.EL2_THICKNESS           ,
-                "EL2_RELATIVE_TO_PREVIOUS": self.EL2_RELATIVE_TO_PREVIOUS,
-                "EL3_SHAPE":                self.EL3_SHAPE               ,
-                "EL3_POSITION":             self.EL3_POSITION            ,
-                "EL3_P":                    self.EL3_P                   ,
-                "EL3_Q":                    self.EL3_Q                   ,
-                "EL3_ANG":                  self.EL3_ANG                 ,
-                "EL3_THICKNESS":            self.EL3_THICKNESS           ,
-                "EL3_RELATIVE_TO_PREVIOUS": self.EL3_RELATIVE_TO_PREVIOUS,
-                "EL4_SHAPE":                self.EL4_SHAPE               ,
-                "EL4_POSITION":             self.EL4_POSITION            ,
-                "EL4_P":                    self.EL4_P                   ,
-                "EL4_Q":                    self.EL4_Q                   ,
-                "EL4_ANG":                  self.EL4_ANG                 ,
-                "EL4_THICKNESS":            self.EL4_THICKNESS           ,
-                "EL4_RELATIVE_TO_PREVIOUS": self.EL4_RELATIVE_TO_PREVIOUS,
-                "EL5_SHAPE":                self.EL5_SHAPE               ,
-                "EL5_POSITION":             self.EL5_POSITION            ,
-                "EL5_P":                    self.EL5_P                   ,
-                "EL5_Q":                    self.EL5_Q                   ,
-                "EL5_ANG":                  self.EL5_ANG                 ,
-                "EL5_THICKNESS":            self.EL5_THICKNESS           ,
-                "EL5_RELATIVE_TO_PREVIOUS": self.EL5_RELATIVE_TO_PREVIOUS,
+        #
+        # do the ray tracing
+        #
+        oe_parameters = {
+            "EL0_SHAPE":                self.EL0_SHAPE               ,
+            "EL0_POSITION":             self.EL0_POSITION            ,
+            "EL0_P":                    self.EL0_P                   ,
+            "EL0_Q":                    self.EL0_Q                   ,
+            "EL0_ANG":                  self.EL0_ANG                 ,
+            "EL0_THICKNESS":            self.EL0_THICKNESS           ,
+            "EL0_RELATIVE_TO_PREVIOUS": self.EL0_RELATIVE_TO_PREVIOUS,
+            "EL1_SHAPE":                self.EL1_SHAPE               ,
+            "EL1_POSITION":             self.EL1_POSITION            ,
+            "EL1_P":                    self.EL1_P                   ,
+            "EL1_Q":                    self.EL1_Q                   ,
+            "EL1_ANG":                  self.EL1_ANG                 ,
+            "EL1_THICKNESS":            self.EL1_THICKNESS           ,
+            "EL1_RELATIVE_TO_PREVIOUS": self.EL1_RELATIVE_TO_PREVIOUS,
+            "EL2_SHAPE":                self.EL2_SHAPE               ,
+            "EL2_POSITION":             self.EL2_POSITION            ,
+            "EL2_P":                    self.EL2_P                   ,
+            "EL2_Q":                    self.EL2_Q                   ,
+            "EL2_ANG":                  self.EL2_ANG                 ,
+            "EL2_THICKNESS":            self.EL2_THICKNESS           ,
+            "EL2_RELATIVE_TO_PREVIOUS": self.EL2_RELATIVE_TO_PREVIOUS,
+            "EL3_SHAPE":                self.EL3_SHAPE               ,
+            "EL3_POSITION":             self.EL3_POSITION            ,
+            "EL3_P":                    self.EL3_P                   ,
+            "EL3_Q":                    self.EL3_Q                   ,
+            "EL3_ANG":                  self.EL3_ANG                 ,
+            "EL3_THICKNESS":            self.EL3_THICKNESS           ,
+            "EL3_RELATIVE_TO_PREVIOUS": self.EL3_RELATIVE_TO_PREVIOUS,
+            "EL4_SHAPE":                self.EL4_SHAPE               ,
+            "EL4_POSITION":             self.EL4_POSITION            ,
+            "EL4_P":                    self.EL4_P                   ,
+            "EL4_Q":                    self.EL4_Q                   ,
+            "EL4_ANG":                  self.EL4_ANG                 ,
+            "EL4_THICKNESS":            self.EL4_THICKNESS           ,
+            "EL4_RELATIVE_TO_PREVIOUS": self.EL4_RELATIVE_TO_PREVIOUS,
+            "EL5_SHAPE":                self.EL5_SHAPE               ,
+            "EL5_POSITION":             self.EL5_POSITION            ,
+            "EL5_P":                    self.EL5_P                   ,
+            "EL5_Q":                    self.EL5_Q                   ,
+            "EL5_ANG":                  self.EL5_ANG                 ,
+            "EL5_THICKNESS":            self.EL5_THICKNESS           ,
+            "EL5_RELATIVE_TO_PREVIOUS": self.EL5_RELATIVE_TO_PREVIOUS,
 
-            }
+        }
 
-            out_dictionary_with_ray_tracing = ray_tracing(out_dictionary,
-                                                 SOURCE_SCREEN_DISTANCE=self.SOURCE_SCREEN_DISTANCE,
-                                                 number_of_elements=self.NELEMENTS,
-                                                 oe_parameters=oe_parameters,
-                                                 )
-
-            out_dictionary_with_power_density = compute_power_density_on_optical_elements(out_dictionary_with_ray_tracing)
-
-            # # add ray tracing results to output
-            # out_dictionary["OE_FOOTPRINT"] = OE_FOOTPRINT
-            # out_dictionary["OE_IMAGE"] = OE_IMAGE
-            # plot_scatter(OE_FOOTPRINT[0][0,:],OE_FOOTPRINT[0][1,:],plot_histograms=False,title="Footprint",show=False)
-            # plot_scatter(OE_IMAGE[0][0, :], OE_IMAGE[0][1, :], plot_histograms=False,title="Image")
-
+        out_dictionary_with_ray_tracing = ray_tracing(out_dictionary,
+                                             SOURCE_SCREEN_DISTANCE=self.SOURCE_SCREEN_DISTANCE,
+                                             number_of_elements=self.NELEMENTS,
+                                             oe_parameters=oe_parameters,
+                                             )
+        #
+        # calculate power density maps
+        #
+        out_dictionary_with_power_density = compute_power_density_on_optical_elements(out_dictionary_with_ray_tracing)
 
         return out_dictionary_with_power_density
+
     #
     # overwritten methods
     #
@@ -882,6 +988,8 @@ class OWsrcalc(XoppyWidget):
         self.plot_canvas[plot_canvas_index].setGraphTitle(title)
 
         self.tab[tabs_canvas_index].layout().addWidget(self.plot_canvas[plot_canvas_index])
+
+
 #
 # auxiliar functions
 #
@@ -947,10 +1055,6 @@ def load_srcalc_output_file(filename="D_IDPower.TXT",skiprows=5,four_quadrants=T
 
     return out_dictionary
 
-# def 2d_interpolation(x,y,power_density):
-#
-#     return None # X,Y,P
-
 
 def ray_tracing(
         out_dictionary,
@@ -958,17 +1062,15 @@ def ray_tracing(
         number_of_elements=1,
         oe_parameters=  {
             "EL0_SHAPE":2,"EL0_POSITION":13.73,"EL0_P":0.0,"EL0_Q":0.0,"EL0_ANG":88.75,"EL0_THICKNESS":1000,"EL0_RELATIVE_TO_PREVIOUS":2,
-                        } ):
+                        },
+        dump_shadow_files=True):
 
     import shadow4
     from shadow4.beam.beam import Beam
     from shadow4.compatibility.beam3 import Beam3
 
     from shadow4.optical_surfaces.conic import Conic
-
-
-    for key in out_dictionary.keys():
-        print(">>>> ",key)
+    from shadow4.optical_surfaces.toroid import Toroid
 
     #
     # compute shadow beam from urgent results
@@ -986,14 +1088,11 @@ def ray_tracing(
     beam.set_column(5, VY.flatten())
     beam.set_column(6, VZ.flatten())
 
-    Beam3.initialize_from_shadow4_beam(beam).write('/home/manuel/Oasys/begin.dat')
-    # beam3 = Beam3.initialize_from_shadow4_beam(beam)
-    # beam3.write('/home/manuel/Oasys/begin.dat')
-
+    if dump_shadow_files:
+        Beam3.initialize_from_shadow4_beam(beam).write('begin.dat')
 
     OE_FOOTPRINT = []
     OE_IMAGE = []
-
 
     for oe_index in range(number_of_elements):
 
@@ -1012,8 +1111,13 @@ def ray_tracing(
             alpha = 180.0 * numpy.pi / 180
 
 
-        if   oe_parameters["EL%d_SHAPE"%oe_index] == 0:     # "Toroidal mirror",
-            raise Exception("Not implemented")
+        if oe_parameters["EL%d_SHAPE"%oe_index] == 0:     # "Toroidal mirror",
+            is_conic = False
+            toroid = Toroid()
+            toroid.set_from_focal_distances(
+                oe_parameters["EL%d_P" % oe_index],
+                oe_parameters["EL%d_Q" % oe_index],
+                theta_grazing)
         elif oe_parameters["EL%d_SHAPE"%oe_index] == 1:     # "Spherical mirror",
             is_conic = True
             ccc = Conic.initialize_as_sphere_from_focal_distances(
@@ -1056,60 +1160,45 @@ def ray_tracing(
 
         newbeam = beam.duplicate()
 
+
+        #
+        # put beam in mirror reference system
+        #
+
+        newbeam.rotate(alpha, axis=2)
+        newbeam.rotate(theta_grazing, axis=1)
+        newbeam.translation([0.0, -p * numpy.cos(theta_grazing), p * numpy.sin(theta_grazing)])
+
+        #
+        # reflect beam in the mirror surface and dump mirr.01
+        #
         if is_conic:
-            #
-            # put beam in mirror reference system
-            #
-            # TODO: calculate rotation matrices? Invert them for putting back to the lab system?
-
-            newbeam.rotate(alpha, axis=2)
-            newbeam.rotate(theta_grazing, axis=1)
-            newbeam.translation([0.0, -p * numpy.cos(theta_grazing), p * numpy.sin(theta_grazing)])
-
-            #
-            # reflect beam in the mirror surface and dump mirr.01
-            #
+            print("Element index %d is CONIC :" % oe_index, ccc.info())
             newbeam = ccc.apply_specular_reflection_on_beam(newbeam)
-            Beam3.initialize_from_shadow4_beam(newbeam).write('/home/manuel/Oasys/minimirr.01')
-            OE_FOOTPRINT.append( newbeam.get_columns((2, 1)) )
-
-            #
-            # put beam in lab frame and compute image
-            #
-            newbeam.rotate(theta_grazing, axis=1)
-
-            # TODO what about alpha?
-            newbeam.rotate(-alpha, axis=2) #?????????????????????????????????
-
-            newbeam.retrace(q, resetY=True)
-            Beam3.initialize_from_shadow4_beam(newbeam).write('/home/manuel/Oasys/ministar.01')
-            OE_IMAGE.append(newbeam.get_columns((1, 3)))
         else:
-            raise Exception("Mirror is not conic. Not yet implemented.")
+            print("Element index %d is TOROIDAL :" % oe_index, toroid.info())
+            newbeam = toroid.apply_specular_reflection_on_beam(newbeam)
 
-        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> alpha: ", alpha, oe_index)
-        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> EL%d_RELATIVE_TO_PREVIOUS: "%oe_index, oe_parameters["EL%d_RELATIVE_TO_PREVIOUS"%oe_index])
+        if dump_shadow_files:
+            Beam3.initialize_from_shadow4_beam(newbeam).write('mirr.%02d'%(oe_index+1))
+        OE_FOOTPRINT.append( newbeam.get_columns((2, 1)) )
 
+        #
+        # put beam in lab frame and compute image
+        #
+        newbeam.rotate(theta_grazing, axis=1)
+        newbeam.rotate(-alpha, axis=2) # TODO ckeck alpha
+        newbeam.retrace(q, resetY=True)
+        if dump_shadow_files:
+            Beam3.initialize_from_shadow4_beam(newbeam).write('star.%02d'%(oe_index+1))
+        OE_IMAGE.append(newbeam.get_columns((1, 3)))
 
-    print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Number of elements: ",number_of_elements)
 
     # add ray tracing results to output
     out_dictionary["OE_FOOTPRINT"] = OE_FOOTPRINT
     out_dictionary["OE_IMAGE"] = OE_IMAGE
 
-
     return out_dictionary
-
-    # shape_vx = VX.shape
-    #
-    # VXf = VX.flatten()
-    # VXff = VXf.copy()
-    # VXff.shape = shape_vx
-    # print(">>>>",shape_vx,VXf.shape,VXff.shape,numpy.min(VXff - VX),numpy.max(VXff - VX) )
-
-    # print(">>>>",out_dictionary["RAWDATA"].shape,vx.shape,vz.shape)
-
-
 
 def calculate_pixel_areas(X,Y,suppress_last_row_and_column=True):
     u1 = numpy.roll(X, -1, axis=0) - X
@@ -1131,8 +1220,6 @@ def calculate_pixel_areas(X,Y,suppress_last_row_and_column=True):
 
 
 def compute_power_density_on_optical_elements(dict1,do_interpolation=True):
-    for key in dict1.keys():
-        print("<<<", key)
 
     # first compute the area of the pixels at the screen used by usrgent
 
@@ -1145,7 +1232,6 @@ def compute_power_density_on_optical_elements(dict1,do_interpolation=True):
 
     AREA0,X0,Y0 = calculate_pixel_areas(X, Y)
     # plot_scatter(X.flatten(), Y.flatten(), title="SCREEN")
-    print(AREA0, ">>>>", (x[1] - x[0]) * (y[1] - y[0]))
     shapeXYbis = AREA0.shape
 
     # now build maps for optical elements
@@ -1159,8 +1245,6 @@ def compute_power_density_on_optical_elements(dict1,do_interpolation=True):
 
     print("Number of raytraced elements: %d"%number_of_elements_traced)
 
-    # AREAS_FACTOR_FOOTPRINT = []
-    # AREAS_FACTOR_IMAGE = []
     POWER_DENSITY_FOOTPRINT = []
     POWER_DENSITY_FOOTPRINT_H = []
     POWER_DENSITY_FOOTPRINT_V = []
@@ -1175,7 +1259,6 @@ def compute_power_density_on_optical_elements(dict1,do_interpolation=True):
         AREA_FOOTPRINT,XX_FOOTPRINT,YY_FOOTPRINT = calculate_pixel_areas(FOOTPRINT_H, FOOTPRINT_V)
         areas_factor_footprint = numpy.abs(AREA0 / AREA_FOOTPRINT)
         power_density_footprint = areas_factor_footprint * (dict1["Zlist"][element_index] - dict1["Zlist"][element_index+1])[0:(shapeXYbis[0]),0:(shapeXYbis[1])]
-
 
         # plot_scatter(footprint_h.flatten(), AREA0.flatten() , title="OE %d" % (1 + element_index))
 
@@ -1218,19 +1301,13 @@ def compute_power_density_on_optical_elements(dict1,do_interpolation=True):
                 (XX_IMAGE, YY_IMAGE), method='cubic',fill_value=0.0)
 
 
-        # AREAS_FACTOR_FOOTPRINT.append( areas_factor_footprint )
         POWER_DENSITY_FOOTPRINT.append( power_density_footprint )
         POWER_DENSITY_FOOTPRINT_H.append(XX_FOOTPRINT)
         POWER_DENSITY_FOOTPRINT_V.append(YY_FOOTPRINT)
-        # AREAS_FACTOR_IMAGE.append( areas_factor_image)
         POWER_DENSITY_IMAGE.append(  power_density_image )
         POWER_DENSITY_IMAGE_H.append(XX_IMAGE)
         POWER_DENSITY_IMAGE_V.append(YY_IMAGE)
 
-        # POWER_DENSITY_FOOTPRINT.append( numpy.abs(AREA0 / AREA )
-
-    # dict1["AREAS_FACTOR_FOOTPRINT"] = AREAS_FACTOR_FOOTPRINT
-    # dict1["AREAS_FACTOR_IMAGE"] = AREAS_FACTOR_IMAGE
     dict1["POWER_DENSITY_FOOTPRINT"] = POWER_DENSITY_FOOTPRINT
     dict1["POWER_DENSITY_FOOTPRINT_H"] = POWER_DENSITY_FOOTPRINT_H
     dict1["POWER_DENSITY_FOOTPRINT_V"] = POWER_DENSITY_FOOTPRINT_V
@@ -1238,11 +1315,7 @@ def compute_power_density_on_optical_elements(dict1,do_interpolation=True):
     dict1["POWER_DENSITY_IMAGE_H"] = POWER_DENSITY_IMAGE_H
     dict1["POWER_DENSITY_IMAGE_V"] = POWER_DENSITY_IMAGE_V
 
-    # print(">>>> shapes footprint",OE_FOOTPRINT[element_index].shape,footprint_h.shape,footprint_v.shape)
-    # print("??????",len(dict1["Zlist"]),dict1["Zlist"][0].shape)
     return dict1
-
-
 
 
 if __name__ == "__main__":
