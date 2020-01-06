@@ -879,7 +879,7 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
             self.progressBarSet(5)
 
             if platform.system() == "Windows":
-                command = os.path.join(locations.home_bin(),'srcalc') + "'"
+                command = os.path.join(locations.home_bin(),'srcalc')
             else:
                 command = "'" + os.path.join(locations.home_bin(), 'srcalc') + "'"
             print("Running command '%s' in directory: %s "%(command, locations.home_bin_run()))
