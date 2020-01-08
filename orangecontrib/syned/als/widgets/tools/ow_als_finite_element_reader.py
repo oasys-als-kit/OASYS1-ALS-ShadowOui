@@ -2,7 +2,7 @@
 
 # class ALSFiniteElementReader(ALSShadowWidget):
 
-
+import os
 from PyQt5 import QtGui, QtWidgets
 from PyQt5.QtWidgets import QApplication
 
@@ -34,9 +34,11 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 
 
+from oasys.util.oasys_objects import OasysSurfaceData
 
 
-def surface_plot(xs,ys,zs):
+
+def surface_plot(xs,ys,zs, show=False):
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
 
@@ -51,7 +53,11 @@ def surface_plot(xs,ys,zs):
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
 
-    plt.show()
+    if show:
+        plt.show()
+
+    return  fig
+
 
 
 class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
@@ -65,6 +71,10 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
     category = "Data File Tools"
     keywords = ["data", "file", "load", "read", "FEA", "Finite Elements"]
 
+    outputs = [{"name": "Surface Data",
+                "type": OasysSurfaceData,
+                "doc": "Surface Data",
+                "id": "Surface Data"}]
 
     # IMAGE_WIDTH = 860
     # IMAGE_HEIGHT = 675
@@ -92,14 +102,14 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
     file_in_type = Setting(0)
     file_in_skiprows = Setting(0)
     replicate_raw_data_flag = Setting(0)  # 0=None, 1=axis0, 2=axis1, 3=both axis
-    raw_render_option = Setting(2)
+    # raw_render_option = Setting(2)
 
-    file_out = Setting("/home/manuel/Oasys/s4.h5")
+    file_out = Setting("/home/manuel/OASYS1.2/alsu-scripts/ANSYS/s4.h5") # copied from file_in and changed extension to h5
     n_axis_0 = Setting(301)
     n_axis_1 = Setting(51)
     invert_axes_names = Setting(1)
     detrended = Setting(1)
-    reset_height_method = Setting(1)
+    reset_height_method = Setting(0)
 
     fea_file_object = FEA_File()
 
@@ -116,75 +126,97 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
         self.setMaximumHeight(self.geometry().height())
         self.setMaximumWidth(self.geometry().width())
 
-        #
-        #
-        #
-        # general_box = oasysgui.widgetBox(self.general_options_box, "Data file", addSpace=True,
-        #                                  orientation="vertical",)
+        gui.button(self.controlArea, self, "Calculate Interpolated File", callback=self.calculate, height=45)
 
+        gui.separator(self.controlArea, height=20)
 
-        general_box = oasysgui.widgetBox(self.controlArea, "Data file", addSpace=True,
+        #
+        #
+        #
+        data_file_box = oasysgui.widgetBox(self.controlArea, "Data file", addSpace=True,
                                          orientation="vertical",)
-                                         # width=self.CONTROL_AREA_WIDTH - 8, height=400)
 
 
-
-        figure_box = oasysgui.widgetBox(general_box, "", addSpace=True, orientation="horizontal") #width=550, height=50)
+        figure_box = oasysgui.widgetBox(data_file_box, "", addSpace=True, orientation="horizontal") #width=550, height=50)
         self.le_beam_file_name = oasysgui.lineEdit(figure_box, self, "file_in", "FEA File:",
                                                     labelWidth=90, valueType=str, orientation="horizontal")
         gui.button(figure_box, self, "...", callback=self.selectFile)
-        # gui.separator(general_box, height=20)
+        # gui.separator(data_file_box, height=20)
 
 
-        gui.comboBox(general_box, self, "file_in_type", label="File content", labelWidth=220,
+        gui.comboBox(data_file_box, self, "file_in_type", label="File content", labelWidth=220,
                      items=["X Y Z DX DY DZ",],
                      sendSelectedValue=False, orientation="horizontal")
 
-        oasysgui.lineEdit(general_box, self, "file_in_skiprows", "Skip rows:", labelWidth=260, valueType=int,
+        oasysgui.lineEdit(data_file_box, self, "file_in_skiprows", "Skip rows:", labelWidth=260, valueType=int,
                           orientation="horizontal")
 
 
-        gui.comboBox(general_box, self, "replicate_raw_data_flag", label="Replicate raw data", labelWidth=220,
+        gui.comboBox(data_file_box, self, "replicate_raw_data_flag", label="Replicate raw data", labelWidth=220,
                      items=["No","Along axis 0","Along axis 1","Along axes 0 and 1"],
                      sendSelectedValue=False, orientation="horizontal")
 
-        figure_box = oasysgui.widgetBox(general_box, "", addSpace=True, orientation="horizontal")
+        # figure_box = oasysgui.widgetBox(data_file_box, "", addSpace=True, orientation="horizontal")
 
-        gui.comboBox(figure_box, self, "raw_render_option", label="Render", labelWidth=120,
-                     items=['Undeformed','Deformation','Deformed'],
-                     sendSelectedValue=False, orientation="horizontal")
+        # gui.comboBox(figure_box, self, "raw_render_option", label="Render", labelWidth=120,
+        #              items=['Undeformed','Deformation','Deformed'],
+        #              sendSelectedValue=False, orientation="horizontal")
 
-        gui.button(figure_box, self, "View...", callback=self.plot_raw_data)
-
-
+        # # gui.button(figure_box, self, "View...", callback=self.plot_raw_data)
         #
         #
-        #
-        gui.comboBox(self.controlArea, self, "invert_axes_names", label="Invert axes", labelWidth=120,
-                     items=['No','Yes'],
-                     sendSelectedValue=False, orientation="horizontal")
-
-        gui.button(self.controlArea, self, "Process Raw Data File", callback=self.calculate, height=45)
-
-
-
-        # gui.comboBox(general_box, self, "no_lost", label="Rays", labelWidth=220,
-        #              items=["All rays", "Good only", "Lost only"],
+        # #
+        # #
+        # #
+        # gui.comboBox(self.controlArea, self, "invert_axes_names", label="Invert axes", labelWidth=120,
+        #              items=['No','Yes'],
         #              sendSelectedValue=False, orientation="horizontal")
         #
-        # gui.comboBox(general_box, self, "shadow_column", label="Dispersion direction", labelWidth=220,
+        # gui.comboBox(self.controlArea, self, "detrended", label="Detrend straight line", labelWidth=220,
+        #              items=["No", "Yes (along axis 0)", "Yes (along axis 1)"],
+        #              sendSelectedValue=False, orientation="horizontal")
+        #
+        # gui.comboBox(self.controlArea, self, "reset_height_method", label="Reset zero height", labelWidth=220,
+        #              items=["No", "To height minimum", "To center"],
+        #              sendSelectedValue=False, orientation="horizontal")
+
+
+        interpolation_box = oasysgui.widgetBox(self.controlArea, "Interpolation", addSpace=True,
+                                         orientation="vertical",)
+
+
+        oasysgui.lineEdit(interpolation_box, self, "n_axis_0", "Number of interpolated pixels (axis 0))",
+                          labelWidth=260, valueType=int, orientation="horizontal")
+
+        oasysgui.lineEdit(interpolation_box, self, "n_axis_1", "Number of interpolated pixels in (axis 1))",
+                          labelWidth=260, valueType=int, orientation="horizontal")
+
+
+        tmp = oasysgui.lineEdit(interpolation_box, self, "file_out", "Output file name",
+                          labelWidth=150, valueType=str, orientation="horizontal")
+
+        tmp.setEnabled(False)
+
+        # file_out = Setting("/home/manuel/Oasys/s4.h5")
+        # n_axis_0 = Setting(301)
+        # n_axis_1 = Setting(51)
+
+
+
+        #
+        # gui.comboBox(data_file_box, self, "shadow_column", label="Dispersion direction", labelWidth=220,
         #              items=["X (column 1)", "Z (column 3)"],
         #              sendSelectedValue=False, orientation="horizontal")
         #
-        # gui.comboBox(general_box, self, "photon_wavelenth_or_energy", label="Photon wavelength/energy",
+        # gui.comboBox(data_file_box, self, "photon_wavelenth_or_energy", label="Photon wavelength/energy",
         #              labelWidth=220,
         #              items=["Wavelength [A]", "Energy [eV]"],
         #              sendSelectedValue=False, orientation="horizontal")
         #
-        # oasysgui.lineEdit(general_box, self, "hlim", "Width at percent of max:", labelWidth=260, valueType=int,
+        # oasysgui.lineEdit(data_file_box, self, "hlim", "Width at percent of max:", labelWidth=260, valueType=int,
         #                   orientation="horizontal")
 
-        gui.separator(self.controlArea, height=200)
+
 
         tabs_setting = oasysgui.tabWidget(self.mainArea)
         tabs_setting.setFixedHeight(self.IMAGE_HEIGHT + 5)
@@ -209,16 +241,16 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
         self.triangulation_id.setFixedHeight(self.IMAGE_HEIGHT - 30)
         self.triangulation_id.setFixedWidth(self.IMAGE_WIDTH - 20)
 
-        # tmp = oasysgui.createTabPage(tabs_setting, "Raw Data")
-        # self.rawdata_id = gui.widgetBox(tmp, "", addSpace=True, orientation="vertical")
-        # self.rawdata_id.setFixedHeight(self.IMAGE_HEIGHT - 30)
-        # self.rawdata_id.setFixedWidth(self.IMAGE_WIDTH - 20)
+        tmp = oasysgui.createTabPage(tabs_setting, "Raw Data")
+        self.rawdata_id = gui.widgetBox(tmp, "", addSpace=True, orientation="vertical")
+        self.rawdata_id.setFixedHeight(self.IMAGE_HEIGHT - 30)
+        self.rawdata_id.setFixedWidth(self.IMAGE_WIDTH - 20)
         #
-        # tmp = oasysgui.createTabPage(tabs_setting, "Info")
-        # self.info_id = oasysgui.textArea(height=self.IMAGE_HEIGHT - 35)
-        # info_box = oasysgui.widgetBox(tmp, "", addSpace=True, orientation="horizontal",
-        #                               height=self.IMAGE_HEIGHT - 20, width=self.IMAGE_WIDTH - 20)
-        # info_box.layout().addWidget(self.info_id)
+        tmp = oasysgui.createTabPage(tabs_setting, "Output")
+        self.info_id = oasysgui.textArea(height=self.IMAGE_HEIGHT - 35)
+        info_box = oasysgui.widgetBox(tmp, "", addSpace=True, orientation="horizontal",
+                                      height=self.IMAGE_HEIGHT - 20, width=self.IMAGE_WIDTH - 20)
+        info_box.layout().addWidget(self.info_id)
 
     def set_input_file(self,filename):
         self.le_beam_file_name.setText(filename)
@@ -229,6 +261,7 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
                 start_directory=".", file_extension_filter="*.*")
 
         self.le_beam_file_name.setText(filename)
+        self.file_out = os.path.splitext(filename)[0]+'.h5'
 
     def load_raw_data(self):
         self.fea_file_object = FEA_File()
@@ -236,32 +269,39 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
         self.fea_file_object.load_multicolumn_file(skiprows=self.file_in_skiprows)
         self.fea_file_object.replicate_raw_data(self.replicate_raw_data_flag)
 
-    def plot_raw_data(self):
-        self.load_raw_data()
-        if self.raw_render_option == 0:
-            X, Y, Z = self.fea_file_object.get_undeformed()
-        elif self.raw_render_option == 1:
-            X, Y, Z = self.fea_file_object.get_deformation()
-        elif self.raw_render_option == 2:
-            X, Y, Z = self.fea_file_object.get_deformed()
+    # def plot_raw_data(self):
+    #
+    #
+    #     self.load_raw_data()
+    #     if self.raw_render_option == 0:
+    #         X, Y, Z = self.fea_file_object.get_undeformed()
+    #     elif self.raw_render_option == 1:
+    #         X, Y, Z = self.fea_file_object.get_deformation()
+    #     elif self.raw_render_option == 2:
+    #         X, Y, Z = self.fea_file_object.get_deformed()
+    #
+    #     surface_plot(X, Y, Z, show=True)
 
-        surface_plot(X, Y, Z)
 
     def calculate(self):
         self.load_raw_data()
 
         self.fea_file_object.triangulate()
 
-        self.fea_file_object.interpolate(self.n_axis_0, self.n_axis_1)
+        # add 3 pixels to match requested pixels after edge removal
+        self.fea_file_object.interpolate(self.n_axis_0 + 3, self.n_axis_1 + 3)
 
         if self.fea_file_object.does_interpolated_have_nan():
             self.fea_file_object.remove_borders_in_interpolated_data()
 
 
-        if self.detrended:
-            self.fea_file_object.detrend()
+        if self.detrended == 0:
+            pass
+        elif self.detrended == 1:
+            self.fea_file_object.detrend(axis=0)
+        elif self.detrended == 2:
+            self.fea_file_object.detrend(axis=1)
 
-        # o1.reset_height_to_minimum()
 
         if self.reset_height_method == 0:
             pass
@@ -275,33 +315,21 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
         self.plot_results()
 
 
+        if self.invert_axes_names:
+            self.send("Surface Data",
+                      OasysSurfaceData(xx=self.fea_file_object.y_interpolated,
+                                       yy=self.fea_file_object.x_interpolated,
+                                       zz=self.fea_file_object.Z_INTERPOLATED.T,
+                                       surface_data_file=self.file_out))
+        else:
+            self.send("Surface Data",
+                      OasysSurfaceData(xx=self.fea_file_object.x_interpolated,
+                                       yy=self.fea_file_object.y_interpolated,
+                                       zz=self.fea_file_object.Z_INTERPOLATED,
+                                       surface_data_file=self.file_out))
 
-        # self.writeStdOut("", initialize=True)
-        # beam_to_analize1 = self.get_shadow3_beam1()
-        #
-        # if beam_to_analize1 is None:
-        #     print("No SHADOW Beam")
-        #     return
-        #
-        # if self.shadow_column == 0:
-        #     col = 1
-        # elif self.shadow_column == 1:
-        #     col = 3
-        #
-        # if self.photon_wavelenth_or_energy == 0:
-        #     colE = 19
-        # elif self.photon_wavelenth_or_energy == 1:
-        #     colE = 11
-        #
-        # dict = self.respower(beam_to_analize1, colE, col, hlimit=1e-2 * self.hlim, nolost=self.no_lost)
-        # for key in dict.keys():
-        #     print(key, " = ", dict[key])
-        #
-        # self.respower_plot(beam_to_analize1, dict, nolost=self.no_lost)
-        #
-        # self.writeStdOut(dict["info"], initialize=True)
 
-    def writeStdOut(self, text, initialize=True):
+    def write_info(self, text, initialize=True):
         cursor = self.info_id.textCursor()
         if initialize:
             self.info_id.setText(text)
@@ -337,7 +365,7 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
                        ytitle="Y [m] (%d pixels, max:%f)"%(self.fea_file_object.y_interpolated.size,
                                                        self.fea_file_object.y_interpolated.max()) )
 
-
+        self.write_info("File %s written to disk.\n"%self.file_out,initialize=False)
         #
         # interpolation plot
         #
@@ -365,6 +393,21 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
         self.triangulation_id.layout().addWidget(toolbar)
         self.triangulation_id.layout().addWidget(figure_canvas)
 
+        #
+        # raw data
+        #
+        self.rawdata_id.layout().removeItem(self.rawdata_id.layout().itemAt(1))
+        self.rawdata_id.layout().removeItem(self.rawdata_id.layout().itemAt(0))
+
+
+        X, Y, Z = self.fea_file_object.get_deformed()
+
+        f = surface_plot(X, Y, Z, show=False)
+        figure_canvas = FigureCanvasQTAgg(f)
+        toolbar = NavigationToolbar(figure_canvas, self)
+
+        self.rawdata_id.layout().addWidget(toolbar)
+        self.rawdata_id.layout().addWidget(figure_canvas)
 
 
 
