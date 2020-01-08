@@ -7,7 +7,7 @@ import subprocess
 
 NAME = 'OASYS1-ALS-ShadowOui'
 
-VERSION = '0.0.18'
+VERSION = '0.0.19'
 ISRELEASED = False
 
 DESCRIPTION = 'WIDGETS DEVELOPED FOR ALS TO EXTEND SHADOWOUI FUNCTIONALITIES'
@@ -68,11 +68,13 @@ PACKAGE_DATA = {"orangecontrib.shadow.als.widgets.sources":["icons/*.png", "icon
                 "orangecontrib.shadow.als.widgets.optical_elements":["icons/*.png", "icons/*.jpg"],
                 "orangecontrib.shadow.als.widgets.utility":["icons/*.png", "icons/*.jpg",],
                 "orangecontrib.xoppy.als.widgets.srcalc":["icons/*.png", "icons/*.jpg",],
+                "orangecontrib.syned.als.widgets.tools":["icons/*.png", "icons/*.jpg",],
 }
 
 NAMESPACE_PACAKGES = ["orangecontrib",
                       "orangecontrib.shadow", "orangecontrib.shadow.als", "orangecontrib.shadow.als.widgets",
                       "orangecontrib.xoppy", "orangecontrib.xoppy.als", "orangecontrib.xoppy.als.widgets",
+                      "orangecontrib.syned", "orangecontrib.syned.als", "orangecontrib.syned.als.widgets",
                       ]
 
 ENTRY_POINTS = {
@@ -82,6 +84,7 @@ ENTRY_POINTS = {
         "Shadow ALS Optical Elements = orangecontrib.shadow.als.widgets.optical_elements",
         "Shadow ALS Utility = orangecontrib.shadow.als.widgets.utility",
         "XOPPY ALS SRCALC = orangecontrib.xoppy.als.widgets.srcalc",
+        "Syned ALS Tools = orangecontrib.syned.als.widgets.tools",
     ),
 }
 
