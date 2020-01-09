@@ -5,58 +5,22 @@
 import os
 from PyQt5 import QtGui, QtWidgets
 from PyQt5.QtWidgets import QApplication
+from PyQt5.QtCore import QRect, Qt
 
 from orangewidget import gui
 from orangewidget.settings import Setting
+
 from oasys.widgets import gui as oasysgui
-
-from orangecontrib.shadow.util.shadow_objects import ShadowBeam
-from orangecontrib.shadow.util.shadow_util import ShadowCongruence, ShadowPlot
-from orangecontrib.shadow.widgets.gui import ow_automatic_element
-from orangecontrib.shadow.als.widgets.gui.plots import plot_data1D, plot_data2D
-
-from srxraylib.plot.gol import plot, plot_scatter
-import matplotlib.pylab as plt
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
-
-import numpy
-
-from orangecontrib.syned.als.util.FEA_File import FEA_File
-
 from oasys.widgets.widget import OWWidget
-from PyQt5.QtCore import QRect, Qt
-
-from srxraylib.plot.gol import plot_image
-
-from silx.gui.plot import Plot2D
-
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
-
-
 from oasys.util.oasys_objects import OasysSurfaceData
 
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
+from matplotlib.figure import Figure
 
 
-def surface_plot(xs,ys,zs, show=False):
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-
-
-    # For each set of style and range settings, plot n random points in the box
-    # defined by x in [23, 32], y in [0, 100], z in [zlow, zhigh].
-    # for m, zlow, zhigh in [('o', -50, -25), ('^', -30, -5)]:
-    for m, zlow, zhigh in [('o', zs.min(), zs.max())]:
-        ax.scatter(xs, ys, zs, marker=m)
-
-    ax.set_xlabel('X')
-    ax.set_ylabel('Y')
-    ax.set_zlabel('Z')
-
-    if show:
-        plt.show()
-
-    return  fig
+from orangecontrib.syned.als.util.FEA_File import FEA_File
+from silx.gui.plot import Plot2D
 
 
 
@@ -76,12 +40,6 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
                 "doc": "Surface Data",
                 "id": "Surface Data"}]
 
-    # IMAGE_WIDTH = 860
-    # IMAGE_HEIGHT = 675
-    #
-    # want_main_area = 1
-    # want_control_area = 1
-
     want_main_area = 1
     want_control_area = 1
 
@@ -93,10 +51,6 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
 
     CONTROL_AREA_WIDTH = 405
     TABS_AREA_HEIGHT = 650
-
-    # "/home/manuel/OASYS1.2/alsu-scripts/ANSYS/s4.txt", n_axis_0 = 301, n_axis_1 = 51,
-    # filename_out = "/home/manuel/Oasys/s4.h5", invert_axes_names = True,
-    # detrend = True, reset_height_method = 1, do_plot = False
 
     file_in = Setting("/home/manuel/OASYS1.2/alsu-scripts/ANSYS/s4.txt")
     file_in_type = Setting(0)
@@ -141,7 +95,6 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
         self.le_beam_file_name = oasysgui.lineEdit(figure_box, self, "file_in", "FEA File:",
                                                     labelWidth=90, valueType=str, orientation="horizontal")
         gui.button(figure_box, self, "...", callback=self.selectFile)
-        # gui.separator(data_file_box, height=20)
 
 
         gui.comboBox(data_file_box, self, "file_in_type", label="File content", labelWidth=220,
@@ -156,31 +109,9 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
                      items=["No","Along axis 0","Along axis 1","Along axes 0 and 1"],
                      sendSelectedValue=False, orientation="horizontal")
 
-        # figure_box = oasysgui.widgetBox(data_file_box, "", addSpace=True, orientation="horizontal")
-
-        # gui.comboBox(figure_box, self, "raw_render_option", label="Render", labelWidth=120,
-        #              items=['Undeformed','Deformation','Deformed'],
-        #              sendSelectedValue=False, orientation="horizontal")
-
-        # # gui.button(figure_box, self, "View...", callback=self.plot_raw_data)
         #
         #
-        # #
-        # #
-        # #
-        # gui.comboBox(self.controlArea, self, "invert_axes_names", label="Invert axes", labelWidth=120,
-        #              items=['No','Yes'],
-        #              sendSelectedValue=False, orientation="horizontal")
         #
-        # gui.comboBox(self.controlArea, self, "detrended", label="Detrend straight line", labelWidth=220,
-        #              items=["No", "Yes (along axis 0)", "Yes (along axis 1)"],
-        #              sendSelectedValue=False, orientation="horizontal")
-        #
-        # gui.comboBox(self.controlArea, self, "reset_height_method", label="Reset zero height", labelWidth=220,
-        #              items=["No", "To height minimum", "To center"],
-        #              sendSelectedValue=False, orientation="horizontal")
-
-
         interpolation_box = oasysgui.widgetBox(self.controlArea, "Interpolation", addSpace=True,
                                          orientation="vertical",)
 
@@ -191,32 +122,26 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
         oasysgui.lineEdit(interpolation_box, self, "n_axis_1", "Number of interpolated pixels in (axis 1))",
                           labelWidth=260, valueType=int, orientation="horizontal")
 
+        gui.comboBox(interpolation_box, self, "invert_axes_names", label="Invert axes", labelWidth=120,
+                     items=['No','Yes'],
+                     sendSelectedValue=False, orientation="horizontal")
+
+        gui.comboBox(interpolation_box, self, "detrended", label="Detrend straight line", labelWidth=220,
+                     items=["No", "Yes (along axis 0)", "Yes (along axis 1)"],
+                     sendSelectedValue=False, orientation="horizontal")
+
+        gui.comboBox(interpolation_box, self, "reset_height_method", label="Reset zero height", labelWidth=220,
+                     items=["No", "To height minimum", "To center"],
+                     sendSelectedValue=False, orientation="horizontal")
 
         tmp = oasysgui.lineEdit(interpolation_box, self, "file_out", "Output file name",
                           labelWidth=150, valueType=str, orientation="horizontal")
 
         tmp.setEnabled(False)
 
-        # file_out = Setting("/home/manuel/Oasys/s4.h5")
-        # n_axis_0 = Setting(301)
-        # n_axis_1 = Setting(51)
-
-
-
         #
-        # gui.comboBox(data_file_box, self, "shadow_column", label="Dispersion direction", labelWidth=220,
-        #              items=["X (column 1)", "Z (column 3)"],
-        #              sendSelectedValue=False, orientation="horizontal")
         #
-        # gui.comboBox(data_file_box, self, "photon_wavelenth_or_energy", label="Photon wavelength/energy",
-        #              labelWidth=220,
-        #              items=["Wavelength [A]", "Energy [eV]"],
-        #              sendSelectedValue=False, orientation="horizontal")
         #
-        # oasysgui.lineEdit(data_file_box, self, "hlim", "Width at percent of max:", labelWidth=260, valueType=int,
-        #                   orientation="horizontal")
-
-
 
         tabs_setting = oasysgui.tabWidget(self.mainArea)
         tabs_setting.setFixedHeight(self.IMAGE_HEIGHT + 5)
@@ -269,20 +194,6 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
         self.fea_file_object.load_multicolumn_file(skiprows=self.file_in_skiprows)
         self.fea_file_object.replicate_raw_data(self.replicate_raw_data_flag)
 
-    # def plot_raw_data(self):
-    #
-    #
-    #     self.load_raw_data()
-    #     if self.raw_render_option == 0:
-    #         X, Y, Z = self.fea_file_object.get_undeformed()
-    #     elif self.raw_render_option == 1:
-    #         X, Y, Z = self.fea_file_object.get_deformation()
-    #     elif self.raw_render_option == 2:
-    #         X, Y, Z = self.fea_file_object.get_deformed()
-    #
-    #     surface_plot(X, Y, Z, show=True)
-
-
     def calculate(self):
         self.load_raw_data()
 
@@ -319,13 +230,13 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
             self.send("Surface Data",
                       OasysSurfaceData(xx=self.fea_file_object.y_interpolated,
                                        yy=self.fea_file_object.x_interpolated,
-                                       zz=self.fea_file_object.Z_INTERPOLATED.T,
+                                       zz=self.fea_file_object.Z_INTERPOLATED,
                                        surface_data_file=self.file_out))
         else:
             self.send("Surface Data",
                       OasysSurfaceData(xx=self.fea_file_object.x_interpolated,
                                        yy=self.fea_file_object.y_interpolated,
-                                       zz=self.fea_file_object.Z_INTERPOLATED,
+                                       zz=self.fea_file_object.Z_INTERPOLATED.T,
                                        surface_data_file=self.file_out))
 
 
@@ -400,29 +311,37 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
         self.rawdata_id.layout().removeItem(self.rawdata_id.layout().itemAt(0))
 
 
-        X, Y, Z = self.fea_file_object.get_deformed()
+        xs, ys, zs = self.fea_file_object.get_deformed()
 
-        f = surface_plot(X, Y, Z, show=False)
-        figure_canvas = FigureCanvasQTAgg(f)
+        xs *= 1e3
+        ys *= 1e3
+        zs *= 1e6
+
+        fig = Figure()
+        self.axis = fig.add_subplot(111, projection='3d')
+
+        # For each set of style and range settings, plot n random points in the box
+        # defined by x in [23, 32], y in [0, 100], z in [zlow, zhigh].
+        # for m, zlow, zhigh in [('o', -50, -25), ('^', -30, -5)]:
+        for m, zlow, zhigh in [('o', zs.min(), zs.max())]:
+            self.axis.scatter(xs, ys, zs, marker=m)
+
+        self.axis.set_xlabel('X [mm]')
+        self.axis.set_ylabel('Y [mm]')
+        self.axis.set_zlabel('Z [um]')
+
+
+        figure_canvas = FigureCanvasQTAgg(fig)
         toolbar = NavigationToolbar(figure_canvas, self)
 
         self.rawdata_id.layout().addWidget(toolbar)
         self.rawdata_id.layout().addWidget(figure_canvas)
 
-
-
-        #
-        # self.fea_file_object.plot_interpolated()
-
-        # self.fea_file_object.plot_surface_image()
-
-
+        self.axis.mouse_init()
 
 
     def plot_data2D(self, data2D, dataX, dataY, tabs_canvas_index, title="title", xtitle="X",ytitle="Y"):
 
-        # for i in range(1 + self.tab[tabs_canvas_index].layout().count()):
-        #     self.tab[tabs_canvas_index].layout().removeItem(self.tab[tabs_canvas_index].layout().itemAt(i))
 
         tabs_canvas_index.layout().removeItem(tabs_canvas_index.layout().itemAt(0))
 
@@ -453,64 +372,6 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
         tabs_canvas_index.layout().addWidget(tmp)
 
 
-
-
-        # colE = d["colE"]
-        # col1 = d["col1"]
-        # coeff = d["coeff"]
-        # nolost = d["nolost"]
-        # coordinates_at_hlimit = d["coordinates_at_hlimit"]
-        # orig = d["origin"]
-        # title = d["title"]
-        # deltax1 = d["deltax1"]
-        # deltax2 = d["deltax2"]
-        #
-        # if colE == 11:
-        #     xtitle = "Photon energy [eV]"
-        #     unit = "eV"
-        # elif colE == 19:
-        #     xtitle = "Photon wavelength [A]"
-        #     unit = "A"
-        #
-        # ytitle = "column %i [user units]" % col1
-        #
-        # energy = beam.getshonecol(colE, nolost=nolost)
-        # z = beam.getshonecol(col1, nolost=nolost)
-        # yfit = coeff[1] + coeff[0] * energy
-        #
-        # #
-        # # substracted plot
-        # #
-        # f = plot_scatter(energy, z - (coeff[1] + coeff[0] * energy), xtitle=xtitle, ytitle=ytitle, title=title,
-        #                  show=0)
-        # f[1].plot(energy, energy * 0 + coordinates_at_hlimit[0])
-        # f[1].plot(energy, energy * 0 + coordinates_at_hlimit[1])
-        #
-        # figure_canvas = FigureCanvasQTAgg(f[0])
-        # self.detrended_id.layout().removeItem(self.detrended_id.layout().itemAt(0))
-        # self.detrended_id.layout().addWidget(figure_canvas)
-        #
-        # #
-        # # main plot
-        # #
-        #
-        # g = plot_scatter(energy, z, show=0, xtitle=xtitle, ytitle=ytitle,
-        #                  title=title + " E/DE=%d, DE=%f %s" % (d["resolvingPower"], d["deltaE"], unit))
-        # g[1].plot(energy, yfit)
-        # g[1].plot(energy, yfit + coordinates_at_hlimit[0])
-        # g[1].plot(energy, yfit + coordinates_at_hlimit[1])
-        #
-        # g[1].plot(energy, energy * 0)
-        # if colE == 19:  # wavelength
-        #     g[1].plot(numpy.array((orig + deltax1, orig + deltax1)), numpy.array((-1000, 1000)))
-        #     g[1].plot(numpy.array((orig - deltax2, orig - deltax2)), numpy.array((-1000, 1000)))
-        # else:  # energy
-        #     g[1].plot(numpy.array((orig - deltax1, orig - deltax1)), numpy.array((-1000, 1000)))
-        #     g[1].plot(numpy.array((orig + deltax2, orig + deltax2)), numpy.array((-1000, 1000)))
-        #
-        # figure_canvas = FigureCanvasQTAgg(g[0])
-        # self.dispersion_id.layout().removeItem(self.dispersion_id.layout().itemAt(0))
-        # self.dispersion_id.layout().addWidget(figure_canvas)
 
 if __name__ == "__main__":
     import sys
