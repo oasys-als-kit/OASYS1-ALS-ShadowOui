@@ -27,9 +27,24 @@ import syned.storage_ring.magnetic_structures.insertion_device as synedid
 
 from syned.widget.widget_decorator import WidgetDecorator
 
+from syned.storage_ring.magnetic_structures.undulator import Undulator
+from syned.storage_ring.electron_beam import ElectronBeam
+import scipy.constants as codata
+
 #
 # TO DO: uncomment import and delete class when moving to xoppy
 #
+
+#
+# TODO: Recompile IDPower with higher dimensions
+#                         with better format:                Pow. ref(W)    Pow. abs.(W)
+#                                                            Mirror 1     ***********     ***********
+#
+#       Check with Ruben:     'p' polarization or filter
+#
+
+
+
 # from orangecontrib.xoppy.util.xoppy_util import locations
 class locations:
     @classmethod
@@ -76,7 +91,7 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
     KX = Setting(0.0)
     NUMBER_OF_PERIODS = Setting(137)
     PERIOD_LENGTH = Setting(0.0288)
-    NUMBER_OF_HARMONICS = Setting(-49)
+    NUMBER_OF_HARMONICS = Setting(-20)
     SOURCE_SCREEN_DISTANCE = Setting(13.73)
     HORIZONTAL_ACCEPTANCE = Setting(30.0)
     VERTICAL_ACCEPTANCE = Setting(15.0)
@@ -268,11 +283,13 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
 
         ########
         idx += 1
-        box1 = gui.widgetBox(box)
+        box1 = gui.widgetBox(box, orientation="horizontal")
         oasysgui.lineEdit(box1, self, "NUMBER_OF_HARMONICS",
                      label=self.unitLabels()[idx], addSpace=False,
-                    valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
+                    valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=150)
         self.show_at(self.unitFlags()[idx], box1)
+
+        gui.button(box1 , self, "Guess", callback=self.guess_number_of_harmonics, height=25)
 
         ########
         idx += 1
@@ -469,6 +486,22 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
         #
         self.mirror_tabs_visibility()
 
+    def guess_number_of_harmonics(self):
+
+        syned_undulator = Undulator(
+                 K_vertical = self.KY,
+                 K_horizontal = self.KX,
+                 period_length = self.PERIOD_LENGTH,
+                 number_of_periods = self.NUMBER_OF_PERIODS)
+
+        Bx = syned_undulator.magnetic_field_horizontal()
+        By =  syned_undulator.magnetic_field_vertical()
+        Ec = 665.0 * self.RING_ENERGY**2 + numpy.sqrt( Bx**2 + By**2)
+        E1 = syned_undulator.resonance_energy(self.gamma(), harmonic=1)
+        self.NUMBER_OF_HARMONICS = -(numpy.floor(numpy.abs(10*Ec/E1))+5)
+
+        # UnNh = -(numpy.floor(numpy.abs(10 * Ec / E1)) + 5) # Number of harmonics in calculation
+
     def setdistance(self):
         self.EL0_POSITION = self.SOURCE_SCREEN_DISTANCE
 
@@ -605,21 +638,6 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
             if not data._light_source is None and isinstance(data._light_source._magnetic_structure, synedid.InsertionDevice):
                 light_source = data._light_source
 
-                # RING_ENERGY = Setting(2.0)
-                # RING_CURRENT = Setting(0.5)
-                # KY = Setting(3.07)
-                # KX = Setting(0.0)
-                # NUMBER_OF_PERIODS = Setting(137)
-                # PERIOD_LENGTH = Setting(0.0288)
-                # NUMBER_OF_HARMONICS = Setting(-49)
-                # ELECTRON_SIGMAS = Setting(4)
-                # SIGMAX = Setting(12.1e-3)
-                # SIGMAXP = Setting(5.7e-3)
-                # SIGMAY = Setting(14.7e-3)
-                # SIGMAYP = Setting(4.7e-3)
-                # NELEMENTS = Setting(2)
-
-
                 self.RING_ENERGY = light_source._electron_beam._energy_in_GeV
                 self.RING_CURRENT = light_source._electron_beam._current
 
@@ -726,20 +744,29 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
                             data2D = calculated_data["POWER_DENSITY_FOOTPRINT"][oe_n - 1]
                             H = 1e3 * calculated_data["POWER_DENSITY_FOOTPRINT_H"][oe_n - 1]
                             V = 1e3 * calculated_data["POWER_DENSITY_FOOTPRINT_V"][oe_n - 1]
-                            tmp = data2D.shape
+                            stepx = H[1,0] - H[0,0]
+                            stepy = V[0,1] - V[0,0]
+                            totPower = data2D.sum() * stepx * stepy
+                            title = 'Power density [W/mm2] absorbed at element %d Integrated Power: %6.1f W' % (oe_n, totPower)
                             self.plot_data2D(data2D,H[:,0],V[0,:],
                                              index, 0,
                                              xtitle='Y (shadow col 2) [mm]',
-                                             ytitle='X (shadow col 1) [mm]')
+                                             ytitle='X (shadow col 1) [mm]',
+                                             title=title)
                             # image power density
                             index += 1
                             data2D = calculated_data["POWER_DENSITY_IMAGE"][oe_n-1]
                             H = 1e3 * calculated_data["POWER_DENSITY_IMAGE_H"][oe_n - 1]
                             V = 1e3 * calculated_data["POWER_DENSITY_IMAGE_V"][oe_n - 1]
+                            stepx = H[1,0] - H[0,0]
+                            stepy = V[0,1] - V[0,0]
+                            totPower = data2D.sum() * stepx * stepy
+                            title = 'Power density [W/mm2] transmitted after element %d Integrated Power: %6.1f W' % (oe_n, totPower)
                             self.plot_data2D(data2D,H[:,0],V[0,:],
                                              index, 0,
                                              xtitle='X (shadow col 1) [mm]',
-                                             ytitle='Z (shadow col 3) [mm]')
+                                             ytitle='Z (shadow col 3) [mm]',
+                                             title=title)
 
                 # except:
                 #     pass
@@ -772,7 +799,7 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
         self.view_type = view_type_old
         self.set_ViewType()
 
-        run_flag = True
+        run_flag = False
 
 
         self.progressBarSet(0)
@@ -813,37 +840,37 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
             f.write("%f\n" % self.EL0_ANG)  # READ(1,*) anM(1)           # incidence angle
             f.write("%d\n" % self.EL0_SHAPE)  # READ(1,*) miType(1)        # type
             f.write("%d\n" % self.EL0_THICKNESS)  # READ(1,*) thic(1)
-            f.write("'%s'\n" % self.coating_list[self.EL0_SHAPE])  # READ(1,*) com(1)           # coating
+            f.write("'%s'\n" % self.coating_list[self.EL0_COATING])  # READ(1,*) com(1)           # coating
             f.write("'%s'\n" % 'p')
 
             f.write("%f\n" %                   self.EL1_ANG)        #  READ(1,*) anM(1)           # incidence angle
             f.write("%d\n" %                   self.EL1_SHAPE)      # 	READ(1,*) miType(1)        # type
             f.write("%d\n" %                   self.EL1_THICKNESS)  # 	READ(1,*) thic(1)
-            f.write("'%s'\n" % self.coating_list[self.EL1_SHAPE])     # 	READ(1,*) com(1)           # coating
+            f.write("'%s'\n" % self.coating_list[self.EL1_COATING])     # 	READ(1,*) com(1)           # coating
             f.write("'%s'\n" % 'p')                                 # 	READ(1,*) iPom(1)          # ! Polarization or filter
 
             f.write("%f\n" %                   self.EL2_ANG)        #  READ(1,*) anM(1)           # incidence angle
             f.write("%d\n" %                   self.EL2_SHAPE)      # 	READ(1,*) miType(1)        # type
             f.write("%d\n" %                   self.EL2_THICKNESS)  # 	READ(1,*) thic(1)
-            f.write("'%s'\n" % self.coating_list[self.EL2_SHAPE])     # 	READ(1,*) com(1)           # coating
+            f.write("'%s'\n" % self.coating_list[self.EL2_COATING])     # 	READ(1,*) com(1)           # coating
             f.write("'%s'\n" % 'p')                                 # 	READ(1,*) iPom(1)          # ! Polarization or filter
 
             f.write("%f\n" %                   self.EL3_ANG)        #  READ(1,*) anM(1)           # incidence angle
             f.write("%d\n" %                   self.EL3_SHAPE)      # 	READ(1,*) miType(1)        # type
             f.write("%d\n" %                   self.EL3_THICKNESS)  # 	READ(1,*) thic(1)
-            f.write("'%s'\n" % self.coating_list[self.EL3_SHAPE])     # 	READ(1,*) com(1)           # coating
+            f.write("'%s'\n" % self.coating_list[self.EL3_COATING])     # 	READ(1,*) com(1)           # coating
             f.write("'%s'\n" % 'p')                                 # 	READ(1,*) iPom(1)          # ! Polarization or filter
 
             f.write("%f\n" %                   self.EL4_ANG)        #  READ(1,*) anM(1)           # incidence angle
             f.write("%d\n" %                   self.EL4_SHAPE)      # 	READ(1,*) miType(1)        # type
             f.write("%d\n" %                   self.EL4_THICKNESS)  # 	READ(1,*) thic(1)
-            f.write("'%s'\n" % self.coating_list[self.EL4_SHAPE])     # 	READ(1,*) com(1)           # coating
+            f.write("'%s'\n" % self.coating_list[self.EL4_COATING])     # 	READ(1,*) com(1)           # coating
             f.write("'%s'\n" % 'p')                                 # 	READ(1,*) iPom(1)          # ! Polarization or filter
 
             f.write("%f\n" %                   self.EL5_ANG)        #  READ(1,*) anM(1)           # incidence angle
             f.write("%d\n" %                   self.EL5_SHAPE)      # 	READ(1,*) miType(1)        # type
             f.write("%d\n" %                   self.EL5_THICKNESS)  # 	READ(1,*) thic(1)
-            f.write("'%s'\n" % self.coating_list[self.EL5_SHAPE])     # 	READ(1,*) com(1)           # coating
+            f.write("'%s'\n" % self.coating_list[self.EL5_COATING])     # 	READ(1,*) com(1)           # coating
             f.write("'%s'\n" % 'p')                                 # 	READ(1,*) iPom(1)          # ! Polarization or filter
 
 
@@ -899,10 +926,17 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
         #
         # read urgent file
         #
+
+        txt0 = "3\n# Info from IDPoser/Urgent\n#\n"
         f = open("O_IDPower.TXT",'r')
         txt = f.read()
         f.close()
-        self.info_output.setText(txt)
+
+        txt2 = self.update_info()
+
+
+        self.info_output.setText("\n\n\n#\n# Info from IDPower/Urgent\n#\n"+txt+"\n\n\n#\n# Additional Info from inputs\n#\n"+txt2)
+
 
         out_dictionary = load_srcalc_output_file(filename="D_IDPower.TXT")
 
@@ -995,7 +1029,141 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
 
         self.tab[tabs_canvas_index].layout().addWidget(self.plot_canvas[plot_canvas_index])
 
+    def gamma(self):
+        return 1e9*self.RING_ENERGY / (codata.m_e *  codata.c**2 / codata.e)
 
+
+
+    def update_info(self):
+
+        syned_electron_beam = ElectronBeam(
+                 energy_in_GeV = self.RING_ENERGY,
+                 energy_spread = 0.0,
+                 current = self.RING_CURRENT,
+                 number_of_bunches = 400,
+                 moment_xx=(1e-3*self.SIGMAX)**2,
+                 moment_xxp=0.0,
+                 moment_xpxp=(1e-3*self.SIGMAXP)**2,
+                 moment_yy=(1e-3*self.SIGMAY)**2,
+                 moment_yyp=0.0,
+                 moment_ypyp=(1e-3*self.SIGMAYP)**2,)
+
+        syned_undulator = Undulator(
+                 K_vertical = self.KY,
+                 K_horizontal = self.KX,
+                 period_length = self.PERIOD_LENGTH,
+                 number_of_periods = self.NUMBER_OF_PERIODS)
+
+        gamma = self.gamma()
+
+        Bx = syned_undulator.magnetic_field_horizontal()
+        By =  syned_undulator.magnetic_field_vertical()
+        Ec = 665.0 * self.RING_ENERGY**2 + numpy.sqrt( Bx**2 + By**2)
+
+        # U_powerD = 10.84 * U_M_field_m * Energy ^ 4 * Current * U_Length * 100 / U_period
+        # U_powerD = 10.84 * numpy.sqrt( Bx**2 + By**2) * self.RING_ENERGY ** 4 * self.RING_CURRENT * self.NUMBER_OF_PERIODS
+
+        # Power Density[W / mrad2] = 116.18 * (Ee[GeV]) **4 * I[A] * N * K * G(K) / P[mm]
+        U_powerD = 116.18 * self.RING_ENERGY **4 * self.RING_CURRENT * self.NUMBER_OF_PERIODS * self.KY * 1.0 / (1e3 * self.PERIOD_LENGTH)
+
+        info_parameters = {
+            "electron_energy_in_GeV": self.RING_ENERGY,
+            "gamma": "%8.3f" % gamma,
+            "ring_current": "%4.3f " % syned_electron_beam.current(),
+            "K_horizontal": syned_undulator.K_horizontal(),
+            "K_vertical": syned_undulator.K_vertical(),
+            "period_length": syned_undulator.period_length(),
+            "number_of_periods": syned_undulator.number_of_periods(),
+            "undulator_length": syned_undulator.length(),
+            "critical_energy": "%6.3f" % Ec,
+            "resonance_energy": "%6.3f" % syned_undulator.resonance_energy(gamma, harmonic=1),
+            "resonance_energy3": "%6.3f" % syned_undulator.resonance_energy(gamma, harmonic=3),
+            "resonance_energy5": "%6.3f" % syned_undulator.resonance_energy(gamma, harmonic=5),
+            "B_horizontal": "%4.2F" % syned_undulator.magnetic_field_horizontal(),
+            "B_vertical": "%4.2F" % syned_undulator.magnetic_field_vertical(),
+            "cc_1": "%4.2f" % (1e6 * syned_undulator.gaussian_central_cone_aperture(gamma, 1)),
+            "cc_3": "%4.2f" % (1e6 * syned_undulator.gaussian_central_cone_aperture(gamma, 3)),
+            "cc_5": "%4.2f" % (1e6 * syned_undulator.gaussian_central_cone_aperture(gamma, 5)),
+            # "cc_7": "%4.2f" % (self.gaussian_central_cone_aperture(7)*1e6),
+            "sigma_rad": "%5.2f" % (1e6 * syned_undulator.get_sigmas_radiation(gamma, harmonic=1)[0]),
+            "sigma_rad_prime": "%5.2f" % (1e6 * syned_undulator.get_sigmas_radiation(gamma, harmonic=1)[1]),
+            "sigma_rad3": "%5.2f" % (1e6 * syned_undulator.get_sigmas_radiation(gamma, harmonic=3)[0]),
+            "sigma_rad_prime3": "%5.2f" % (1e6 * syned_undulator.get_sigmas_radiation(gamma, harmonic=3)[1]),
+            "sigma_rad5": "%5.2f" % (1e6 * syned_undulator.get_sigmas_radiation(gamma, harmonic=5)[0]),
+            "sigma_rad_prime5": "%5.2f" % (1e6 * syned_undulator.get_sigmas_radiation(gamma, harmonic=5)[1]),
+            "first_ring_1": "%5.2f" % (1e6 * syned_undulator.get_resonance_ring(gamma, harmonic=1, ring_order=1)),
+            "first_ring_3": "%5.2f" % (1e6 * syned_undulator.get_resonance_ring(gamma, harmonic=3, ring_order=1)),
+            "first_ring_5": "%5.2f" % (1e6 * syned_undulator.get_resonance_ring(gamma, harmonic=5, ring_order=1)),
+            "Sx": "%5.2f" % (1e6 * syned_undulator.get_photon_sizes_and_divergences(syned_electron_beam)[0]),
+            "Sy": "%5.2f" % (1e6 * syned_undulator.get_photon_sizes_and_divergences(syned_electron_beam)[1]),
+            "Sxp": "%5.2f" % (1e6 * syned_undulator.get_photon_sizes_and_divergences(syned_electron_beam)[2]),
+            "Syp": "%5.2f" % (1e6 * syned_undulator.get_photon_sizes_and_divergences(syned_electron_beam)[3]),
+            "und_power": "%5.2f" % syned_undulator.undulator_full_emitted_power(gamma, syned_electron_beam.current()),
+            "und_power_density": "%5.2f" % U_powerD ,
+            "CF_h": "%4.3f" % syned_undulator.approximated_coherent_fraction_horizontal(syned_electron_beam,
+                                                                                        harmonic=1),
+            "CF_v": "%4.3f" % syned_undulator.approximated_coherent_fraction_vertical(syned_electron_beam, harmonic=1),
+            "CF": "%4.3f" % syned_undulator.approximated_coherent_fraction(syned_electron_beam, harmonic=1),
+        }
+
+        return self.info_template().format_map(info_parameters)
+
+    def info_template(self):
+        return \
+            """
+            
+            ================ input parameters ===========
+            Electron beam energy [GeV]: {electron_energy_in_GeV}
+            Electron current:           {ring_current}
+            Period Length [m]:          {period_length}
+            Number of Periods:          {number_of_periods}
+            
+            Horizontal K:               {K_horizontal}
+            Vertical K:                 {K_vertical}
+            ==============================================
+            
+            Electron beam gamma:                {gamma}
+            Undulator Length [m]:               {undulator_length}
+            Horizontal Peak Magnetic field [T]: {B_horizontal}
+            Vertical Peak Magnetic field [T]:   {B_vertical}
+            
+            Total power radiated by the undulator [W]: {und_power}
+            Power density at center of beam (if Kx=0) [W/mrad2]: {und_power_density}
+            
+            Resonances:
+            
+            Photon energy [eV]: 
+                   for harmonic 1 : {resonance_energy}
+                   for harmonic 3 : {resonance_energy3}
+                   for harmonic 3 : {resonance_energy5}
+                   Critical energy: {critical_energy}
+            
+            Central cone (RMS urad):
+                   for harmonic 1 : {cc_1}
+                   for harmonic 3 : {cc_3}
+                   for harmonic 5 : {cc_5}
+            
+            First ring at (urad):
+                   for harmonic 1 : {first_ring_1}
+                   for harmonic 3 : {first_ring_3}
+                   for harmonic 5 : {first_ring_5}
+            
+            Sizes and divergences of radiation :
+                at 1st harmonic: sigma: {sigma_rad} um, sigma': {sigma_rad_prime} urad
+                at 3rd harmonic: sigma: {sigma_rad3} um, sigma': {sigma_rad_prime3} urad
+                at 5th harmonic: sigma: {sigma_rad5} um, sigma': {sigma_rad_prime5} urad
+            
+            Sizes and divergences of photon source (convolution) at resonance (1st harmonic): :
+                Sx: {Sx} um
+                Sy: {Sy} um,
+                Sx': {Sxp} urad
+                Sy': {Syp} urad
+            
+            Approximated coherent fraction at 1st harmonic: 
+                Horizontal: {CF_h}  Vertical: {CF_v} 
+                Coherent fraction 2D (HxV): {CF} 
+            
+            """
 #
 # auxiliar functions
 #
