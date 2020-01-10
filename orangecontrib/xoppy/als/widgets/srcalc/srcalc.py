@@ -496,7 +496,7 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
 
         Bx = syned_undulator.magnetic_field_horizontal()
         By =  syned_undulator.magnetic_field_vertical()
-        Ec = 665.0 * self.RING_ENERGY**2 + numpy.sqrt( Bx**2 + By**2)
+        Ec = 665.0 * self.RING_ENERGY**2 * numpy.sqrt( Bx**2 + By**2)
         E1 = syned_undulator.resonance_energy(self.gamma(), harmonic=1)
         self.NUMBER_OF_HARMONICS = -(numpy.floor(numpy.abs(10*Ec/E1))+5)
 
@@ -1058,7 +1058,7 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
 
         Bx = syned_undulator.magnetic_field_horizontal()
         By =  syned_undulator.magnetic_field_vertical()
-        Ec = 665.0 * self.RING_ENERGY**2 + numpy.sqrt( Bx**2 + By**2)
+        Ec = 665.0 * self.RING_ENERGY**2 * numpy.sqrt( Bx**2 + By**2)
 
         # U_powerD = 10.84 * U_M_field_m * Energy ^ 4 * Current * U_Length * 100 / U_period
         # U_powerD = 10.84 * numpy.sqrt( Bx**2 + By**2) * self.RING_ENERGY ** 4 * self.RING_CURRENT * self.NUMBER_OF_PERIODS
