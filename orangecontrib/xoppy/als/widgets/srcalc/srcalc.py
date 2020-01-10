@@ -799,7 +799,7 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
         self.view_type = view_type_old
         self.set_ViewType()
 
-        run_flag = False
+        run_flag = True
 
 
         self.progressBarSet(0)
