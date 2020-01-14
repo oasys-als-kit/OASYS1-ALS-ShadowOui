@@ -1,0 +1,395 @@
+import numpy
+
+from PyQt5.QtGui import QPalette, QColor, QFont
+from orangewidget import gui
+from orangewidget.settings import Setting
+from oasys.widgets import gui as oasysgui
+from oasys.widgets import congruence
+
+from wofry.propagator.wavefront1D.generic_wavefront import GenericWavefront1D
+
+from orangecontrib.wofry.widgets.gui.ow_wofry_widget import WofryWidget
+
+from orangecontrib.xoppy.util.python_script import PythonScript  # TODO: change import from wofry!!!
+from scipy import interpolate
+
+class OWReflector1D(WofryWidget):
+
+    name = "Wofry Reflector 1D"
+    id = "UndulatorReflector1D"
+    description = "Undulator Reflector 1D"
+    icon = "icons/reflector1D.png"
+    priority = 3
+
+    category = "Wofry Wavefront Propagation"
+    keywords = ["data", "file", "load", "read"]
+
+    outputs = [{"name":"GenericWavefront1D",
+                "type":GenericWavefront1D,
+                "doc":"GenericWavefront1D",
+                "id":"GenericWavefront1D"}]
+
+    inputs = [("GenericWavefront1D", GenericWavefront1D, "set_input")]
+
+    grazing_angle = Setting(1.5e-3)
+    surface_from = Setting(1)
+    radius = Setting(1000.0)
+    error_flag = Setting(0)
+    error_file = Setting("<none>")
+
+
+    wavefront1D = None
+    titles = ["Wavefront 1D Intensity", "Wavefront 1D Phase","Wavefront Real(Amplitude)","Wavefront Imag(Amplitude)","O.E. Profile"]
+
+    def __init__(self):
+        super().__init__(is_automatic=True, show_view_options=True)
+
+        #
+        # add script tab to tabs panel
+        #
+        script_tab = oasysgui.createTabPage(self.main_tabs, "Script")
+        self.wofry_script = PythonScript()
+        self.wofry_script.code_area.setFixedHeight(400)
+        script_box = gui.widgetBox(script_tab, "Python script", addSpace=True, orientation="horizontal")
+        script_box.layout().addWidget(self.wofry_script)
+
+
+        #
+        # build control panel
+        #
+
+        button_box = oasysgui.widgetBox(self.controlArea, "", addSpace=False, orientation="horizontal")
+
+        button = gui.button(button_box, self, "Propagate Wavefront", callback=self.propagate_wavefront)
+        font = QFont(button.font())
+        font.setBold(True)
+        button.setFont(font)
+        palette = QPalette(button.palette()) # make a copy of the palette
+        palette.setColor(QPalette.ButtonText, QColor('Dark Blue'))
+        button.setPalette(palette) # assign new palette
+        button.setFixedHeight(45)
+
+        gui.separator(self.controlArea)
+
+        self.controlArea.setFixedWidth(self.CONTROL_AREA_WIDTH)
+
+        tabs_setting = oasysgui.tabWidget(self.controlArea)
+        tabs_setting.setFixedHeight(self.TABS_AREA_HEIGHT + 50)
+        tabs_setting.setFixedWidth(self.CONTROL_AREA_WIDTH-5)
+
+        self.tab_sou = oasysgui.createTabPage(tabs_setting, "Generic Reflector 1D Settings")
+
+        box_reflector = oasysgui.widgetBox(self.tab_sou, "Reflector", addSpace=False, orientation="vertical")
+
+        oasysgui.lineEdit(box_reflector, self, "grazing_angle", "Grazing angle [rad]",
+                          labelWidth=300, valueType=float, orientation="horizontal")
+
+
+        oasysgui.lineEdit(box_reflector, self, "radius", "Radius of curvature [m] (R<0 if convex)",
+                          labelWidth=300, valueType=float, orientation="horizontal")
+
+        gui.comboBox(box_reflector, self, "error_flag", label="Add profile deformation", labelWidth=350,
+                     items=["No","Yes (from file)"],
+                     callback=self.set_visible,
+                     sendSelectedValue=False, orientation="horizontal")
+
+
+
+
+        self.file_box_id = oasysgui.widgetBox(box_reflector, "", addSpace=True, orientation="horizontal", width=400, height=35)
+
+        self.error_file_id = oasysgui.lineEdit(self.file_box_id, self, "error_file", "Error file X[m] Y[m]",
+                                                    labelWidth=120, valueType=str, orientation="horizontal")
+        # self.error_file_id.setFixedWidth(330)
+
+        gui.button(self.file_box_id, self, "...", callback=self.set_error_file)
+
+
+        self.set_visible()
+
+    def set_visible(self):
+        self.file_box_id.setVisible(self.error_flag)
+
+
+    def set_error_file(self):
+        self.error_file_id.setText(oasysgui.selectFileFromDialog(self, self.error_file, "Open file with profile error"))
+
+    def initializeTabs(self):
+        size = len(self.tab)
+        indexes = range(0, size)
+
+        for index in indexes:
+            self.tabs.removeTab(size-1-index)
+
+        self.tab = []
+        self.plot_canvas = []
+
+        for index in range(0, len(self.titles)):
+            self.tab.append(gui.createTabPage(self.tabs, self.titles[index]))
+            self.plot_canvas.append(None)
+
+        for tab in self.tab:
+            tab.setFixedHeight(self.IMAGE_HEIGHT)
+            tab.setFixedWidth(self.IMAGE_WIDTH)
+
+    def check_fields(self):
+        self.grazing_angle = congruence.checkStrictlyPositiveNumber(self.grazing_angle, "Grazing angle")
+        self.radius = congruence.checkStrictlyPositiveNumber(numpy.abs(self.radius), "Radius")
+        self.error_file = congruence.checkFileName(self.error_file)
+
+
+
+    def set_input(self, wavefront):
+        if not wavefront is None:
+            self.wavefront1D = wavefront
+
+            if self.is_automatic_execution:
+                self.propagate_wavefront()
+
+    def propagate_wavefront(self):
+        self.wofry_output.setText("")
+        self.progressBarInit()
+
+        self.check_fields()
+
+        if self.wavefront1D is None: raise Exception("No Input Wavefront")
+
+
+        output_wavefront, abscissas_on_mirror, height = self.calculate_output_wavefront_after_reflector1D(self.wavefront1D,
+                                                                       radius=self.radius,
+                                                                       grazing_angle=self.grazing_angle,
+                                                                       error_file=self.error_file,
+                                                                       error_flag=self.error_flag)
+
+        dict_parameters = {"grazing_angle": self.grazing_angle, "radius": self.radius,
+                           "error_flag":self.error_flag, "error_file":self.error_file}
+        script_template = self.script_template_output_wavefront_from_radius()
+
+
+        self.do_plot_wavefront(output_wavefront, abscissas_on_mirror, height)
+
+        self.send("GenericWavefront1D", output_wavefront)
+
+
+        # write python script
+        self.wofry_script.set_code(script_template.format_map(dict_parameters))
+        # self.wofry_script.set_code(self.script_template())
+
+
+        # try:
+        #     python_code = self.propagate_python_code()
+        #     self.writeStdOut(python_code)
+        # except:
+        #     pass
+
+
+    @classmethod
+    def calculate_output_wavefront_after_reflector1D(cls,input_wavefront,radius=10000.0,grazing_angle=1.5e-3,
+                                               error_flag=0, error_file=""):
+        output_wavefront = input_wavefront.duplicate()
+        abscissas = output_wavefront.get_abscissas()
+        abscissas_on_mirror = abscissas / numpy.sin(grazing_angle)
+        if radius >= 0:
+            height = radius - numpy.sqrt(radius ** 2 - abscissas_on_mirror ** 2)
+        else:
+            height = radius + numpy.sqrt(radius ** 2 - abscissas_on_mirror ** 2)
+
+
+        if error_flag:
+            a = numpy.loadtxt(error_file)
+            finterpolate = interpolate.interp1d(a[:,0], a[:,1],fill_value="extrapolate")
+            height_interpolated = finterpolate( abscissas_on_mirror)
+            height += height_interpolated
+
+        phi = -2 * output_wavefront.get_wavenumber() * height * numpy.sin(grazing_angle)
+
+        output_wavefront.add_phase_shifts(phi)
+        return output_wavefront, abscissas_on_mirror, height
+
+
+
+        # try:
+        #     self.wofry_output.setText("")
+        #     self.progressBarInit()
+        #
+        #     sys.stdout = EmittingStream(textWritten=self.writeStdOut)
+        #
+        #     if self.input_wavefront is None: raise Exception("No Input Wavefront")
+        #
+        #     self.check_data()
+        #
+        #     # propagation to o.e.
+        #
+        #     propagation_elements = PropagationElements()
+        #
+        #     beamline_element = BeamlineElement(optical_element=self.get_optical_element(),
+        #                                        coordinates=ElementCoordinates(p=self.p,
+        #                                                                       q=self.q,
+        #                                                                       angle_radial=numpy.radians(self.angle_radial),
+        #                                                                       angle_azimuthal=numpy.radians(self.angle_azimuthal)))
+        #
+        #     propagation_elements.add_beamline_element(beamline_element)
+        #
+        #     propagation_parameters = PropagationParameters(wavefront=self.input_wavefront.duplicate(),
+        #                                                    propagation_elements = propagation_elements)
+        #
+        #     self.set_additional_parameters(propagation_parameters)
+        #
+        #     propagator = PropagationManager.Instance()
+        #
+        #     output_wavefront = propagator.do_propagation(propagation_parameters=propagation_parameters,
+        #                                                  handler_name=self.get_handler_name())
+        #
+        #
+        #     self.wavefront_to_plot = output_wavefront
+        #
+        #     self.initializeTabs()
+        #     self.do_plot_results()
+        #     self.progressBarFinished()
+        #
+        #     self.send("GenericWavefront1D", output_wavefront)
+        #
+        #     try:
+        #         python_code = self.propagate_python_code()
+        #         self.writeStdOut(python_code)
+        #     except:
+        #         pass
+        #
+        # except Exception as e:
+        #     QMessageBox.critical(self, "Error", str(e.args[0]), QMessageBox.Ok)
+        #
+        #     self.setStatusMessage("")
+        #     self.progressBarFinished()
+        #
+        #     raise e
+
+    def script_template_output_wavefront_from_radius(self):
+        return \
+"""
+import numpy
+from scipy import interpolate
+
+def example_input_wavefront():
+    #
+    # create input_wavefront
+    #
+    from wofry.propagator.wavefront1D.generic_wavefront import GenericWavefront1D
+    input_wavefront = GenericWavefront1D.initialize_wavefront_from_range(x_min=-0.00147,x_max=0.00147,number_of_points=1000)
+    input_wavefront.set_photon_energy(250)
+    input_wavefront.set_spherical_wave(radius=13.73,center=0,complex_amplitude=complex(1,0))
+    return input_wavefront
+
+def calculate_output_wavefront_after_reflector1D(input_wavefront,radius=10000.0,grazing_angle=1.5e-3,error_flag=0, error_file=""):
+    output_wavefront = input_wavefront.duplicate()
+    abscissas = output_wavefront.get_abscissas()
+    abscissas_on_mirror = abscissas / numpy.sin(grazing_angle)
+    if radius >= 0:
+        height = radius - numpy.sqrt(radius ** 2 - abscissas_on_mirror ** 2)
+    else:
+        height = radius + numpy.sqrt(radius ** 2 - abscissas_on_mirror ** 2)
+    
+
+    if error_flag:
+        a = numpy.loadtxt(error_file)
+        finterpolate = interpolate.interp1d(a[:,0], a[:,1],fill_value="extrapolate")
+        height_interpolated = finterpolate( abscissas_on_mirror)
+        height += height_interpolated
+
+    phi = -2 * output_wavefront.get_wavenumber() * height * numpy.sin(grazing_angle)
+    output_wavefront.add_phase_shifts(phi)
+    return output_wavefront, abscissas_on_mirror, height 
+
+
+input_wavefront = example_input_wavefront()  # customize with your input_wavefront
+output_wavefront, abscissas_on_mirror, height = calculate_output_wavefront_after_reflector1D(input_wavefront,radius={radius},grazing_angle={grazing_angle},error_flag={error_flag},error_file="{error_file}")
+# from srxraylib.plot.gol import plot
+# plot(output_wavefront.get_abscissas(),output_wavefront.get_intensity())
+"""
+
+
+
+    def do_plot_results(self, progressBarValue): # required by parent
+        pass
+
+    def do_plot_wavefront(self, wavefront1D, abscissas_on_mirror, height, progressBarValue=80):
+        if not self.wavefront1D is None:
+
+            self.progressBarSet(progressBarValue)
+
+
+            self.plot_data1D(x=1e6*wavefront1D.get_abscissas(),
+                             y=wavefront1D.get_intensity(),
+                             progressBarValue=progressBarValue,
+                             tabs_canvas_index=0,
+                             plot_canvas_index=0,
+                             calculate_fwhm=True,
+                             title=self.titles[0],
+                             xtitle="Spatial Coordinate [$\mu$m]",
+                             ytitle="Intensity")
+
+            self.plot_data1D(x=1e6*wavefront1D.get_abscissas(),
+                             y=wavefront1D.get_phase(from_minimum_intensity=0.1,unwrap=1),
+                             progressBarValue=progressBarValue + 10,
+                             tabs_canvas_index=1,
+                             plot_canvas_index=1,
+                             calculate_fwhm=False,
+                             title=self.titles[1],
+                             xtitle="Spatial Coordinate [$\mu$m]",
+                             ytitle="Phase [unwrapped, for intensity > 10% of peak] (rad)")
+
+            self.plot_data1D(x=1e6*wavefront1D.get_abscissas(),
+                             y=numpy.real(wavefront1D.get_complex_amplitude()),
+                             progressBarValue=progressBarValue + 10,
+                             tabs_canvas_index=2,
+                             plot_canvas_index=2,
+                             calculate_fwhm=False,
+                             title=self.titles[2],
+                             xtitle="Spatial Coordinate [$\mu$m]",
+                             ytitle="Real(Amplitude)")
+
+            self.plot_data1D(x=1e6*wavefront1D.get_abscissas(),
+                             y=numpy.imag(wavefront1D.get_complex_amplitude()),
+                             progressBarValue=progressBarValue + 10,
+                             tabs_canvas_index=3,
+                             plot_canvas_index=3,
+                             calculate_fwhm=False,
+                             title=self.titles[3],
+                             xtitle="Spatial Coordinate [$\mu$m]",
+                             ytitle="Imag(Amplitude)")
+
+            self.plot_data1D(x=abscissas_on_mirror,
+                             y=1e6*height,
+                             progressBarValue=progressBarValue + 10,
+                             tabs_canvas_index=4,
+                             plot_canvas_index=4,
+                             calculate_fwhm=False,
+                             title=self.titles[4],
+                             xtitle="Spatial Coordinate along o.e. [m]",
+                             ytitle="Profile Height [$\mu$m]")
+
+            self.plot_canvas[0].resetZoom()
+
+            self.progressBarFinished()
+if __name__ == '__main__':
+
+    from PyQt5.QtWidgets import QApplication
+
+
+    def create_wavefront():
+        #
+        # create input_wavefront
+        #
+        #
+        from wofry.propagator.wavefront1D.generic_wavefront import GenericWavefront1D
+        input_wavefront = GenericWavefront1D.initialize_wavefront_from_range(x_min=-0.00147, x_max=0.00147,
+                                                                             number_of_points=1000)
+        input_wavefront.set_photon_energy(250)
+        input_wavefront.set_spherical_wave(radius=13.73, center=0, complex_amplitude=complex(1, 0))
+        return input_wavefront
+
+    app = QApplication([])
+    ow = OWReflector1D()
+    ow.set_input(create_wavefront())
+    ow.show()
+    app.exec_()
+    ow.saveSettings()
