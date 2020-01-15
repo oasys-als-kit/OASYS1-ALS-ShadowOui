@@ -105,7 +105,8 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
     NELEMENTS = Setting(1)
 
     EL0_SHAPE = Setting(2)
-    EL0_POSITION = Setting(13.73)  # this is then copied from  SOURCE_SCREEN_DISTANCE
+    EL0_P_POSITION = Setting(13.73)  # this is then copied from  SOURCE_SCREEN_DISTANCE
+    EL0_Q_POSITION = Setting(0.0)
     EL0_P_FOCUS = Setting(10.0)
     EL0_Q_FOCUS = Setting(10.0)
     EL0_ANG = Setting(88.75)
@@ -114,7 +115,8 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
     EL0_COATING = Setting(9)
 
     EL1_SHAPE = Setting(2)
-    EL1_POSITION = Setting(10.0)
+    EL1_P_POSITION = Setting(10.0)
+    EL1_Q_POSITION = Setting(0.0)
     EL1_P_FOCUS = Setting(10.0)
     EL1_Q_FOCUS = Setting(10.0)
     EL1_ANG = Setting(88.75)
@@ -123,7 +125,8 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
     EL1_COATING = Setting(9)
 
     EL2_SHAPE = Setting(2)
-    EL2_POSITION = Setting(10.0)
+    EL2_P_POSITION = Setting(10.0)
+    EL2_Q_POSITION = Setting(0.0)
     EL2_P_FOCUS = Setting(10.0)
     EL2_Q_FOCUS = Setting(10.0)
     EL2_ANG = Setting(88.75)
@@ -132,7 +135,8 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
     EL2_COATING = Setting(9)
 
     EL3_SHAPE = Setting(2)
-    EL3_POSITION = Setting(10.0)
+    EL3_P_POSITION = Setting(10.0)
+    EL3_Q_POSITION = Setting(0.0)
     EL3_P_FOCUS = Setting(10.0)
     EL3_Q_FOCUS = Setting(10.0)
     EL3_ANG = Setting(88.75)
@@ -141,7 +145,8 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
     EL3_COATING = Setting(9)
 
     EL4_SHAPE = Setting(2)
-    EL4_POSITION = Setting(10.0)
+    EL4_P_POSITION = Setting(10.0)
+    EL4_Q_POSITION = Setting(0.0)
     EL4_P_FOCUS = Setting(10.0)
     EL4_Q_FOCUS = Setting(10.0)
     EL4_ANG = Setting(88.75)
@@ -150,7 +155,8 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
     EL4_COATING = Setting(9)
 
     EL5_SHAPE = Setting(2)
-    EL5_POSITION = Setting(10.0)
+    EL5_P_POSITION = Setting(10.0)
+    EL5_Q_POSITION = Setting(0.0)
     EL5_P_FOCUS = Setting(10.0)
     EL5_Q_FOCUS = Setting(10.0)
     EL5_ANG = Setting(88.75)
@@ -181,10 +187,7 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
         self.leftWidgetPart.setMaximumWidth(self.CONTROL_AREA_WIDTH + 20)
         self.leftWidgetPart.updateGeometry()
 
-        # box0 = oasysgui.widgetBox(self.controlArea, self.name + " Input Parameters",
-        #                           orientation="vertical", width=self.CONTROL_AREA_WIDTH-10)
 
-        # tab1 = oasysgui.tabWidget(self.controlArea)
         self.controls_tabs = oasysgui.tabWidget(self.controlArea)
         box = oasysgui.createTabPage(self.controls_tabs, "Light Source")
 
@@ -402,14 +405,24 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
             #widget index xx
             idx += 1
             box1 = gui.widgetBox(self.tab_el[element_index])
-            oasysgui.lineEdit(box1, self, "EL%d_POSITION"%element_index,
+            oasysgui.lineEdit(box1, self, "EL%d_P_POSITION"%element_index,
                          label=self.unitLabels()[idx], addSpace=False,
                         valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
             self.show_at(self.unitFlags()[idx], box1)
 
+
             # first element distance is the same as urgent screen position
             if element_index == 0:
                 box1.setEnabled(False)
+
+            #widget index xx
+            idx += 1
+            box1 = gui.widgetBox(self.tab_el[element_index])
+            oasysgui.lineEdit(box1, self, "EL%d_Q_POSITION"%element_index,
+                         label=self.unitLabels()[idx], addSpace=False,
+                        valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
+            self.show_at(self.unitFlags()[idx], box1)
+
 
             #widget index xx
             idx += 1
@@ -510,7 +523,7 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
         # UnNh = -(numpy.floor(numpy.abs(10 * Ec / E1)) + 5) # Number of harmonics in calculation
 
     def setdistance(self):
-        self.EL0_POSITION = self.SOURCE_SCREEN_DISTANCE
+        self.EL0_P_POSITION = self.SOURCE_SCREEN_DISTANCE
 
     def set_NELEMENTS(self):
         self.initializeTabs()
@@ -539,7 +552,8 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
          for i in range(6):
             labels = labels + [
                 'Type',
-                'Distance from previous oe [m]',
+                'Distance from previous continuation plane [m]',
+                'Distance to next continuation plane [m]',
                 'Focus Ent. Arm [m]',
                 'Focus Exit Arm [m]',
                 'Inc. Angle to normal [deg]',
@@ -561,12 +575,12 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
                  "True", "True", "True",
                  "True", "True","True",
                  'True',
-                 "True", "True", "self.EL0_SHAPE not in (2,8,9)", "self.EL0_SHAPE not in (2,8,9)", "True", "self.EL0_SHAPE in (8,9)", "True", "True",  # shape, position, p, q, angle, thickness, orientation, coating
-                 "True", "True", "self.EL1_SHAPE not in (2,8,9)", "self.EL1_SHAPE not in (2,8,9)", "True", "self.EL1_SHAPE in (8,9)", "True", "True",  # OE fields
-                 "True", "True", "self.EL2_SHAPE not in (2,8,9)", "self.EL2_SHAPE not in (2,8,9)", "True", "self.EL2_SHAPE in (8,9)", "True", "True",  # OE fields
-                 "True", "True", "self.EL3_SHAPE not in (2,8,9)", "self.EL3_SHAPE not in (2,8,9)", "True", "self.EL3_SHAPE in (8,9)", "True", "True",  # OE fields
-                 "True", "True", "self.EL4_SHAPE not in (2,8,9)", "self.EL4_SHAPE not in (2,8,9)", "True", "self.EL4_SHAPE in (8,9)", "True", "True",  # OE fields
-                 "True", "True", "self.EL5_SHAPE not in (2,8,9)", "self.EL5_SHAPE not in (2,8,9)", "True", "self.EL5_SHAPE in (8,9)", "True", "True",  # OE fields
+                 "True", "True", "True", "self.EL0_SHAPE not in (2,8,9)", "self.EL0_SHAPE not in (2,8,9)", "True", "self.EL0_SHAPE in (8,9)", "True", "True",  # shape, p, q, p_foc, q_foc, angle, thickness, orientation, coating
+                 "True", "True", "True", "self.EL1_SHAPE not in (2,8,9)", "self.EL1_SHAPE not in (2,8,9)", "True", "self.EL1_SHAPE in (8,9)", "True", "True",  # OE fields
+                 "True", "True", "True", "self.EL2_SHAPE not in (2,8,9)", "self.EL2_SHAPE not in (2,8,9)", "True", "self.EL2_SHAPE in (8,9)", "True", "True",  # OE fields
+                 "True", "True", "True", "self.EL3_SHAPE not in (2,8,9)", "self.EL3_SHAPE not in (2,8,9)", "True", "self.EL3_SHAPE in (8,9)", "True", "True",  # OE fields
+                 "True", "True", "True", "self.EL4_SHAPE not in (2,8,9)", "self.EL4_SHAPE not in (2,8,9)", "True", "self.EL4_SHAPE in (8,9)", "True", "True",  # OE fields
+                 "True", "True", "True", "self.EL5_SHAPE not in (2,8,9)", "self.EL5_SHAPE not in (2,8,9)", "True", "self.EL5_SHAPE in (8,9)", "True", "True",  # OE fields
                  'True','True']
 
     def get_help_name(self):
@@ -599,42 +613,48 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
         self.SIGMAYP                = congruence.checkPositiveNumber(self.SIGMAYP               , "SIGMAYP               ")
 
         if self.NELEMENTS >=6:
-            self.EL5_POSITION  = congruence.checkPositiveNumber(self.EL5_POSITION,  "EL5_POSITION")
+            self.EL5_P_POSITION  = congruence.checkPositiveNumber(self.EL5_P_POSITION,  "EL5_P_POSITION")
+            self.EL5_Q_POSITION = congruence.checkPositiveNumber(self.EL5_Q_POSITION, "EL5_Q_POSITION")
             self.EL5_P_FOCUS   = congruence.checkPositiveNumber(self.EL5_P_FOCUS,         "EL5_P_FOCUS")
             self.EL5_Q_FOCUS   = congruence.checkPositiveNumber(self.EL5_Q_FOCUS,         "EL5_Q_FOCUS")
             self.EL5_ANG       = congruence.checkPositiveNumber(self.EL5_ANG,       "EL5_ANG")
             self.EL5_THICKNESS = congruence.checkPositiveNumber(self.EL5_THICKNESS, "EL5_THICKNESS")
 
         if self.NELEMENTS >=5:
-            self.EL4_POSITION  = congruence.checkPositiveNumber(self.EL4_POSITION,  "EL4_POSITION")
+            self.EL4_P_POSITION  = congruence.checkPositiveNumber(self.EL4_P_POSITION,  "EL4_P_POSITION")
+            self.EL4_Q_POSITION  = congruence.checkPositiveNumber(self.EL4_Q_POSITION,  "EL4_Q_POSITION")
             self.EL4_P_FOCUS    = congruence.checkPositiveNumber(self.EL4_P_FOCUS,         "EL4_P_FOCUS")
             self.EL4_Q_FOCUS    = congruence.checkPositiveNumber(self.EL4_Q_FOCUS,         "EL4_Q_FOCUS")
             self.EL4_ANG       = congruence.checkPositiveNumber(self.EL4_ANG,       "EL4_ANG")
             self.EL4_THICKNESS = congruence.checkPositiveNumber(self.EL4_THICKNESS, "EL4_THICKNESS")
 
         if self.NELEMENTS >=4:
-            self.EL3_POSITION  = congruence.checkPositiveNumber(self.EL3_POSITION,  "EL3_POSITION")
+            self.EL3_P_POSITION  = congruence.checkPositiveNumber(self.EL3_P_POSITION,  "EL3_P_POSITION")
+            self.EL3_Q_POSITION  = congruence.checkPositiveNumber(self.EL3_Q_POSITION,  "EL3_Q_POSITION")
             self.EL3_P_FOCUS         = congruence.checkPositiveNumber(self.EL3_P_FOCUS,         "EL3_P_FOCUS")
             self.EL3_Q_FOCUS         = congruence.checkPositiveNumber(self.EL3_Q_FOCUS,         "EL3_Q_FOCUS")
             self.EL3_ANG       = congruence.checkPositiveNumber(self.EL3_ANG,       "EL3_ANG")
             self.EL3_THICKNESS = congruence.checkPositiveNumber(self.EL3_THICKNESS, "EL3_THICKNESS")
 
         if self.NELEMENTS >=3:
-            self.EL2_POSITION  = congruence.checkPositiveNumber(self.EL2_POSITION,  "EL2_POSITION")
+            self.EL2_P_POSITION  = congruence.checkPositiveNumber(self.EL2_P_POSITION,  "EL2_P_POSITION")
+            self.EL2_Q_POSITION  = congruence.checkPositiveNumber(self.EL2_Q_POSITION,  "EL2_Q_POSITION")
             self.EL2_P_FOCUS         = congruence.checkPositiveNumber(self.EL2_P_FOCUS,         "EL2_P_FOCUS")
             self.EL2_Q_FOCUS         = congruence.checkPositiveNumber(self.EL2_Q_FOCUS,         "EL2_Q_FOCUS")
             self.EL2_ANG       = congruence.checkPositiveNumber(self.EL2_ANG,       "EL2_ANG")
             self.EL2_THICKNESS = congruence.checkPositiveNumber(self.EL2_THICKNESS, "EL2_THICKNESS")
 
         if self.NELEMENTS >=2:
-            self.EL1_POSITION  = congruence.checkPositiveNumber(self.EL1_POSITION,  "EL1_POSITION")
+            self.EL1_P_POSITION  = congruence.checkPositiveNumber(self.EL1_P_POSITION,  "EL1_P_POSITION")
+            self.EL1_Q_POSITION  = congruence.checkPositiveNumber(self.EL1_Q_POSITION,  "EL1_Q_POSITION")
             self.EL1_P_FOCUS         = congruence.checkPositiveNumber(self.EL1_P_FOCUS,         "EL1_P_FOCUS")
             self.EL1_Q_FOCUS         = congruence.checkPositiveNumber(self.EL1_Q_FOCUS,         "EL1_Q_FOCUS")
             self.EL1_ANG       = congruence.checkPositiveNumber(self.EL1_ANG,       "EL1_ANG")
             self.EL1_THICKNESS = congruence.checkPositiveNumber(self.EL1_THICKNESS, "EL1_THICKNESS")
 
         if self.NELEMENTS >=1:
-            self.EL0_POSITION  = congruence.checkPositiveNumber(self.EL0_POSITION,  "EL0_POSITION")
+            self.EL0_P_POSITION  = congruence.checkPositiveNumber(self.EL0_P_POSITION,  "EL0_P_POSITION")
+            self.EL0_Q_POSITION  = congruence.checkPositiveNumber(self.EL0_Q_POSITION,  "EL0_Q_POSITION")
             self.EL0_P_FOCUS         = congruence.checkPositiveNumber(self.EL0_P_FOCUS,         "EL0_P_FOCUS")
             self.EL0_Q_FOCUS         = congruence.checkPositiveNumber(self.EL0_Q_FOCUS,         "EL0_Q_FOCUS")
             self.EL0_ANG       = congruence.checkPositiveNumber(self.EL0_ANG,       "EL0_ANG")
@@ -817,6 +837,7 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
         grabber = TTYGrabber()
         grabber.start()
 
+        polarization_list,polarization_info = self.get_polarization_list()
 
         if run_flag:
             for file in ["IDPower.TXT","O_IDPower.TXT","D_IDPower.TXT"]:
@@ -824,7 +845,6 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
                     os.remove(os.path.join(locations.home_bin_run(),file))
                 except:
                     pass
-
 
             f = open("IDPower.TXT","w")
 
@@ -849,37 +869,37 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
             f.write("%d\n" % self.EL0_SHAPE)  # READ(1,*) miType(1)        # type
             f.write("%d\n" % self.EL0_THICKNESS)  # READ(1,*) thic(1)
             f.write("'%s'\n" % self.coating_list[self.EL0_COATING])  # READ(1,*) com(1)           # coating
-            f.write("'%s'\n" % 'p')
+            f.write("'%s'\n" % polarization_list[0])
 
             f.write("%f\n" %                   self.EL1_ANG)        #  READ(1,*) anM(1)           # incidence angle
             f.write("%d\n" %                   self.EL1_SHAPE)      # 	READ(1,*) miType(1)        # type
             f.write("%d\n" %                   self.EL1_THICKNESS)  # 	READ(1,*) thic(1)
             f.write("'%s'\n" % self.coating_list[self.EL1_COATING])     # 	READ(1,*) com(1)           # coating
-            f.write("'%s'\n" % 'p')                                 # 	READ(1,*) iPom(1)          # ! Polarization or filter
+            f.write("'%s'\n" % polarization_list[1])                    # 	READ(1,*) iPom(1)          # ! Polarization or filter
 
             f.write("%f\n" %                   self.EL2_ANG)        #  READ(1,*) anM(1)           # incidence angle
             f.write("%d\n" %                   self.EL2_SHAPE)      # 	READ(1,*) miType(1)        # type
             f.write("%d\n" %                   self.EL2_THICKNESS)  # 	READ(1,*) thic(1)
             f.write("'%s'\n" % self.coating_list[self.EL2_COATING])     # 	READ(1,*) com(1)           # coating
-            f.write("'%s'\n" % 'p')                                 # 	READ(1,*) iPom(1)          # ! Polarization or filter
+            f.write("'%s'\n" % polarization_list[2])                                # 	READ(1,*) iPom(1)          # ! Polarization or filter
 
             f.write("%f\n" %                   self.EL3_ANG)        #  READ(1,*) anM(1)           # incidence angle
             f.write("%d\n" %                   self.EL3_SHAPE)      # 	READ(1,*) miType(1)        # type
             f.write("%d\n" %                   self.EL3_THICKNESS)  # 	READ(1,*) thic(1)
             f.write("'%s'\n" % self.coating_list[self.EL3_COATING])     # 	READ(1,*) com(1)           # coating
-            f.write("'%s'\n" % 'p')                                 # 	READ(1,*) iPom(1)          # ! Polarization or filter
+            f.write("'%s'\n" % polarization_list[3])                            # 	READ(1,*) iPom(1)          # ! Polarization or filter
 
             f.write("%f\n" %                   self.EL4_ANG)        #  READ(1,*) anM(1)           # incidence angle
             f.write("%d\n" %                   self.EL4_SHAPE)      # 	READ(1,*) miType(1)        # type
             f.write("%d\n" %                   self.EL4_THICKNESS)  # 	READ(1,*) thic(1)
             f.write("'%s'\n" % self.coating_list[self.EL4_COATING])     # 	READ(1,*) com(1)           # coating
-            f.write("'%s'\n" % 'p')                                 # 	READ(1,*) iPom(1)          # ! Polarization or filter
+            f.write("'%s'\n" % polarization_list[4])                         # 	READ(1,*) iPom(1)          # ! Polarization or filter
 
             f.write("%f\n" %                   self.EL5_ANG)        #  READ(1,*) anM(1)           # incidence angle
             f.write("%d\n" %                   self.EL5_SHAPE)      # 	READ(1,*) miType(1)        # type
             f.write("%d\n" %                   self.EL5_THICKNESS)  # 	READ(1,*) thic(1)
             f.write("'%s'\n" % self.coating_list[self.EL5_COATING])     # 	READ(1,*) com(1)           # coating
-            f.write("'%s'\n" % 'p')                                 # 	READ(1,*) iPom(1)          # ! Polarization or filter
+            f.write("'%s'\n" % polarization_list[5])                                # 	READ(1,*) iPom(1)          # ! Polarization or filter
 
 
             #
@@ -940,10 +960,14 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
         txt = f.read()
         f.close()
 
-        txt2 = self.update_info()
+        txt2 = self.info_undulator()
 
+        txt3 = self.info_distances()
 
-        self.info_output.setText("\n\n\n#\n# Info from IDPower/Urgent\n#\n"+txt+"\n\n\n#\n# Additional Info from inputs\n#\n"+txt2)
+        self.info_output.setText("\n\n\n#\n# Info from IDPower/Urgent\n#\n" + txt + \
+                                 "\n\n\n#\n# Additional Info from undulator source\n#\n" + txt2 + \
+                                 "\n\n\n#\n# Additional Info o.e. distances\n#\n\n" + txt3 + \
+                                 "\n\n\n#\n# Additional Info o.e. polarization (TO BE DELETED??)\n#\n\n" + polarization_info)
 
 
         out_dictionary = load_srcalc_output_file(filename="D_IDPower.TXT")
@@ -957,44 +981,50 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
         #
         oe_parameters = {
             "EL0_SHAPE":                self.EL0_SHAPE               ,
-            "EL0_POSITION":             self.EL0_POSITION            ,
+            "EL0_P_POSITION":           self.EL0_P_POSITION            ,
+            "EL0_Q_POSITION":           self.EL0_Q_POSITION,
             "EL0_P_FOCUS":              self.EL0_P_FOCUS                   ,
             "EL0_Q_FOCUS":              self.EL0_Q_FOCUS                   ,
             "EL0_ANG":                  self.EL0_ANG                 ,
             "EL0_THICKNESS":            self.EL0_THICKNESS           ,
             "EL0_RELATIVE_TO_PREVIOUS": self.EL0_RELATIVE_TO_PREVIOUS,
             "EL1_SHAPE":                self.EL1_SHAPE               ,
-            "EL1_POSITION":             self.EL1_POSITION            ,
+            "EL1_P_POSITION":           self.EL1_P_POSITION            ,
+            "EL1_Q_POSITION":           self.EL1_Q_POSITION,
             "EL1_P_FOCUS":              self.EL1_P_FOCUS             ,
             "EL1_Q_FOCUS":              self.EL1_Q_FOCUS             ,
             "EL1_ANG":                  self.EL1_ANG                 ,
             "EL1_THICKNESS":            self.EL1_THICKNESS           ,
             "EL1_RELATIVE_TO_PREVIOUS": self.EL1_RELATIVE_TO_PREVIOUS,
             "EL2_SHAPE":                self.EL2_SHAPE               ,
-            "EL2_POSITION":             self.EL2_POSITION            ,
+            "EL2_P_POSITION":           self.EL2_P_POSITION            ,
+            "EL2_Q_POSITION":           self.EL2_Q_POSITION,
             "EL2_P_FOCUS":              self.EL2_P_FOCUS                   ,
             "EL2_Q_FOCUS":              self.EL2_Q_FOCUS                   ,
             "EL2_ANG":                  self.EL2_ANG                 ,
             "EL2_THICKNESS":            self.EL2_THICKNESS           ,
             "EL2_RELATIVE_TO_PREVIOUS": self.EL2_RELATIVE_TO_PREVIOUS,
             "EL3_SHAPE":                self.EL3_SHAPE               ,
-            "EL3_POSITION":             self.EL3_POSITION            ,
-            "EL3_P_FOCUS":                    self.EL3_P_FOCUS                   ,
-            "EL3_Q_FOCUS":                    self.EL3_Q_FOCUS                   ,
+            "EL3_P_POSITION":           self.EL3_P_POSITION            ,
+            "EL3_Q_POSITION":           self.EL3_Q_POSITION,
+            "EL3_P_FOCUS":              self.EL3_P_FOCUS                   ,
+            "EL3_Q_FOCUS":              self.EL3_Q_FOCUS                   ,
             "EL3_ANG":                  self.EL3_ANG                 ,
             "EL3_THICKNESS":            self.EL3_THICKNESS           ,
             "EL3_RELATIVE_TO_PREVIOUS": self.EL3_RELATIVE_TO_PREVIOUS,
             "EL4_SHAPE":                self.EL4_SHAPE               ,
-            "EL4_POSITION":             self.EL4_POSITION            ,
-            "EL4_P_FOCUS":                    self.EL4_P_FOCUS                   ,
-            "EL4_Q_FOCUS":                    self.EL4_Q_FOCUS                   ,
+            "EL4_P_POSITION":           self.EL4_P_POSITION            ,
+            "EL4_Q_POSITION":           self.EL4_Q_POSITION,
+            "EL4_P_FOCUS":              self.EL4_P_FOCUS                   ,
+            "EL4_Q_FOCUS":              self.EL4_Q_FOCUS                   ,
             "EL4_ANG":                  self.EL4_ANG                 ,
             "EL4_THICKNESS":            self.EL4_THICKNESS           ,
             "EL4_RELATIVE_TO_PREVIOUS": self.EL4_RELATIVE_TO_PREVIOUS,
             "EL5_SHAPE":                self.EL5_SHAPE               ,
-            "EL5_POSITION":             self.EL5_POSITION            ,
-            "EL5_P_FOCUS":                    self.EL5_P_FOCUS                   ,
-            "EL5_Q_FOCUS":                    self.EL5_Q_FOCUS                   ,
+            "EL5_P_POSITION":           self.EL5_P_POSITION            ,
+            "EL5_Q_POSITION":           self.EL5_Q_POSITION,
+            "EL5_P_FOCUS":              self.EL5_P_FOCUS                   ,
+            "EL5_Q_FOCUS":              self.EL5_Q_FOCUS                   ,
             "EL5_ANG":                  self.EL5_ANG                 ,
             "EL5_THICKNESS":            self.EL5_THICKNESS           ,
             "EL5_RELATIVE_TO_PREVIOUS": self.EL5_RELATIVE_TO_PREVIOUS,
@@ -1042,7 +1072,7 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
 
 
 
-    def update_info(self):
+    def info_undulator(self):
 
         syned_electron_beam = ElectronBeam(
                  energy_in_GeV = self.RING_ENERGY,
@@ -1116,6 +1146,38 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
 
         return self.info_template().format_map(info_parameters)
 
+    def info_distances(self):
+        txt  = '  ********  SUMMARY OF DISTANCES ********\n'
+        txt += '   ** DISTANCES FOR ALL O.E. [m] **           \n\n'
+        txt += "%4s %20s %8s %8s %8s %8s \n" % ('OE#', 'TYPE', 'p [m]', 'q [m]', 'src-oe', 'src-screen')
+        txt += '----------------------------------------------------------------------\n'
+
+        txt_2 = '\n\n  ********  ELLIPTICAL ELEMENTS  ********\n'
+        txt_2 += "%4s %8s %8s %8s %1s\n" % ('OE#', 'p(ell)', 'q(ell)', 'p+q(ell)', 'M')
+        txt_2 += '----------------------------------------------------------------------\n'
+
+
+        P = [self.EL0_P_POSITION, self.EL1_P_POSITION, self.EL2_P_POSITION, self.EL3_P_POSITION, self.EL4_P_POSITION,
+             self.EL5_P_POSITION,]
+        Q = [self.EL0_Q_POSITION, self.EL1_Q_POSITION, self.EL2_Q_POSITION, self.EL3_Q_POSITION, self.EL4_Q_POSITION,
+             self.EL5_Q_POSITION, ]
+        SHAPE_INDEX = [self.EL0_SHAPE, self.EL1_SHAPE, self.EL2_SHAPE, self.EL3_SHAPE, self.EL4_SHAPE, self.EL5_SHAPE,]
+        oe = 0
+        final_screen_to_source = 0.0
+        for i in range(self.NELEMENTS):
+            oe += 1
+
+            p = P[i]
+            q = Q[1]
+            shape_index = SHAPE_INDEX[i]
+
+            final_screen_to_source = final_screen_to_source + p + q
+            oe_to_source = final_screen_to_source - q
+
+            txt += "%4d %20s %8.4f %8.4f %8.4f %8.4f \n" % (oe, self.shape_list[shape_index], p, q, oe_to_source, final_screen_to_source)
+
+        return txt
+
     def info_template(self):
         return \
             """
@@ -1172,6 +1234,83 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
                 Coherent fraction 2D (HxV): {CF} 
             
             """
+
+    def get_polarization_list(self):
+
+        KY = self.KY
+        KX = self.KX
+
+        if (KX != 0 and KY != 0):
+            return ['f'] * 6, str(['f'] * 6)[1:-1]
+
+        EL0_RELATIVE_TO_PREVIOUS = self.EL0_RELATIVE_TO_PREVIOUS
+        EL1_RELATIVE_TO_PREVIOUS = self.EL1_RELATIVE_TO_PREVIOUS
+        EL2_RELATIVE_TO_PREVIOUS = self.EL2_RELATIVE_TO_PREVIOUS
+        EL3_RELATIVE_TO_PREVIOUS = self.EL3_RELATIVE_TO_PREVIOUS
+        EL4_RELATIVE_TO_PREVIOUS = self.EL4_RELATIVE_TO_PREVIOUS
+        EL5_RELATIVE_TO_PREVIOUS = self.EL5_RELATIVE_TO_PREVIOUS
+
+        #
+        #
+        #
+        SP = ['s', 'p']
+        if KX == 0:
+            source_pol = 0  # s
+        else:
+            source_pol = 1  # p
+
+        txt = "Polarization at the source: %s" % (SP[source_pol])
+
+        RR = ['Left', 'Right', 'Up', 'Down']
+        RELATIVE_TO_PREVIOUS = [
+            RR[EL0_RELATIVE_TO_PREVIOUS],
+            RR[EL1_RELATIVE_TO_PREVIOUS],
+            RR[EL2_RELATIVE_TO_PREVIOUS],
+            RR[EL3_RELATIVE_TO_PREVIOUS],
+            RR[EL4_RELATIVE_TO_PREVIOUS],
+            RR[EL5_RELATIVE_TO_PREVIOUS], ]
+
+        # items = ['Left', 'Right', 'Up', 'Down'],
+        FLAG_PERPENDICULAR_TO_PREVIOUS = [
+            EL0_RELATIVE_TO_PREVIOUS < 2,
+            EL1_RELATIVE_TO_PREVIOUS < 2,
+            EL2_RELATIVE_TO_PREVIOUS < 2,
+            EL3_RELATIVE_TO_PREVIOUS < 2,
+            EL4_RELATIVE_TO_PREVIOUS < 2,
+            EL5_RELATIVE_TO_PREVIOUS < 2, ]
+
+        # s=0, p=1
+
+        txt += "\nRELATIVE_TO_PREVIOUS: " + str(RELATIVE_TO_PREVIOUS)[1:-1]
+        txt += "\nFLAG_PERPENDICULAR_TO_PREVIOUS: " + str(FLAG_PERPENDICULAR_TO_PREVIOUS)[1:-1]
+
+        NUMBER_OF_INVERSIONS = [0, 0, 0, 0, 0, 0]
+        for i in range(6):
+            if i == 0:
+                if FLAG_PERPENDICULAR_TO_PREVIOUS[0]:
+                    NUMBER_OF_INVERSIONS[0] += 1
+            else:
+                if FLAG_PERPENDICULAR_TO_PREVIOUS[i]:
+                    NUMBER_OF_INVERSIONS[i] += 1
+                NUMBER_OF_INVERSIONS[i] += NUMBER_OF_INVERSIONS[i - 1]
+
+        txt += "\nNUMBER_OF_INVERSIONS: " + str(NUMBER_OF_INVERSIONS)[1:-1]
+
+        NUMBER_OF_INVERSIONS_MODULO_2 = [0, 0, 0, 0, 0, 0]
+        for i in range(6):
+            NUMBER_OF_INVERSIONS_MODULO_2[i] = numpy.mod(NUMBER_OF_INVERSIONS[i], 2)
+
+        txt += "\nNUMBER_OF_INVERSIONS_MODULO_2: " + str(NUMBER_OF_INVERSIONS_MODULO_2)[1:-1]
+
+        OUTPUT_LIST = []
+        for i in range(6):
+            OUTPUT_LIST.append(SP[NUMBER_OF_INVERSIONS_MODULO_2[i]])
+
+        txt += "\nOUTPUT_LIST: " + str(OUTPUT_LIST)[1:-1]
+
+        txt += "\n"
+
+        return OUTPUT_LIST, txt
 #
 # auxiliar functions
 #
@@ -1244,7 +1383,8 @@ def ray_tracing(
         number_of_elements=1,
         oe_parameters=  {
             "EL0_SHAPE":2,
-            "EL0_POSITION":13.73,
+            "EL0_P_POSITION":13.73,
+            "EL0_Q_POSITION":0.0,
             "EL0_P_FOCUS":0.0,
             "EL0_Q_FOCUS":0.0,
             "EL0_ANG":88.75,
@@ -1284,10 +1424,10 @@ def ray_tracing(
 
     for oe_index in range(number_of_elements):
 
-        p = oe_parameters["EL%d_POSITION" % oe_index]
-        q = 0
+        p = oe_parameters["EL%d_P_POSITION" % oe_index]
+        q = oe_parameters["EL%d_Q_POSITION" % oe_index]
 
-        theta_grazing = (90.0 - oe_parameters["EL0_ANG"]) * numpy.pi / 180
+        theta_grazing = (90.0 - oe_parameters["EL%d_ANG" % oe_index]) * numpy.pi / 180
 
         if oe_parameters["EL%d_RELATIVE_TO_PREVIOUS"%oe_index] == 0:
             alpha = 90.0 * numpy.pi / 180
@@ -1375,7 +1515,7 @@ def ray_tracing(
         # put beam in lab frame and compute image
         #
         newbeam.rotate(theta_grazing, axis=1)
-        newbeam.rotate(-alpha, axis=2) # TODO ckeck alpha
+        # do not undo alpha rotation: newbeam.rotate(-alpha, axis=2)
         newbeam.retrace(q, resetY=True)
         if dump_shadow_files:
             Beam3.initialize_from_shadow4_beam(newbeam).write('star.%02d'%(oe_index+1))
@@ -1506,6 +1646,9 @@ def compute_power_density_on_optical_elements(dict1,do_interpolation=True):
     return dict1
 
 
+
+
+
 if __name__ == "__main__":
 
 
@@ -1531,3 +1674,7 @@ if __name__ == "__main__":
         print(OE_FOOTPRINT[0].shape)
         plot_scatter(OE_FOOTPRINT[0][0,:],OE_FOOTPRINT[0][1,:],plot_histograms=False,title="Footprint",show=False)
         plot_scatter(OE_IMAGE[0][0, :], OE_IMAGE[0][1, :], plot_histograms=False,title="Image")
+
+    # elif test == 3:
+    #     tmp,txt = get_polarization_list()
+    #     print(txt)
