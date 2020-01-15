@@ -16,6 +16,9 @@ import scipy.constants as codata
 
 from orangecontrib.xoppy.util.python_script import PythonScript  # TODO: change import from wofry!!!
 
+from orangecontrib.xoppy.util.python_script import PythonScript  # TODO: change import from wofry!!!
+
+
 class OWGaussianUndulator1D(WofryWidget):
 
     name = "Wofry Undulator Gaussian 1D"
@@ -53,6 +56,19 @@ class OWGaussianUndulator1D(WofryWidget):
     def __init__(self):
         super().__init__(is_automatic=False, show_view_options=False)
 
+        #
+        # add script tab to tabs panel
+        #
+        script_tab = oasysgui.createTabPage(self.main_tabs, "Script")
+        self.wofry_script = PythonScript()
+        self.wofry_script.code_area.setFixedHeight(400)
+        script_box = gui.widgetBox(script_tab, "Python script", addSpace=True, orientation="horizontal")
+        script_box.layout().addWidget(self.wofry_script)
+
+
+        #
+        # control panel
+        #
         self.runaction = widget.OWAction("Generate Wavefront", self)
         self.runaction.triggered.connect(self.generate)
         self.addAction(self.runaction)
@@ -209,154 +225,159 @@ class OWGaussianUndulator1D(WofryWidget):
 
     def generate(self):
 
-        try:
-            self.wofry_output.setText("")
+        self.wofry_output.setText("")
 
-            self.progressBarInit()
+        self.progressBarInit()
 
-            self.check_fields()
+        self.check_fields()
 
-            if self.units == 0:
-                wavelength = codata.h * codata.c / codata.e / self.energy
-            else:
-                wavelength = self.wavelength
+        if self.units == 0:
+            wavelength = codata.h * codata.c / codata.e / self.energy
+        else:
+            wavelength = self.wavelength
 
+
+        if self.initialize_from == 0:
+            x_min = self.range_from
+            x_max = self.range_to
+            number_of_points = self.number_of_points
+        elif self.initialize_from == 1:
+            number_of_points = self.number_of_points
+            x_min = self.steps_start
+            x_max = x_min + (number_of_points - 1) * self.steps_step
+
+        elif self.initialize_from == 2:
             sigma_r = 2.740 / 4 / numpy.pi * numpy.sqrt(wavelength * self.undulator_length)
-            sigma_r_prime = 0.69 * numpy.sqrt(wavelength / self.undulator_length)
+            x_min=-0.5 * self.sigma_times * sigma_r
+            x_max=+0.5 * self.sigma_times * sigma_r
+            number_of_points = self.number_of_points
 
-            if self.wavefront_position == 0: # Gaussian source
+        self.wavefront1D = self.calculate_wavefront1D(wavelength=wavelength,
+                                                    wavefront_position=self.wavefront_position,
+                                                    undulator_length=self.undulator_length,
+                                                    undulator_distance=self.undulator_distance,
+                                                    x_min = x_min,
+                                                    x_max = x_max,
+                                                    number_of_points = number_of_points,
+                                                    add_random_phase=self.add_random_phase,
+                                                    )
+        #
+        # script
+        #
 
-                if self.initialize_from == 0:
-                    self.wavefront1D = GenericWavefront1D.initialize_wavefront_from_range(x_min=self.range_from, x_max=self.range_to, number_of_points=self.number_of_points)
-                elif self.initialize_from == 1:
-                    self.wavefront1D = GenericWavefront1D.initialize_wavefront_from_steps(x_start=self.steps_start, x_step=self.steps_step, number_of_points=self.number_of_points)
-                elif self.initialize_from == 2:
-                    self.wavefront1D = GenericWavefront1D.initialize_wavefront_from_range(x_min=-0.5*self.sigma_times*sigma_r,
-                                                                                          x_max=+0.5*self.sigma_times*sigma_r,
-                                                                                          number_of_points=self.number_of_points)
+        dict_parameters = {"wavelength": wavelength,
+                           "wavefront_position": self.wavefront_position,
+                           "undulator_length": self.undulator_length,
+                           "undulator_distance": self.undulator_distance,
+                           "x_min": x_min,
+                           "x_max": x_max,
+                           "number_of_points": number_of_points,
+                           "add_random_phase": self.add_random_phase,
+                           }
+        script_template = self.script_template()
 
-                if self.units == 0:
-                    self.wavefront1D.set_photon_energy(self.energy)
-                else:
-                    self.wavefront1D.set_wavelength(self.wavelength)
-
-                self.wavefront1D.set_gaussian(sigma_x=sigma_r, amplitude=1.0, shift=0.0)
-
-            elif self.wavefront_position == 1: # Spherical source, Gaussian intensity
-
-                if self.initialize_from == 0:
-                    self.wavefront1D = GenericWavefront1D.initialize_wavefront_from_range(x_min=self.range_from, x_max=self.range_to, number_of_points=self.number_of_points)
-                elif self.initialize_from == 1:
-                    self.wavefront1D = GenericWavefront1D.initialize_wavefront_from_steps(x_start=self.steps_start, x_step=self.steps_step, number_of_points=self.number_of_points)
-                elif self.initialize_from == 2:
-                    self.wavefront1D = GenericWavefront1D.initialize_wavefront_from_range(x_min=-0.5*self.sigma_times*sigma_r_prime*self.undulator_distance,
-                                                                                          x_max=+0.5*self.sigma_times*sigma_r_prime*self.undulator_distance,
-                                                                                          number_of_points=self.number_of_points)
-
-                if self.units == 0:
-                    self.wavefront1D.set_photon_energy(self.energy)
-                else:
-                    self.wavefront1D.set_wavelength(self.wavelength)
+        # write python script
+        self.wofry_script.set_code(script_template.format_map(dict_parameters))
 
 
-                self.wavefront1D.set_spherical_wave(radius=self.undulator_distance, center=0.0, complex_amplitude=complex(1,0))
+        #
+        # plots
+        #
 
-                # weight with Gaussian
-                X = self.wavefront1D.get_abscissas()
-                A = self.wavefront1D.get_complex_amplitude()
-                sigma = self.undulator_distance * sigma_r_prime
-                sigma_amplitude = sigma * numpy.sqrt(2)
-                Gx = numpy.exp(-X * X / 2 / sigma_amplitude ** 2)
-                self.wavefront1D.set_complex_amplitude(A * Gx)
-
-
-            # if self.units == 0:
-            #     self.wavefront1D.set_photon_energy(self.energy)
-            # else:
-            #     self.wavefront1D.set_wavelength(self.wavelength)
-
-            if self.add_random_phase:
-                self.wavefront1D.add_phase_shifts(2*numpy.pi*numpy.random.random(self.wavefront1D.size()))
-
+        try:
+            current_index = self.tabs.currentIndex()
+        except:
+            current_index = None
+        self.initializeTabs()
+        self.plot_results()
+        if current_index is not None:
             try:
-                current_index = self.tabs.currentIndex()
-            except:
-                current_index = None
-            self.initializeTabs()
-            self.plot_results()
-            if current_index is not None:
-                try:
-                    self.tabs.setCurrentIndex(current_index)
-                except:
-                    pass
-
-            try:
-                python_code = self.generate_python_code()
-                self.writeStdOut(python_code)
+                self.tabs.setCurrentIndex(current_index)
             except:
                 pass
 
-            self.send("GenericWavefront1D", self.wavefront1D)
 
-        except Exception as exception:
-            QMessageBox.critical(self, "Error", str(exception), QMessageBox.Ok)
+        self.send("GenericWavefront1D", self.wavefront1D)
 
-            #raise exception
+        self.progressBarFinished()
 
-            self.progressBarFinished()
 
-    def generate_python_code(self):
+    def calculate_wavefront1D(self,wavelength=1e-10,
+                            undulator_length=1.0,undulator_distance=10.0,
+                            x_min=-0.1,x_max=0.1,number_of_points=101,
+                            wavefront_position=0,add_random_phase=0):
 
-        txt = ""
-        #
-        # txt += "\n\n#"
-        # txt += "\n# create input_wavefront\n#"
-        # txt += "\n#"
-        # txt += "\nfrom wofry.propagator.wavefront1D.generic_wavefront import GenericWavefront1D"
+        sigma_r = 2.740 / 4 / numpy.pi * numpy.sqrt(wavelength * undulator_length)
+        sigma_r_prime = 0.69 * numpy.sqrt(wavelength / undulator_length)
 
-        # if self.initialize_from == 0:
-        #     txt += "\ninput_wavefront = GenericWavefront1D.initialize_wavefront_from_range(x_min=%g,x_max=%g,number_of_points=%d)"%\
-        #     (self.range_from,self.range_to,self.number_of_points)
-        #
-        # if self.initialize_from == 1:
-        #     txt += "\ninput_wavefront = GenericWavefront1D.initialize_wavefront_from_steps(x_start=%g, x_step=%g,number_of_points=%d)"%\
-        #            (self.steps_start,self.steps_step,self.number_of_points)
-        # elif self.initialize_from == 2:
-        #     txt += ""
-        #
-        # if self.units == 0:
-        #     txt += "\ninput_wavefront.set_photon_energy(%g)"%(self.energy)
-        # else:
-        #     txt += "\ninput_wavefront.set_wavelength(%g)"%(self.wavelength)
-        #
-        #
-        #
-        # if self.kind_of_wave == 0: #plane
-        #     if self.initialize_amplitude == 0:
-        #         txt += "\ninput_wavefront.set_plane_wave_from_complex_amplitude(complex_amplitude=complex(%g,%g),inclination=%g)"%\
-        #                (self.complex_amplitude_re,self.complex_amplitude_im,self.inclination)
-        #     else:
-        #         txt += "\ninput_wavefront.set_plane_wave_from_amplitude_and_phase(amplitude=%g,phase=%g,inclination=%g)"%(self.amplitude,self.phase,self.inclination)
-        # elif self.kind_of_wave == 1: # spheric
-        #     txt += "\ninput_wavefront.set_spherical_wave(radius=%g,center=%g,complex_amplitude=complex(%g, %g))"%\
-        #            (self.radius,self.center,self.complex_amplitude_re,self.complex_amplitude_im)
-        # elif self.kind_of_wave == 2: # gaussian
-        #     txt += "\ninput_wavefront.set_gaussian(sigma_x=%f, amplitude=%f,shift=%f)"%\
-        #            (self.gaussian_sigma,self.gaussian_amplitude,self.gaussian_shift)
-        # elif self.kind_of_wave == 3: # g.s.m.
-        #     txt += "\ninput_wavefront.set_gaussian_hermite_mode(sigma_x=%g,amplitude=%g,mode_x=%d,shift=%f,beta=%g)"%\
-        #            (self.gaussian_sigma,self.gaussian_amplitude,self.gaussian_mode,self.gaussian_shift,self.gaussian_beta)
-        #
-        #     #
-        #     # if self.add_random_phase:
-        #     #     self.wavefront1D.add_phase_shifts(2*numpy.pi*numpy.random.random(self.wavefront1D.size()))
-        # if self.add_random_phase:
-        #     txt += "\ninput_wavefront.add_phase_shifts(2*numpy.pi*numpy.random.random(input_wavefront.size()))"
-        #
-        # txt += "\n\n\nfrom srxraylib.plot.gol import plot"
-        # txt += "\nplot(input_wavefront.get_abscissas(),input_wavefront.get_intensity())"
+        wavefront1D = GenericWavefront1D.initialize_wavefront_from_range(x_min=x_min, x_max=x_max, number_of_points=number_of_points)
+        wavefront1D.set_wavelength(wavelength)
 
-        return txt
+        if wavefront_position == 0: # Gaussian source
+            wavefront1D.set_gaussian(sigma_x=sigma_r, amplitude=1.0, shift=0.0)
+        elif wavefront_position == 1: # Spherical source, Gaussian intensity
+            wavefront1D.set_spherical_wave(radius=undulator_distance, center=0.0, complex_amplitude=complex(1,0))
+            # weight with Gaussian
+            X = wavefront1D.get_abscissas()
+            A = wavefront1D.get_complex_amplitude()
+            sigma = undulator_distance * sigma_r_prime
+            sigma_amplitude = sigma * numpy.sqrt(2)
+            Gx = numpy.exp(-X * X / 2 / sigma_amplitude ** 2)
+            wavefront1D.set_complex_amplitude(A * Gx)
+
+        if add_random_phase:
+            wavefront1D.add_phase_shifts(2*numpy.pi*numpy.random.random(wavefront1D.size()))
+
+        return wavefront1D
+
+    def script_template(self):
+        return \
+"""
+import numpy
+
+def calculate_wavefront1D(wavelength=1e-10,
+                        undulator_length=1.0,undulator_distance=10.0,
+                        x_min=-0.1,x_max=0.1,number_of_points=101,
+                        wavefront_position=0,add_random_phase=0):
+    
+    from wofry.propagator.wavefront1D.generic_wavefront import GenericWavefront1D
+
+    sigma_r = 2.740 / 4 / numpy.pi * numpy.sqrt(wavelength * undulator_length)
+    sigma_r_prime = 0.69 * numpy.sqrt(wavelength / undulator_length)
+
+    wavefront1D = GenericWavefront1D.initialize_wavefront_from_range(x_min=x_min, x_max=x_max, number_of_points=number_of_points)
+    wavefront1D.set_wavelength(wavelength)
+
+    if wavefront_position == 0: # Gaussian source
+        wavefront1D.set_gaussian(sigma_x=sigma_r, amplitude=1.0, shift=0.0)
+    elif wavefront_position == 1: # Spherical source, Gaussian intensity
+        wavefront1D.set_spherical_wave(radius=undulator_distance, center=0.0, complex_amplitude=complex(1,0))
+        # weight with Gaussian
+        X = wavefront1D.get_abscissas()
+        A = wavefront1D.get_complex_amplitude()
+        sigma = undulator_distance * sigma_r_prime
+        sigma_amplitude = sigma * numpy.sqrt(2)
+        Gx = numpy.exp(-X * X / 2 / sigma_amplitude ** 2)
+        wavefront1D.set_complex_amplitude(A * Gx)
+
+    if add_random_phase:
+        wavefront1D.add_phase_shifts(2*numpy.pi*numpy.random.random(wavefront1D.size()))
+
+    return wavefront1D
+
+
+
+output_wavefront = calculate_wavefront1D(wavelength={wavelength},
+                                                    wavefront_position={wavefront_position},
+                                                    undulator_length={undulator_length},
+                                                    undulator_distance={undulator_distance},
+                                                    x_min={x_min},
+                                                    x_max={x_max},
+                                                    number_of_points = {number_of_points},
+                                                    add_random_phase={add_random_phase})
+from srxraylib.plot.gol import plot
+plot(output_wavefront.get_abscissas(),output_wavefront.get_intensity())
+"""
 
 
     def do_plot_results(self, progressBarValue=80):

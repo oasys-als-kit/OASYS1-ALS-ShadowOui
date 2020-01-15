@@ -1,6 +1,7 @@
 import numpy
 
 from PyQt5.QtGui import QPalette, QColor, QFont
+from PyQt5.QtWidgets import QMessageBox
 from orangewidget import gui
 from orangewidget.settings import Setting
 from oasys.widgets import gui as oasysgui
@@ -29,10 +30,10 @@ class OWReflector1D(WofryWidget):
                 "doc":"GenericWavefront1D",
                 "id":"GenericWavefront1D"}]
 
-    inputs = [("GenericWavefront1D", GenericWavefront1D, "set_input")]
+    inputs = [("GenericWavefront1D", GenericWavefront1D, "set_input"),
+              ("DABAM 1D Profile", numpy.ndarray, "receive_dabam_profile")]
 
     grazing_angle = Setting(1.5e-3)
-    surface_from = Setting(1)
     radius = Setting(1000.0)
     error_flag = Setting(0)
     error_file = Setting("<none>")
@@ -100,7 +101,6 @@ class OWReflector1D(WofryWidget):
 
         self.error_file_id = oasysgui.lineEdit(self.file_box_id, self, "error_file", "Error file X[m] Y[m]",
                                                     labelWidth=120, valueType=str, orientation="horizontal")
-        # self.error_file_id.setFixedWidth(330)
 
         gui.button(self.file_box_id, self, "...", callback=self.set_error_file)
 
@@ -109,7 +109,6 @@ class OWReflector1D(WofryWidget):
 
     def set_visible(self):
         self.file_box_id.setVisible(self.error_flag)
-
 
     def set_error_file(self):
         self.error_file_id.setText(oasysgui.selectFileFromDialog(self, self.error_file, "Open file with profile error"))
@@ -138,13 +137,34 @@ class OWReflector1D(WofryWidget):
         self.error_file = congruence.checkFileName(self.error_file)
 
 
-
     def set_input(self, wavefront):
         if not wavefront is None:
             self.wavefront1D = wavefront
 
             if self.is_automatic_execution:
                 self.propagate_wavefront()
+
+    def receive_dabam_profile(self, dabam_profile):
+        if not dabam_profile is None:
+            try:
+                file_name = "dabam_profile_" + str(id(self)) + ".dat"
+
+                file = open(file_name, "w")
+
+                for element in dabam_profile:
+                    file.write(str(element[0]) + " " + str(element[1]) + "\n")
+
+                file.flush()
+                file.close()
+
+                self.error_flag = 1
+                self.error_file = file_name
+                self.set_visible()
+
+            except Exception as exception:
+                QMessageBox.critical(self, "Error", exception.args[0], QMessageBox.Ok)
+
+                if self.IS_DEVELOP: raise exception
 
     def propagate_wavefront(self):
         self.wofry_output.setText("")
@@ -154,15 +174,16 @@ class OWReflector1D(WofryWidget):
 
         if self.wavefront1D is None: raise Exception("No Input Wavefront")
 
-
         output_wavefront, abscissas_on_mirror, height = self.calculate_output_wavefront_after_reflector1D(self.wavefront1D,
                                                                        radius=self.radius,
                                                                        grazing_angle=self.grazing_angle,
-                                                                       error_file=self.error_file,
-                                                                       error_flag=self.error_flag)
+                                                                       error_flag=self.error_flag,
+                                                                       error_file=self.error_file,)
 
-        dict_parameters = {"grazing_angle": self.grazing_angle, "radius": self.radius,
-                           "error_flag":self.error_flag, "error_file":self.error_file}
+        dict_parameters = {"grazing_angle": self.grazing_angle,
+                           "radius": self.radius,
+                           "error_flag":self.error_flag,
+                           "error_file":self.error_file}
         script_template = self.script_template_output_wavefront_from_radius()
 
 
@@ -170,22 +191,13 @@ class OWReflector1D(WofryWidget):
 
         self.send("GenericWavefront1D", output_wavefront)
 
-
         # write python script
         self.wofry_script.set_code(script_template.format_map(dict_parameters))
-        # self.wofry_script.set_code(self.script_template())
-
-
-        # try:
-        #     python_code = self.propagate_python_code()
-        #     self.writeStdOut(python_code)
-        # except:
-        #     pass
-
 
     @classmethod
     def calculate_output_wavefront_after_reflector1D(cls,input_wavefront,radius=10000.0,grazing_angle=1.5e-3,
                                                error_flag=0, error_file=""):
+
         output_wavefront = input_wavefront.duplicate()
         abscissas = output_wavefront.get_abscissas()
         abscissas_on_mirror = abscissas / numpy.sin(grazing_angle)
@@ -205,63 +217,6 @@ class OWReflector1D(WofryWidget):
 
         output_wavefront.add_phase_shifts(phi)
         return output_wavefront, abscissas_on_mirror, height
-
-
-
-        # try:
-        #     self.wofry_output.setText("")
-        #     self.progressBarInit()
-        #
-        #     sys.stdout = EmittingStream(textWritten=self.writeStdOut)
-        #
-        #     if self.input_wavefront is None: raise Exception("No Input Wavefront")
-        #
-        #     self.check_data()
-        #
-        #     # propagation to o.e.
-        #
-        #     propagation_elements = PropagationElements()
-        #
-        #     beamline_element = BeamlineElement(optical_element=self.get_optical_element(),
-        #                                        coordinates=ElementCoordinates(p=self.p,
-        #                                                                       q=self.q,
-        #                                                                       angle_radial=numpy.radians(self.angle_radial),
-        #                                                                       angle_azimuthal=numpy.radians(self.angle_azimuthal)))
-        #
-        #     propagation_elements.add_beamline_element(beamline_element)
-        #
-        #     propagation_parameters = PropagationParameters(wavefront=self.input_wavefront.duplicate(),
-        #                                                    propagation_elements = propagation_elements)
-        #
-        #     self.set_additional_parameters(propagation_parameters)
-        #
-        #     propagator = PropagationManager.Instance()
-        #
-        #     output_wavefront = propagator.do_propagation(propagation_parameters=propagation_parameters,
-        #                                                  handler_name=self.get_handler_name())
-        #
-        #
-        #     self.wavefront_to_plot = output_wavefront
-        #
-        #     self.initializeTabs()
-        #     self.do_plot_results()
-        #     self.progressBarFinished()
-        #
-        #     self.send("GenericWavefront1D", output_wavefront)
-        #
-        #     try:
-        #         python_code = self.propagate_python_code()
-        #         self.writeStdOut(python_code)
-        #     except:
-        #         pass
-        #
-        # except Exception as e:
-        #     QMessageBox.critical(self, "Error", str(e.args[0]), QMessageBox.Ok)
-        #
-        #     self.setStatusMessage("")
-        #     self.progressBarFinished()
-        #
-        #     raise e
 
     def script_template_output_wavefront_from_radius(self):
         return \
@@ -305,8 +260,6 @@ output_wavefront, abscissas_on_mirror, height = calculate_output_wavefront_after
 # from srxraylib.plot.gol import plot
 # plot(output_wavefront.get_abscissas(),output_wavefront.get_intensity())
 """
-
-
 
     def do_plot_results(self, progressBarValue): # required by parent
         pass
@@ -370,6 +323,7 @@ output_wavefront, abscissas_on_mirror, height = calculate_output_wavefront_after
             self.plot_canvas[0].resetZoom()
 
             self.progressBarFinished()
+
 if __name__ == '__main__':
 
     from PyQt5.QtWidgets import QApplication
@@ -378,7 +332,6 @@ if __name__ == '__main__':
     def create_wavefront():
         #
         # create input_wavefront
-        #
         #
         from wofry.propagator.wavefront1D.generic_wavefront import GenericWavefront1D
         input_wavefront = GenericWavefront1D.initialize_wavefront_from_range(x_min=-0.00147, x_max=0.00147,
@@ -390,6 +343,10 @@ if __name__ == '__main__':
     app = QApplication([])
     ow = OWReflector1D()
     ow.set_input(create_wavefront())
+
+    ow.receive_dabam_profile(numpy.array([[1,2],[3,4]]))
+    ow.propagate_wavefront()
+
     ow.show()
     app.exec_()
     ow.saveSettings()
