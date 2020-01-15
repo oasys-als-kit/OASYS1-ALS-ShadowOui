@@ -106,8 +106,8 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
 
     EL0_SHAPE = Setting(2)
     EL0_POSITION = Setting(13.73)  # this is then copied from  SOURCE_SCREEN_DISTANCE
-    EL0_P = Setting(10.0)
-    EL0_Q = Setting(10.0)
+    EL0_P_FOCUS = Setting(10.0)
+    EL0_Q_FOCUS = Setting(10.0)
     EL0_ANG = Setting(88.75)
     EL0_THICKNESS = Setting(1000)
     EL0_RELATIVE_TO_PREVIOUS = Setting(0)
@@ -115,8 +115,8 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
 
     EL1_SHAPE = Setting(2)
     EL1_POSITION = Setting(10.0)
-    EL1_P = Setting(10.0)
-    EL1_Q = Setting(10.0)
+    EL1_P_FOCUS = Setting(10.0)
+    EL1_Q_FOCUS = Setting(10.0)
     EL1_ANG = Setting(88.75)
     EL1_THICKNESS = Setting(1000)
     EL1_RELATIVE_TO_PREVIOUS = Setting(2)
@@ -124,8 +124,8 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
 
     EL2_SHAPE = Setting(2)
     EL2_POSITION = Setting(10.0)
-    EL2_P = Setting(10.0)
-    EL2_Q = Setting(10.0)
+    EL2_P_FOCUS = Setting(10.0)
+    EL2_Q_FOCUS = Setting(10.0)
     EL2_ANG = Setting(88.75)
     EL2_THICKNESS = Setting(1000)
     EL2_RELATIVE_TO_PREVIOUS = Setting(0)
@@ -133,8 +133,8 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
 
     EL3_SHAPE = Setting(2)
     EL3_POSITION = Setting(10.0)
-    EL3_P = Setting(10.0)
-    EL3_Q = Setting(10.0)
+    EL3_P_FOCUS = Setting(10.0)
+    EL3_Q_FOCUS = Setting(10.0)
     EL3_ANG = Setting(88.75)
     EL3_THICKNESS = Setting(1000)
     EL3_RELATIVE_TO_PREVIOUS = Setting(0)
@@ -142,8 +142,8 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
 
     EL4_SHAPE = Setting(2)
     EL4_POSITION = Setting(10.0)
-    EL4_P = Setting(10.0)
-    EL4_Q = Setting(10.0)
+    EL4_P_FOCUS = Setting(10.0)
+    EL4_Q_FOCUS = Setting(10.0)
     EL4_ANG = Setting(88.75)
     EL4_THICKNESS = Setting(1000)
     EL4_RELATIVE_TO_PREVIOUS = Setting(0)
@@ -151,8 +151,8 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
 
     EL5_SHAPE = Setting(2)
     EL5_POSITION = Setting(10.0)
-    EL5_P = Setting(10.0)
-    EL5_Q = Setting(10.0)
+    EL5_P_FOCUS = Setting(10.0)
+    EL5_Q_FOCUS = Setting(10.0)
     EL5_ANG = Setting(88.75)
     EL5_THICKNESS = Setting(1000)
     EL5_RELATIVE_TO_PREVIOUS = Setting(0)
@@ -414,7 +414,7 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
             #widget index xx
             idx += 1
             box1 = gui.widgetBox(self.tab_el[element_index])
-            oasysgui.lineEdit(box1, self, "EL%d_P"%element_index,
+            oasysgui.lineEdit(box1, self, "EL%d_P_FOCUS"%element_index,
                          label=self.unitLabels()[idx], addSpace=False,
                         valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
             self.show_at(self.unitFlags()[idx], box1)
@@ -422,7 +422,7 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
             #widget index xx
             idx += 1
             box1 = gui.widgetBox(self.tab_el[element_index])
-            oasysgui.lineEdit(box1, self, "EL%d_Q"%element_index,
+            oasysgui.lineEdit(box1, self, "EL%d_Q_FOCUS"%element_index,
                          label=self.unitLabels()[idx], addSpace=False,
                         valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
             self.show_at(self.unitFlags()[idx], box1)
@@ -435,6 +435,13 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
                         valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
             self.show_at(self.unitFlags()[idx], box1)
 
+            #widget index xx
+            idx += 1
+            box1 = gui.widgetBox(self.tab_el[element_index])
+            oasysgui.lineEdit(box1, self, "EL%d_THICKNESS"%element_index,
+                         label=self.unitLabels()[idx], addSpace=False,
+                        valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
+            self.show_at(self.unitFlags()[idx], box1)
 
             #widget index xx
             idx += 1
@@ -536,6 +543,7 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
                 'Focus Ent. Arm [m]',
                 'Focus Exit Arm [m]',
                 'Inc. Angle to normal [deg]',
+                'Thickness [??]',
                 'Orientation (relative to previous)',
                 'Coating',
                 ]
@@ -553,12 +561,12 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
                  "True", "True", "True",
                  "True", "True","True",
                  'True',
-                 "True", "True", "self.EL0_SHAPE not in (2,8,9)", "self.EL0_SHAPE not in (2,8,9)", "True", "True", "True",  # OE fields
-                 "True", "True", "self.EL1_SHAPE not in (2,8,9)", "self.EL1_SHAPE not in (2,8,9)", "True", "True", "True",  # OE fields
-                 "True", "True", "self.EL2_SHAPE not in (2,8,9)", "self.EL2_SHAPE not in (2,8,9)", "True", "True", "True",  # OE fields
-                 "True", "True", "self.EL3_SHAPE not in (2,8,9)", "self.EL3_SHAPE not in (2,8,9)", "True", "True", "True",  # OE fields
-                 "True", "True", "self.EL4_SHAPE not in (2,8,9)", "self.EL4_SHAPE not in (2,8,9)", "True", "True", "True",  # OE fields
-                 "True", "True", "self.EL5_SHAPE not in (2,8,9)", "self.EL5_SHAPE not in (2,8,9)", "True", "True", "True",  # OE fields
+                 "True", "True", "self.EL0_SHAPE not in (2,8,9)", "self.EL0_SHAPE not in (2,8,9)", "True", "self.EL0_SHAPE in (8,9)", "True", "True",  # shape, position, p, q, angle, thickness, orientation, coating
+                 "True", "True", "self.EL1_SHAPE not in (2,8,9)", "self.EL1_SHAPE not in (2,8,9)", "True", "self.EL1_SHAPE in (8,9)", "True", "True",  # OE fields
+                 "True", "True", "self.EL2_SHAPE not in (2,8,9)", "self.EL2_SHAPE not in (2,8,9)", "True", "self.EL2_SHAPE in (8,9)", "True", "True",  # OE fields
+                 "True", "True", "self.EL3_SHAPE not in (2,8,9)", "self.EL3_SHAPE not in (2,8,9)", "True", "self.EL3_SHAPE in (8,9)", "True", "True",  # OE fields
+                 "True", "True", "self.EL4_SHAPE not in (2,8,9)", "self.EL4_SHAPE not in (2,8,9)", "True", "self.EL4_SHAPE in (8,9)", "True", "True",  # OE fields
+                 "True", "True", "self.EL5_SHAPE not in (2,8,9)", "self.EL5_SHAPE not in (2,8,9)", "True", "self.EL5_SHAPE in (8,9)", "True", "True",  # OE fields
                  'True','True']
 
     def get_help_name(self):
@@ -592,43 +600,43 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
 
         if self.NELEMENTS >=6:
             self.EL5_POSITION  = congruence.checkPositiveNumber(self.EL5_POSITION,  "EL5_POSITION")
-            self.EL5_P         = congruence.checkPositiveNumber(self.EL5_P,         "EL5_P")
-            self.EL5_Q         = congruence.checkPositiveNumber(self.EL5_Q,         "EL5_Q")
+            self.EL5_P_FOCUS   = congruence.checkPositiveNumber(self.EL5_P_FOCUS,         "EL5_P_FOCUS")
+            self.EL5_Q_FOCUS   = congruence.checkPositiveNumber(self.EL5_Q_FOCUS,         "EL5_Q_FOCUS")
             self.EL5_ANG       = congruence.checkPositiveNumber(self.EL5_ANG,       "EL5_ANG")
             self.EL5_THICKNESS = congruence.checkPositiveNumber(self.EL5_THICKNESS, "EL5_THICKNESS")
 
         if self.NELEMENTS >=5:
             self.EL4_POSITION  = congruence.checkPositiveNumber(self.EL4_POSITION,  "EL4_POSITION")
-            self.EL4_P         = congruence.checkPositiveNumber(self.EL4_P,         "EL4_P")
-            self.EL4_Q         = congruence.checkPositiveNumber(self.EL4_Q,         "EL4_Q")
+            self.EL4_P_FOCUS    = congruence.checkPositiveNumber(self.EL4_P_FOCUS,         "EL4_P_FOCUS")
+            self.EL4_Q_FOCUS    = congruence.checkPositiveNumber(self.EL4_Q_FOCUS,         "EL4_Q_FOCUS")
             self.EL4_ANG       = congruence.checkPositiveNumber(self.EL4_ANG,       "EL4_ANG")
             self.EL4_THICKNESS = congruence.checkPositiveNumber(self.EL4_THICKNESS, "EL4_THICKNESS")
 
         if self.NELEMENTS >=4:
             self.EL3_POSITION  = congruence.checkPositiveNumber(self.EL3_POSITION,  "EL3_POSITION")
-            self.EL3_P         = congruence.checkPositiveNumber(self.EL3_P,         "EL3_P")
-            self.EL3_Q         = congruence.checkPositiveNumber(self.EL3_Q,         "EL3_Q")
+            self.EL3_P_FOCUS         = congruence.checkPositiveNumber(self.EL3_P_FOCUS,         "EL3_P_FOCUS")
+            self.EL3_Q_FOCUS         = congruence.checkPositiveNumber(self.EL3_Q_FOCUS,         "EL3_Q_FOCUS")
             self.EL3_ANG       = congruence.checkPositiveNumber(self.EL3_ANG,       "EL3_ANG")
             self.EL3_THICKNESS = congruence.checkPositiveNumber(self.EL3_THICKNESS, "EL3_THICKNESS")
 
         if self.NELEMENTS >=3:
             self.EL2_POSITION  = congruence.checkPositiveNumber(self.EL2_POSITION,  "EL2_POSITION")
-            self.EL2_P         = congruence.checkPositiveNumber(self.EL2_P,         "EL2_P")
-            self.EL2_Q         = congruence.checkPositiveNumber(self.EL2_Q,         "EL2_Q")
+            self.EL2_P_FOCUS         = congruence.checkPositiveNumber(self.EL2_P_FOCUS,         "EL2_P_FOCUS")
+            self.EL2_Q_FOCUS         = congruence.checkPositiveNumber(self.EL2_Q_FOCUS,         "EL2_Q_FOCUS")
             self.EL2_ANG       = congruence.checkPositiveNumber(self.EL2_ANG,       "EL2_ANG")
             self.EL2_THICKNESS = congruence.checkPositiveNumber(self.EL2_THICKNESS, "EL2_THICKNESS")
 
         if self.NELEMENTS >=2:
             self.EL1_POSITION  = congruence.checkPositiveNumber(self.EL1_POSITION,  "EL1_POSITION")
-            self.EL1_P         = congruence.checkPositiveNumber(self.EL1_P,         "EL1_P")
-            self.EL1_Q         = congruence.checkPositiveNumber(self.EL1_Q,         "EL1_Q")
+            self.EL1_P_FOCUS         = congruence.checkPositiveNumber(self.EL1_P_FOCUS,         "EL1_P_FOCUS")
+            self.EL1_Q_FOCUS         = congruence.checkPositiveNumber(self.EL1_Q_FOCUS,         "EL1_Q_FOCUS")
             self.EL1_ANG       = congruence.checkPositiveNumber(self.EL1_ANG,       "EL1_ANG")
             self.EL1_THICKNESS = congruence.checkPositiveNumber(self.EL1_THICKNESS, "EL1_THICKNESS")
 
         if self.NELEMENTS >=1:
             self.EL0_POSITION  = congruence.checkPositiveNumber(self.EL0_POSITION,  "EL0_POSITION")
-            self.EL0_P         = congruence.checkPositiveNumber(self.EL0_P,         "EL0_P")
-            self.EL0_Q         = congruence.checkPositiveNumber(self.EL0_Q,         "EL0_Q")
+            self.EL0_P_FOCUS         = congruence.checkPositiveNumber(self.EL0_P_FOCUS,         "EL0_P_FOCUS")
+            self.EL0_Q_FOCUS         = congruence.checkPositiveNumber(self.EL0_Q_FOCUS,         "EL0_Q_FOCUS")
             self.EL0_ANG       = congruence.checkPositiveNumber(self.EL0_ANG,       "EL0_ANG")
             self.EL0_THICKNESS = congruence.checkPositiveNumber(self.EL0_THICKNESS, "EL0_THICKNESS")
 
@@ -950,43 +958,43 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
         oe_parameters = {
             "EL0_SHAPE":                self.EL0_SHAPE               ,
             "EL0_POSITION":             self.EL0_POSITION            ,
-            "EL0_P":                    self.EL0_P                   ,
-            "EL0_Q":                    self.EL0_Q                   ,
+            "EL0_P_FOCUS":              self.EL0_P_FOCUS                   ,
+            "EL0_Q_FOCUS":              self.EL0_Q_FOCUS                   ,
             "EL0_ANG":                  self.EL0_ANG                 ,
             "EL0_THICKNESS":            self.EL0_THICKNESS           ,
             "EL0_RELATIVE_TO_PREVIOUS": self.EL0_RELATIVE_TO_PREVIOUS,
             "EL1_SHAPE":                self.EL1_SHAPE               ,
             "EL1_POSITION":             self.EL1_POSITION            ,
-            "EL1_P":                    self.EL1_P                   ,
-            "EL1_Q":                    self.EL1_Q                   ,
+            "EL1_P_FOCUS":              self.EL1_P_FOCUS             ,
+            "EL1_Q_FOCUS":              self.EL1_Q_FOCUS             ,
             "EL1_ANG":                  self.EL1_ANG                 ,
             "EL1_THICKNESS":            self.EL1_THICKNESS           ,
             "EL1_RELATIVE_TO_PREVIOUS": self.EL1_RELATIVE_TO_PREVIOUS,
             "EL2_SHAPE":                self.EL2_SHAPE               ,
             "EL2_POSITION":             self.EL2_POSITION            ,
-            "EL2_P":                    self.EL2_P                   ,
-            "EL2_Q":                    self.EL2_Q                   ,
+            "EL2_P_FOCUS":              self.EL2_P_FOCUS                   ,
+            "EL2_Q_FOCUS":              self.EL2_Q_FOCUS                   ,
             "EL2_ANG":                  self.EL2_ANG                 ,
             "EL2_THICKNESS":            self.EL2_THICKNESS           ,
             "EL2_RELATIVE_TO_PREVIOUS": self.EL2_RELATIVE_TO_PREVIOUS,
             "EL3_SHAPE":                self.EL3_SHAPE               ,
             "EL3_POSITION":             self.EL3_POSITION            ,
-            "EL3_P":                    self.EL3_P                   ,
-            "EL3_Q":                    self.EL3_Q                   ,
+            "EL3_P_FOCUS":                    self.EL3_P_FOCUS                   ,
+            "EL3_Q_FOCUS":                    self.EL3_Q_FOCUS                   ,
             "EL3_ANG":                  self.EL3_ANG                 ,
             "EL3_THICKNESS":            self.EL3_THICKNESS           ,
             "EL3_RELATIVE_TO_PREVIOUS": self.EL3_RELATIVE_TO_PREVIOUS,
             "EL4_SHAPE":                self.EL4_SHAPE               ,
             "EL4_POSITION":             self.EL4_POSITION            ,
-            "EL4_P":                    self.EL4_P                   ,
-            "EL4_Q":                    self.EL4_Q                   ,
+            "EL4_P_FOCUS":                    self.EL4_P_FOCUS                   ,
+            "EL4_Q_FOCUS":                    self.EL4_Q_FOCUS                   ,
             "EL4_ANG":                  self.EL4_ANG                 ,
             "EL4_THICKNESS":            self.EL4_THICKNESS           ,
             "EL4_RELATIVE_TO_PREVIOUS": self.EL4_RELATIVE_TO_PREVIOUS,
             "EL5_SHAPE":                self.EL5_SHAPE               ,
             "EL5_POSITION":             self.EL5_POSITION            ,
-            "EL5_P":                    self.EL5_P                   ,
-            "EL5_Q":                    self.EL5_Q                   ,
+            "EL5_P_FOCUS":                    self.EL5_P_FOCUS                   ,
+            "EL5_Q_FOCUS":                    self.EL5_Q_FOCUS                   ,
             "EL5_ANG":                  self.EL5_ANG                 ,
             "EL5_THICKNESS":            self.EL5_THICKNESS           ,
             "EL5_RELATIVE_TO_PREVIOUS": self.EL5_RELATIVE_TO_PREVIOUS,
@@ -1235,7 +1243,13 @@ def ray_tracing(
         SOURCE_SCREEN_DISTANCE=13.73,
         number_of_elements=1,
         oe_parameters=  {
-            "EL0_SHAPE":2,"EL0_POSITION":13.73,"EL0_P":0.0,"EL0_Q":0.0,"EL0_ANG":88.75,"EL0_THICKNESS":1000,"EL0_RELATIVE_TO_PREVIOUS":2,
+            "EL0_SHAPE":2,
+            "EL0_POSITION":13.73,
+            "EL0_P_FOCUS":0.0,
+            "EL0_Q_FOCUS":0.0,
+            "EL0_ANG":88.75,
+            "EL0_THICKNESS":1000,
+            "EL0_RELATIVE_TO_PREVIOUS":2,
                         },
         dump_shadow_files=True):
 
@@ -1289,14 +1303,14 @@ def ray_tracing(
             is_conic = False
             toroid = Toroid()
             toroid.set_from_focal_distances(
-                oe_parameters["EL%d_P" % oe_index],
-                oe_parameters["EL%d_Q" % oe_index],
+                oe_parameters["EL%d_P_FOCUS" % oe_index],
+                oe_parameters["EL%d_Q_FOCUS" % oe_index],
                 theta_grazing)
         elif oe_parameters["EL%d_SHAPE"%oe_index] == 1:     # "Spherical mirror",
             is_conic = True
             ccc = Conic.initialize_as_sphere_from_focal_distances(
-                oe_parameters["EL%d_P" % oe_index],
-                oe_parameters["EL%d_Q" % oe_index],
+                oe_parameters["EL%d_P_FOCUS" % oe_index],
+                oe_parameters["EL%d_Q_FOCUS" % oe_index],
                 theta_grazing,cylindrical=0,cylangle=0,switch_convexity=0)
         elif oe_parameters["EL%d_SHAPE"%oe_index] == 2:     # "Plane mirror",
             is_conic = True
@@ -1304,22 +1318,22 @@ def ray_tracing(
         elif oe_parameters["EL%d_SHAPE"%oe_index] == 3:     # "MerCyl mirror",
             is_conic = True
             ccc = Conic.initialize_as_sphere_from_focal_distances(
-                oe_parameters["EL%d_P" % oe_index],
-                oe_parameters["EL%d_Q" % oe_index],
+                oe_parameters["EL%d_P_FOCUS" % oe_index],
+                oe_parameters["EL%d_Q_FOCUS" % oe_index],
                 theta_grazing,cylindrical=1,cylangle=0,switch_convexity=0)
         elif oe_parameters["EL%d_SHAPE"%oe_index] == 4:     # "SagCyl mirror",
             raise Exception("Not implemented")
         elif oe_parameters["EL%d_SHAPE"%oe_index] == 5:     # "Ellipsoidal mirror",
             is_conic = True
             ccc = Conic.initialize_as_ellipsoid_from_focal_distances(
-                oe_parameters["EL%d_P" % oe_index],
-                oe_parameters["EL%d_Q" % oe_index],
+                oe_parameters["EL%d_P_FOCUS" % oe_index],
+                oe_parameters["EL%d_Q_FOCUS" % oe_index],
                 theta_grazing,cylindrical=0,cylangle=0,switch_convexity=0)
         elif oe_parameters["EL%d_SHAPE"%oe_index] == 6:     # "MerEll mirror",
             is_conic = True
             ccc = Conic.initialize_as_ellipsoid_from_focal_distances(
-                oe_parameters["EL%d_P" % oe_index],
-                oe_parameters["EL%d_Q" % oe_index],
+                oe_parameters["EL%d_P_FOCUS" % oe_index],
+                oe_parameters["EL%d_Q_FOCUS" % oe_index],
                 theta_grazing,cylindrical=1,cylangle=0,switch_convexity=0)
         elif oe_parameters["EL%d_SHAPE"%oe_index] == 7:     # "SagEllip mirror",
             raise Exception("Not implemented")
