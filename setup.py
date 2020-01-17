@@ -43,7 +43,8 @@ SETUP_REQUIRES = (
 
 INSTALL_REQUIRES = (
                     'setuptools',
-                    'shadow4>=0.0.12'
+                    'shadow4>=0.0.12',
+                    'wofry>=0.0.23',
                    )
 
 if len({'develop', 'release', 'bdist_egg', 'bdist_rpm', 'bdist_wininst',

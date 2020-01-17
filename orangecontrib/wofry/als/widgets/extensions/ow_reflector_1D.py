@@ -1,24 +1,29 @@
 import numpy
+import sys
+from scipy import interpolate
+
 
 from PyQt5.QtGui import QPalette, QColor, QFont
 from PyQt5.QtWidgets import QMessageBox
+
 from orangewidget import gui
 from orangewidget.settings import Setting
+
 from oasys.widgets import gui as oasysgui
 from oasys.widgets import congruence
+from oasys.util.oasys_util import EmittingStream, TTYGrabber
+
+from orangecontrib.wofry.widgets.gui.ow_wofry_widget import WofryWidget
+from orangecontrib.xoppy.util.python_script import PythonScript  # TODO: change import from wofry!!!
 
 from wofry.propagator.wavefront1D.generic_wavefront import GenericWavefront1D
 
-from orangecontrib.wofry.widgets.gui.ow_wofry_widget import WofryWidget
-
-from orangecontrib.xoppy.util.python_script import PythonScript  # TODO: change import from wofry!!!
-from scipy import interpolate
 
 class OWReflector1D(WofryWidget):
 
     name = "Wofry Reflector 1D"
-    id = "UndulatorReflector1D"
-    description = "Undulator Reflector 1D"
+    id = "WofryReflector1D"
+    description = "Wofry Reflector 1D"
     icon = "icons/reflector1D.png"
     priority = 3
 
@@ -37,6 +42,8 @@ class OWReflector1D(WofryWidget):
     radius = Setting(1000.0)
     error_flag = Setting(0)
     error_file = Setting("<none>")
+    write_profile = Setting(0)
+    write_input_wavefront = Setting(0)
 
 
     wavefront1D = None
@@ -94,15 +101,18 @@ class OWReflector1D(WofryWidget):
                      callback=self.set_visible,
                      sendSelectedValue=False, orientation="horizontal")
 
-
-
-
         self.file_box_id = oasysgui.widgetBox(box_reflector, "", addSpace=True, orientation="horizontal", width=400, height=35)
-
         self.error_file_id = oasysgui.lineEdit(self.file_box_id, self, "error_file", "Error file X[m] Y[m]",
                                                     labelWidth=120, valueType=str, orientation="horizontal")
-
         gui.button(self.file_box_id, self, "...", callback=self.set_error_file)
+
+
+        gui.comboBox(box_reflector, self, "write_profile", label="Dump profile to file", labelWidth=350,
+                     items=["No","Yes [reflector_profile1D.dat]"], sendSelectedValue=False, orientation="horizontal")
+
+        gui.comboBox(box_reflector, self, "write_input_wavefront", label="Input wf to file (for script)", labelWidth=350,
+                     items=["No","Yes [wavefront_input.h5]"], sendSelectedValue=False, orientation="horizontal")
+
 
 
         self.set_visible()
@@ -167,8 +177,10 @@ class OWReflector1D(WofryWidget):
                 if self.IS_DEVELOP: raise exception
 
     def propagate_wavefront(self):
-        self.wofry_output.setText("")
         self.progressBarInit()
+
+        self.wofry_output.setText("")
+        sys.stdout = EmittingStream(textWritten=self.writeStdOut)
 
         self.check_fields()
 
@@ -178,25 +190,30 @@ class OWReflector1D(WofryWidget):
                                                                        radius=self.radius,
                                                                        grazing_angle=self.grazing_angle,
                                                                        error_flag=self.error_flag,
-                                                                       error_file=self.error_file,)
+                                                                       error_file=self.error_file,
+                                                                       write_profile=self.write_profile)
 
+        if self.write_input_wavefront:
+            self.wavefront1D.save_h5_file("wavefront_input.h5",subgroupname="wfr",intensity=True,phase=True,overwrite=True,verbose=True)
+
+        # script
         dict_parameters = {"grazing_angle": self.grazing_angle,
                            "radius": self.radius,
                            "error_flag":self.error_flag,
-                           "error_file":self.error_file}
+                           "error_file":self.error_file,
+                           "write_profile":self.write_profile}
+
         script_template = self.script_template_output_wavefront_from_radius()
+        self.wofry_script.set_code(script_template.format_map(dict_parameters))
 
 
         self.do_plot_wavefront(output_wavefront, abscissas_on_mirror, height)
 
         self.send("GenericWavefront1D", output_wavefront)
 
-        # write python script
-        self.wofry_script.set_code(script_template.format_map(dict_parameters))
-
     @classmethod
     def calculate_output_wavefront_after_reflector1D(cls,input_wavefront,radius=10000.0,grazing_angle=1.5e-3,
-                                               error_flag=0, error_file=""):
+                                               error_flag=0, error_file="", write_profile=0):
 
         output_wavefront = input_wavefront.duplicate()
         abscissas = output_wavefront.get_abscissas()
@@ -216,25 +233,26 @@ class OWReflector1D(WofryWidget):
         phi = -2 * output_wavefront.get_wavenumber() * height * numpy.sin(grazing_angle)
 
         output_wavefront.add_phase_shifts(phi)
+
+        # output files
+        if write_profile:
+            f = open("reflector_profile1D.dat","w")
+            for i in range(height.size):
+                f.write("%g %g\n"%(abscissas_on_mirror[i],height[i]))
+            f.close()
+            print("File reflector_profile1D.dat written to disk.")
+
+
         return output_wavefront, abscissas_on_mirror, height
 
+    # warning: pay attention to the double backslash in \\n
     def script_template_output_wavefront_from_radius(self):
         return \
 """
-import numpy
-from scipy import interpolate
 
-def example_input_wavefront():
-    #
-    # create input_wavefront
-    #
-    from wofry.propagator.wavefront1D.generic_wavefront import GenericWavefront1D
-    input_wavefront = GenericWavefront1D.initialize_wavefront_from_range(x_min=-0.00147,x_max=0.00147,number_of_points=1000)
-    input_wavefront.set_photon_energy(250)
-    input_wavefront.set_spherical_wave(radius=13.73,center=0,complex_amplitude=complex(1,0))
-    return input_wavefront
-
-def calculate_output_wavefront_after_reflector1D(input_wavefront,radius=10000.0,grazing_angle=1.5e-3,error_flag=0, error_file=""):
+def calculate_output_wavefront_after_reflector1D(input_wavefront,radius=10000.0,grazing_angle=1.5e-3,error_flag=0, error_file="", write_profile=0):
+    import numpy
+    from scipy import interpolate
     output_wavefront = input_wavefront.duplicate()
     abscissas = output_wavefront.get_abscissas()
     abscissas_on_mirror = abscissas / numpy.sin(grazing_angle)
@@ -252,13 +270,26 @@ def calculate_output_wavefront_after_reflector1D(input_wavefront,radius=10000.0,
 
     phi = -2 * output_wavefront.get_wavenumber() * height * numpy.sin(grazing_angle)
     output_wavefront.add_phase_shifts(phi)
+    
+    # output files
+    if write_profile:
+        f = open("reflector_profile1D.dat","w")
+        for i in range(height.size):
+            f.write("%g %g\\n"%(abscissas_on_mirror[i],height[i]))
+        f.close()
+        print("File reflector_profile1D.dat written to disk.")
+            
     return output_wavefront, abscissas_on_mirror, height 
 
+#
+# main
+#
+from wofry.propagator.wavefront1D.generic_wavefront import GenericWavefront1D
+input_wavefront = GenericWavefront1D.load_h5_file("wavefront_input.h5","wfr")
+output_wavefront, abscissas_on_mirror, height = calculate_output_wavefront_after_reflector1D(input_wavefront,radius={radius},grazing_angle={grazing_angle},error_flag={error_flag},error_file="{error_file}",write_profile={write_profile})
 
-input_wavefront = example_input_wavefront()  # customize with your input_wavefront
-output_wavefront, abscissas_on_mirror, height = calculate_output_wavefront_after_reflector1D(input_wavefront,radius={radius},grazing_angle={grazing_angle},error_flag={error_flag},error_file="{error_file}")
-# from srxraylib.plot.gol import plot
-# plot(output_wavefront.get_abscissas(),output_wavefront.get_intensity())
+from srxraylib.plot.gol import plot
+plot(output_wavefront.get_abscissas(),output_wavefront.get_intensity())
 """
 
     def do_plot_results(self, progressBarValue): # required by parent

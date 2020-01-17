@@ -3,6 +3,8 @@
 # class ALSFiniteElementReader(ALSShadowWidget):
 
 import os
+import numpy
+
 from PyQt5 import QtGui, QtWidgets
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import QRect, Qt
@@ -38,7 +40,12 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
     outputs = [{"name": "Surface Data",
                 "type": OasysSurfaceData,
                 "doc": "Surface Data",
-                "id": "Surface Data"}]
+                "id": "Surface Data"},
+               {"name": "DABAM 1D Profile",
+                "type": numpy.ndarray,
+                "doc": "numpy.ndarray",
+                "id": "numpy.ndarray"},
+               ]
 
     want_main_area = 1
     want_control_area = 1
@@ -64,6 +71,8 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
     invert_axes_names = Setting(1)
     detrended = Setting(1)
     reset_height_method = Setting(0)
+    extract_profile1D = Setting(0)
+    coordinate_profile1D = Setting(0.0)
 
     fea_file_object = FEA_File()
 
@@ -80,11 +89,24 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
         self.setMaximumHeight(self.geometry().height())
         self.setMaximumWidth(self.geometry().width())
 
+        #
+        # tabs for results
+        #
+        self.tabs_setting = oasysgui.tabWidget(self.mainArea)
+        self.tabs_setting.setFixedHeight(self.IMAGE_HEIGHT + 5)
+        self.tabs_setting.setFixedWidth(self.IMAGE_WIDTH)
+        self.create_tabs_results()
+
+
+
+        #
+        # parameters panel
+        #
+
         gui.button(self.controlArea, self, "Calculate Interpolated File", callback=self.calculate, height=45)
 
         gui.separator(self.controlArea, height=20)
 
-        #
         #
         #
         data_file_box = oasysgui.widgetBox(self.controlArea, "Data file", addSpace=True,
@@ -109,7 +131,6 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
                      items=["No","Along axis 0","Along axis 1","Along axes 0 and 1"],
                      sendSelectedValue=False, orientation="horizontal")
 
-        #
         #
         #
         interpolation_box = oasysgui.widgetBox(self.controlArea, "Interpolation", addSpace=True,
@@ -141,16 +162,22 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
 
         #
         #
-        #
+        profile1D_box = oasysgui.widgetBox(self.controlArea, "1D profile", addSpace=True,
+                                         orientation="vertical",)
+        gui.comboBox(profile1D_box, self, "extract_profile1D", label="Extract and send 1D profile", labelWidth=220,
+                     items=["horizontal", "vertical"],
+                     sendSelectedValue=False, orientation="horizontal")
 
-        tabs_setting = oasysgui.tabWidget(self.mainArea)
-        tabs_setting.setFixedHeight(self.IMAGE_HEIGHT + 5)
-        tabs_setting.setFixedWidth(self.IMAGE_WIDTH)
+        oasysgui.lineEdit(profile1D_box, self, "coordinate_profile1D", "At coordinate [m]:", labelWidth=260, valueType=float,
+                          orientation="horizontal")
 
-        self.create_tabs_results(tabs_setting)
 
-    def create_tabs_results(self,tabs_setting):
+        # self.set_visible()
 
+
+    def create_tabs_results(self):
+
+        tabs_setting = self.tabs_setting
         tmp = oasysgui.createTabPage(tabs_setting, "Result")
         self.result_id = gui.widgetBox(tmp, "", addSpace=True, orientation="vertical")
         self.result_id.setFixedHeight(self.IMAGE_HEIGHT - 30)
@@ -170,6 +197,11 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
         self.rawdata_id = gui.widgetBox(tmp, "", addSpace=True, orientation="vertical")
         self.rawdata_id.setFixedHeight(self.IMAGE_HEIGHT - 30)
         self.rawdata_id.setFixedWidth(self.IMAGE_WIDTH - 20)
+
+        tmp = oasysgui.createTabPage(tabs_setting, "1D profile")
+        self.profile1D_id = gui.widgetBox(tmp, "", addSpace=True, orientation="vertical")
+        self.profile1D_id.setFixedHeight(self.IMAGE_HEIGHT - 30)
+        self.profile1D_id.setFixedWidth(self.IMAGE_WIDTH - 20)
         #
         tmp = oasysgui.createTabPage(tabs_setting, "Output")
         self.info_id = oasysgui.textArea(height=self.IMAGE_HEIGHT - 35)
@@ -195,6 +227,7 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
         self.fea_file_object.replicate_raw_data(self.replicate_raw_data_flag)
 
     def calculate(self):
+
         self.load_raw_data()
 
         self.fea_file_object.triangulate()
@@ -223,21 +256,7 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
 
         self.fea_file_object.write_h5_surface(filename=self.file_out, invert_axes_names=self.invert_axes_names)
 
-        self.plot_results()
-
-
-        if self.invert_axes_names:
-            self.send("Surface Data",
-                      OasysSurfaceData(xx=self.fea_file_object.y_interpolated,
-                                       yy=self.fea_file_object.x_interpolated,
-                                       zz=self.fea_file_object.Z_INTERPOLATED,
-                                       surface_data_file=self.file_out))
-        else:
-            self.send("Surface Data",
-                      OasysSurfaceData(xx=self.fea_file_object.x_interpolated,
-                                       yy=self.fea_file_object.y_interpolated,
-                                       zz=self.fea_file_object.Z_INTERPOLATED.T,
-                                       surface_data_file=self.file_out))
+        self.plot_and_send_results()
 
 
     def write_info(self, text, initialize=True):
@@ -251,7 +270,7 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
             self.info_id.ensureCursorVisible()
 
 
-    def plot_results(self):
+    def plot_and_send_results(self):
 
         #
         # result
@@ -339,6 +358,68 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
 
         self.axis.mouse_init()
 
+        #
+        # result
+        #
+
+        mesh = self.fea_file_object.Z_INTERPOLATED
+        mesh_shape = mesh.shape
+        x = self.fea_file_object.x_interpolated
+        y = self.fea_file_object.y_interpolated
+
+        if self.extract_profile1D == 0:
+            abscissas = x
+            perp_abscissas = y
+            index0 = numpy.argwhere(perp_abscissas >= self.coordinate_profile1D)
+            try:
+                index0 = index0[0][0]
+            except:
+                index0 = -1
+            profile1D = mesh[:, index0]
+            if self.invert_axes_names:
+                title = "profile at X[%d] = %f" % (index0, perp_abscissas[index0])
+                xtitle = "Y [m] "
+            else:
+                title = "profile at Y[%d] = %f" % (index0, perp_abscissas[index0])
+                xtitle = "X [m] "
+            self.plot_data1D(abscissas, profile1D, self.profile1D_id, title=title, xtitle=xtitle, ytitle="Z [m] ")
+        else:
+            abscissas = y
+            perp_abscissas = x
+            index0 = numpy.argwhere(perp_abscissas >= self.coordinate_profile1D)
+            try:
+                index0 = index0[0][0]
+            except:
+                index0 = -1
+            profile1D = mesh[index0, :]
+            if self.invert_axes_names:
+                title = "profile at Y[%d] = %f" % (index0, perp_abscissas[index0])
+                xtitle = "X [m] "
+            else:
+                title = "profile at X[%d] = %f" % (index0, perp_abscissas[index0])
+                xtitle = "Y [m] "
+            self.plot_data1D(abscissas, profile1D, self.profile1D_id, title=title, xtitle=xtitle, ytitle="Z [m] ")
+
+
+        if self.invert_axes_names:
+            self.send("Surface Data",
+                      OasysSurfaceData(xx=self.fea_file_object.y_interpolated,
+                                       yy=self.fea_file_object.x_interpolated,
+                                       zz=self.fea_file_object.Z_INTERPOLATED,
+                                       surface_data_file=self.file_out))
+        else:
+            self.send("Surface Data",
+                      OasysSurfaceData(xx=self.fea_file_object.x_interpolated,
+                                       yy=self.fea_file_object.y_interpolated,
+                                       zz=self.fea_file_object.Z_INTERPOLATED.T,
+                                       surface_data_file=self.file_out))
+
+        dabam_profile = numpy.zeros((profile1D.size, 2))
+        dabam_profile[:, 0] = abscissas
+        dabam_profile[:, 1] = profile1D
+        self.send("DABAM 1D Profile", dabam_profile)
+
+
 
     def plot_data2D(self, data2D, dataX, dataY, tabs_canvas_index, title="title", xtitle="X",ytitle="Y"):
 
@@ -371,6 +452,23 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
         tmp.setGraphTitle(title)
         tabs_canvas_index.layout().addWidget(tmp)
 
+    def plot_data1D(self, dataX, dataY, tabs_canvas_index, title="", xtitle="", ytitle=""):
+
+        tabs_canvas_index.layout().removeItem(tabs_canvas_index.layout().itemAt(0))
+
+        tmp = oasysgui.plotWindow()
+        tmp.addCurve(dataX, dataY)
+        tmp.resetZoom()
+        tmp.setXAxisAutoScale(True)
+        tmp.setYAxisAutoScale(True)
+        tmp.setGraphGrid(False)
+        tmp.setXAxisLogarithmic(False)
+        tmp.setYAxisLogarithmic(False)
+        tmp.setGraphXLabel(xtitle)
+        tmp.setGraphYLabel(ytitle)
+        tmp.setGraphTitle(title)
+
+        tabs_canvas_index.layout().addWidget(tmp)
 
 
 if __name__ == "__main__":
