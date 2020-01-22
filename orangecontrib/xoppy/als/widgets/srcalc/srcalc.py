@@ -74,6 +74,10 @@ class locations:
 
 
 class OWsrcalc(XoppyWidget, WidgetDecorator):
+
+    IS_DEVELOP = False if not "OASYSDEVELOP" in os.environ.keys() else str(os.environ.get('OASYSDEVELOP')) == "1"
+
+
     name = "SRCALC"
     id = "orange.widgets.srcalc"
     description = "Power Absorbed and Transmitted by Optical Elements"
@@ -1484,9 +1488,8 @@ def ray_tracing(
             is_conic = True
             ccc = Conic.initialize_as_plane()
 
-
-
-        newbeam = beam.duplicate()
+        if oe_index == 0:
+            newbeam = beam.duplicate()
 
 
         #
@@ -1496,17 +1499,23 @@ def ray_tracing(
         newbeam.rotate(alpha, axis=2)
         newbeam.rotate(theta_grazing, axis=1)
         newbeam.translation([0.0, -p * numpy.cos(theta_grazing), p * numpy.sin(theta_grazing)])
-
         #
         # reflect beam in the mirror surface and dump mirr.01
         #
         if is_conic:
-            print("Element index %d is CONIC :" % oe_index, ccc.info())
+            print("\n\nElement %d is CONIC :\n" % (1 + oe_index), ccc.info())
             newbeam = ccc.apply_specular_reflection_on_beam(newbeam)
         else:
-            print("Element index %d is TOROIDAL :" % oe_index, toroid.info())
+            print("\n\nElement %d is TOROIDAL :\n" % (1 + oe_index), toroid.info())
             newbeam = toroid.apply_specular_reflection_on_beam(newbeam)
 
+        print("\n     p: %f m" % p)
+        print("      q: %f m" % q)
+        print("      p (focal): %f m" % oe_parameters["EL%d_P_FOCUS" % oe_index] )
+        print("      q (focal): %f m" % oe_parameters["EL%d_Q_FOCUS" % oe_index] )
+        print("      alpha: %f rad = %f deg" % (alpha, alpha*180/numpy.pi) )
+        print("      theta_grazing: %f rad = %f deg" %  (theta_grazing, theta_grazing*180/numpy.pi) )
+        print("      theta_normal: %f rad = %f deg \n" % (numpy.pi/2 - theta_grazing, 90 - theta_grazing * 180 / numpy.pi))
         if dump_shadow_files:
             Beam3.initialize_from_shadow4_beam(newbeam).write('mirr.%02d'%(oe_index+1))
         OE_FOOTPRINT.append( newbeam.get_columns((2, 1)) )
@@ -1517,6 +1526,7 @@ def ray_tracing(
         newbeam.rotate(theta_grazing, axis=1)
         # do not undo alpha rotation: newbeam.rotate(-alpha, axis=2)
         newbeam.retrace(q, resetY=True)
+
         if dump_shadow_files:
             Beam3.initialize_from_shadow4_beam(newbeam).write('star.%02d'%(oe_index+1))
         OE_IMAGE.append(newbeam.get_columns((1, 3)))
@@ -1611,9 +1621,6 @@ def compute_power_density_on_optical_elements(dict1,do_interpolation=True):
                 (XX_FOOTPRINT_old.flatten(), YY_FOOTPRINT_old.flatten()),
                 power_density_footprint.flatten(),
                 (XX_FOOTPRINT, YY_FOOTPRINT), method='cubic',fill_value=0.0)
-
-            # print(">>>>> before: ", XX_FOOTPRINT_old.shape, YY_FOOTPRINT_old.shape, power_density_footprint.shape)
-            # print(">>>>> after: ", XX_FOOTPRINT.shape, YY_FOOTPRINT.shape, power_density_footprint.shape)
 
             XX_IMAGE_old = XX_IMAGE.copy()
             YY_IMAGE_old = YY_IMAGE.copy()
