@@ -6,13 +6,12 @@ from orangewidget.settings import Setting
 from oasys.widgets import gui as oasysgui
 
 from orangecontrib.shadow.util.shadow_objects import ShadowBeam
-from orangecontrib.shadow.util.shadow_util import ShadowCongruence, ShadowPlot
+from orangecontrib.shadow.util.shadow_util import ShadowCongruence
 from orangecontrib.shadow.widgets.gui import ow_automatic_element
-from orangecontrib.shadow.als.widgets.gui.plots import plot_data1D, plot_data2D
 
-from srxraylib.plot.gol import plot, plot_scatter
-import matplotlib.pylab as plt
+from srxraylib.plot.gol import plot_scatter
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 
 
 import numpy
@@ -44,6 +43,7 @@ class ALSResolvingPower(ow_automatic_element.AutomaticElement):
     shadow_column = Setting(0) # 0 = X (col1), 1 = Z (column 3)
     photon_wavelenth_or_energy = Setting(1)
     no_lost  = Setting(1)
+    labelsize = Setting(10)
 
     def __init__(self, show_automatic_box=True):
         super().__init__()
@@ -67,6 +67,9 @@ class ALSResolvingPower(ow_automatic_element.AutomaticElement):
                                      sendSelectedValue=False, orientation="horizontal")
 
         oasysgui.lineEdit(general_box, self, "hlim", "Width at percent of max:", labelWidth=260, valueType=int,orientation="horizontal")
+
+        oasysgui.lineEdit(general_box, self, "labelsize", "label size (for plots):", labelWidth=260, valueType=int,
+                          orientation="horizontal")
 
         gui.separator(self.controlArea, height=200)
 
@@ -330,10 +333,20 @@ class ALSResolvingPower(ow_automatic_element.AutomaticElement):
         f[1].plot(energy, energy*0+coordinates_at_hlimit[0])
         f[1].plot(energy, energy*0+coordinates_at_hlimit[1])
 
+        f[1].xaxis.label.set_size(self.labelsize)
+        f[1].tick_params(axis='x', labelsize=self.labelsize)
+        f[1].yaxis.label.set_size(self.labelsize)
+        f[1].tick_params(axis='y', labelsize=self.labelsize)
+        f[2].tick_params(axis='y', labelsize=self.labelsize)
+        f[3].tick_params(axis='x', labelsize=self.labelsize)
 
         figure_canvas = FigureCanvasQTAgg(f[0])
+        toolbar = NavigationToolbar(figure_canvas, self)
+        self.detrended_id.layout().removeItem(self.detrended_id.layout().itemAt(1))
         self.detrended_id.layout().removeItem(self.detrended_id.layout().itemAt(0))
+        self.detrended_id.layout().addWidget(toolbar)
         self.detrended_id.layout().addWidget(figure_canvas)
+
 
         #
         # main plot
@@ -353,9 +366,20 @@ class ALSResolvingPower(ow_automatic_element.AutomaticElement):
             g[1].plot(numpy.array((orig - deltax1, orig - deltax1)), numpy.array((-1000, 1000)))
             g[1].plot(numpy.array((orig + deltax2, orig + deltax2)), numpy.array((-1000, 1000)))
 
+        g[1].xaxis.label.set_size(self.labelsize)
+        g[1].tick_params(axis='x', labelsize=self.labelsize)
+        g[1].yaxis.label.set_size(self.labelsize)
+        g[1].tick_params(axis='y', labelsize=self.labelsize)
+        g[2].tick_params(axis='y', labelsize=self.labelsize)
+        g[3].tick_params(axis='x', labelsize=self.labelsize)
+
         figure_canvas = FigureCanvasQTAgg(g[0])
+        toolbar = NavigationToolbar(figure_canvas, self)
+        self.dispersion_id.layout().removeItem(self.dispersion_id.layout().itemAt(1))
         self.dispersion_id.layout().removeItem(self.dispersion_id.layout().itemAt(0))
+        self.dispersion_id.layout().addWidget(toolbar)
         self.dispersion_id.layout().addWidget(figure_canvas)
+
 
 
 
@@ -363,6 +387,9 @@ class ALSResolvingPower(ow_automatic_element.AutomaticElement):
 if __name__ == "__main__":
     import sys
     import Shadow
+
+    # import matplotlib
+    # matplotlib.rcParams.update({'font.size': 6})
 
     class MyBeam():
         pass
