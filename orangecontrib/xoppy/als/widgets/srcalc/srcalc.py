@@ -31,6 +31,7 @@ from syned.storage_ring.magnetic_structures.undulator import Undulator
 from syned.storage_ring.electron_beam import ElectronBeam
 import scipy.constants as codata
 
+from silx.gui.plot import Plot2D
 #
 # TO DO: uncomment import and delete class when moving to xoppy
 #
@@ -95,8 +96,8 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
     KX = Setting(0.0)
     NUMBER_OF_PERIODS = Setting(137)
     PERIOD_LENGTH = Setting(0.0288)
-    NUMBER_OF_HARMONICS = Setting(-20)
-    SOURCE_SCREEN_DISTANCE = Setting(13.73)
+    NUMBER_OF_HARMONICS = Setting(-28)
+    SOURCE_SCREEN_DISTANCE = Setting(15.00)
     HORIZONTAL_ACCEPTANCE = Setting(30.0)
     VERTICAL_ACCEPTANCE = Setting(15.0)
     NUMBER_OF_POINTS_H = Setting(31)
@@ -106,10 +107,10 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
     SIGMAXP = Setting(5.7e-3)
     SIGMAY = Setting(14.7e-3)
     SIGMAYP = Setting(4.7e-3)
-    NELEMENTS = Setting(1)
+    NELEMENTS = Setting(2)
 
     EL0_SHAPE = Setting(2)
-    EL0_P_POSITION = Setting(13.73)  # this is then copied from  SOURCE_SCREEN_DISTANCE
+    EL0_P_POSITION = Setting(15.00)  # this is then copied from  SOURCE_SCREEN_DISTANCE
     EL0_Q_POSITION = Setting(0.0)
     EL0_P_FOCUS = Setting(10.0)
     EL0_Q_FOCUS = Setting(10.0)
@@ -118,15 +119,15 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
     EL0_RELATIVE_TO_PREVIOUS = Setting(0)
     EL0_COATING = Setting(9)
 
-    EL1_SHAPE = Setting(2)
-    EL1_P_POSITION = Setting(10.0)
-    EL1_Q_POSITION = Setting(0.0)
-    EL1_P_FOCUS = Setting(10.0)
-    EL1_Q_FOCUS = Setting(10.0)
+    EL1_SHAPE = Setting(5)
+    EL1_P_POSITION = Setting(1.0)
+    EL1_Q_POSITION = Setting(16.0)
+    EL1_P_FOCUS = Setting(16.0)
+    EL1_Q_FOCUS = Setting(16.0)
     EL1_ANG = Setting(88.75)
     EL1_THICKNESS = Setting(1000)
     EL1_RELATIVE_TO_PREVIOUS = Setting(2)
-    EL1_COATING = Setting(9)
+    EL1_COATING = Setting(1)
 
     EL2_SHAPE = Setting(2)
     EL2_P_POSITION = Setting(10.0)
@@ -500,7 +501,7 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
 
         gui.comboBox(box1, self, "DUMP_SHADOW_FILES",
                      label=self.unitLabels()[idx], addSpace=False,
-                    items=['No', 'Yes (begin.dat mirr.xx star.xx'],
+                    items=['No', 'Yes (begin_srcalc.dat mirr_srcalc.xx star_srcalc.xx'],
                     valueType=int, orientation="horizontal", labelWidth=250)
 
         self.show_at(self.unitFlags()[idx], box1)
@@ -566,7 +567,7 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
                 'Coating',
                 ]
 
-         labels = labels + ["Plot ray-traced grid","Dump SHADOW files"]
+         labels = labels + ["Overplot ray-traced grid","Dump SHADOW files"]
 
          return labels
 
@@ -765,12 +766,24 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
                                 index += 1
                                 dataX = calculated_data["OE_FOOTPRINT"][oe_n-1][0, :]
                                 dataY = calculated_data["OE_FOOTPRINT"][oe_n-1][1, :]
-                                self.plot_data1D(1e3*dataX, 1e3*dataY, index, 0, title="footprint oe %d"%oe_n, xtitle="Y (shadow col 2) [mm]",ytitle="X (shadow col 1) [mm]")
+                                self.plot_data1D(1e3*dataY, 1e3*dataX, index, 0, title="footprint oe %d"%oe_n, ytitle="Y (shadow col 2) [mm]",xtitle="X (shadow col 1) [mm]")
                                 # image grid
                                 index += 1
                                 dataX = calculated_data["OE_IMAGE"][oe_n-1][0, :]
                                 dataY = calculated_data["OE_IMAGE"][oe_n-1][1, :]
                                 self.plot_data1D(1e3*dataX, 1e3*dataY, index, 0, title="image just after oe %d perp to beam"%oe_n, xtitle="X (shadow col 1) [mm]",ytitle="Z (shadow col 2) [mm]")
+                                overplot_data_footprint = [
+                                    1e3 * calculated_data["OE_FOOTPRINT"][oe_n - 1][0, :],
+                                    1e3 * calculated_data["OE_FOOTPRINT"][oe_n - 1][1, :],
+                                    ]
+                                overplot_data_image = [
+                                    1e3 * calculated_data["OE_IMAGE"][oe_n - 1][1, :],
+                                    1e3 * calculated_data["OE_IMAGE"][oe_n - 1][0, :],
+                                    ]
+                            else:
+                                overplot_data_footprint = None
+                                overplot_data_image = None
+
                             # mirror power density
                             index += 1
                             data2D = calculated_data["POWER_DENSITY_FOOTPRINT"][oe_n - 1]
@@ -780,10 +793,13 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
                             stepy = V[0,1] - V[0,0]
                             totPower = data2D.sum() * stepx * stepy
                             title = 'Power density [W/mm2] absorbed at element %d Integrated Power: %6.1f W' % (oe_n, totPower)
-                            self.plot_data2D(data2D,H[:,0],V[0,:],
+
+
+                            self.plot_data2D(data2D.T,V[0,:],H[:,0],
                                              index, 0,
-                                             xtitle='Y (shadow col 2) [mm]',
-                                             ytitle='X (shadow col 1) [mm]',
+                                             overplot=overplot_data_footprint,
+                                             ytitle='Y (shadow col 2) [mm]',
+                                             xtitle='X (shadow col 1) [mm]',
                                              title=title)
                             # image power density
                             index += 1
@@ -796,6 +812,7 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
                             title = 'Power density [W/mm2] transmitted after element %d Integrated Power: %6.1f W' % (oe_n, totPower)
                             self.plot_data2D(data2D,H[:,0],V[0,:],
                                              index, 0,
+                                             overplot=overplot_data_image,
                                              xtitle='X (shadow col 1) [mm]',
                                              ytitle='Z (shadow col 3) [mm]',
                                              title=title)
@@ -1068,6 +1085,85 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
         self.plot_canvas[plot_canvas_index].setGraphXLabel(xtitle)
         self.plot_canvas[plot_canvas_index].setGraphYLabel(ytitle)
         self.plot_canvas[plot_canvas_index].setGraphTitle(title)
+
+        self.tab[tabs_canvas_index].layout().addWidget(self.plot_canvas[plot_canvas_index])
+
+    def plot_data2D(self, data2D, dataX, dataY, tabs_canvas_index, plot_canvas_index,
+                    title="", xtitle="", ytitle="", mode=2,
+                    overplot = None):
+
+        for i in range(1+self.tab[tabs_canvas_index].layout().count()):
+            self.tab[tabs_canvas_index].layout().removeItem(self.tab[tabs_canvas_index].layout().itemAt(i))
+
+        if mode == 0:
+            figure = FigureCanvas(gol.plot_image(data2D,
+                                                 dataX,
+                                                 dataY,
+                                                 xtitle=xtitle,
+                                                 ytitle=ytitle,
+                                                 title=title,
+                                                 show=False,
+                                                 aspect='auto'))
+
+
+            self.plot_canvas[plot_canvas_index] = figure
+        else:
+
+            origin = (dataX[0],dataY[0])
+            scale = (dataX[1]-dataX[0],dataY[1]-dataY[0])
+
+            data_to_plot = data2D.T
+
+            colormap = {"name":"temperature", "normalization":"linear", "autoscale":True, "vmin":0, "vmax":0, "colors":256}
+
+
+            if mode == 1:
+                #TODO: delete: srio commented this part as it is never used
+                raise Exception("Cannot use XoppyPlot.XoppyImageView()")
+                # self.plot_canvas[plot_canvas_index] = XoppyPlot.XoppyImageView()
+                # colormap = {"name":"temperature", "normalization":"linear", "autoscale":True, "vmin":0, "vmax":0, "colors":256}
+                #
+                # self.plot_canvas[plot_canvas_index]._imagePlot.setDefaultColormap(colormap)
+                # self.plot_canvas[plot_canvas_index].setImage(numpy.array(data_to_plot), origin=origin, scale=scale)
+            elif mode == 2:
+
+                self.plot_canvas[plot_canvas_index] = Plot2D()
+
+                self.plot_canvas[plot_canvas_index].resetZoom()
+                self.plot_canvas[plot_canvas_index].setXAxisAutoScale(True)
+                self.plot_canvas[plot_canvas_index].setYAxisAutoScale(True)
+                self.plot_canvas[plot_canvas_index].setGraphGrid(False)
+                self.plot_canvas[plot_canvas_index].setKeepDataAspectRatio(True)
+                self.plot_canvas[plot_canvas_index].yAxisInvertedAction.setVisible(False)
+
+                self.plot_canvas[plot_canvas_index].setXAxisLogarithmic(False)
+                self.plot_canvas[plot_canvas_index].setYAxisLogarithmic(False)
+                #silx 0.4.0
+                self.plot_canvas[plot_canvas_index].getMaskAction().setVisible(False)
+                self.plot_canvas[plot_canvas_index].getRoiAction().setVisible(False)
+                self.plot_canvas[plot_canvas_index].getColormapAction().setVisible(True)
+                self.plot_canvas[plot_canvas_index].setKeepDataAspectRatio(False)
+
+
+                if True:
+                    self.plot_canvas[plot_canvas_index].addImage(numpy.array(data_to_plot),
+                                                                 legend="zio billy",
+                                                                 scale=scale,
+                                                                 origin=origin,
+                                                                 colormap=colormap,
+                                                                 replace=True)
+
+                    self.plot_canvas[plot_canvas_index].setActiveImage("zio billy")
+
+                if overplot is not None:
+                    self.plot_canvas[plot_canvas_index].addScatter(overplot[1],overplot[0],overplot[1]*0+data_to_plot.max()*2,
+                                                                 legend="tio pepe",
+                                                                 colormap={"name":"gray", "normalization":"linear", "autoscale":True, "vmin":0, "vmax":0, "colors":256},
+                                                                 symbol='.')
+
+            self.plot_canvas[plot_canvas_index].setGraphXLabel(xtitle)
+            self.plot_canvas[plot_canvas_index].setGraphYLabel(ytitle)
+            self.plot_canvas[plot_canvas_index].setGraphTitle(title)
 
         self.tab[tabs_canvas_index].layout().addWidget(self.plot_canvas[plot_canvas_index])
 
@@ -1421,7 +1517,7 @@ def ray_tracing(
     beam.set_column(6, VZ.flatten())
 
     if dump_shadow_files:
-        Beam3.initialize_from_shadow4_beam(beam).write('begin.dat')
+        Beam3.initialize_from_shadow4_beam(beam).write('begin_srcalc.dat')
 
     OE_FOOTPRINT = []
     OE_IMAGE = []
@@ -1517,7 +1613,7 @@ def ray_tracing(
         print("      theta_grazing: %f rad = %f deg" %  (theta_grazing, theta_grazing*180/numpy.pi) )
         print("      theta_normal: %f rad = %f deg \n" % (numpy.pi/2 - theta_grazing, 90 - theta_grazing * 180 / numpy.pi))
         if dump_shadow_files:
-            Beam3.initialize_from_shadow4_beam(newbeam).write('mirr.%02d'%(oe_index+1))
+            Beam3.initialize_from_shadow4_beam(newbeam).write('mirr_srcalc.%02d'%(oe_index+1))
         OE_FOOTPRINT.append( newbeam.get_columns((2, 1)) )
 
         #
@@ -1528,7 +1624,7 @@ def ray_tracing(
         newbeam.retrace(q, resetY=True)
 
         if dump_shadow_files:
-            Beam3.initialize_from_shadow4_beam(newbeam).write('star.%02d'%(oe_index+1))
+            Beam3.initialize_from_shadow4_beam(newbeam).write('star_srcalc.%02d'%(oe_index+1))
         OE_IMAGE.append(newbeam.get_columns((1, 3)))
 
 
@@ -1606,8 +1702,8 @@ def compute_power_density_on_optical_elements(dict1,do_interpolation=True):
         areas_factor_image = numpy.abs(AREA0 / AREA_IMAGE)
         power_density_image = areas_factor_image * (dict1["Zlist"][element_index + 1])[0:(shapeXYbis[0]),0:(shapeXYbis[1])]
 
-        from scipy import interpolate
         if do_interpolation:
+            # debug_plot_3d(power_density_footprint.flatten(), XX_FOOTPRINT.flatten(), YY_FOOTPRINT.flatten(), title="OLD")
 
             XX_FOOTPRINT_old = XX_FOOTPRINT.copy()
             YY_FOOTPRINT_old = YY_FOOTPRINT.copy()
@@ -1617,11 +1713,60 @@ def compute_power_density_on_optical_elements(dict1,do_interpolation=True):
             XX_FOOTPRINT = numpy.outer(xx_footprint,numpy.ones_like(yy_footprint))
             YY_FOOTPRINT = numpy.outer(numpy.ones_like(xx_footprint), yy_footprint)
 
-            power_density_footprint = interpolate.griddata(
-                (XX_FOOTPRINT_old.flatten(), YY_FOOTPRINT_old.flatten()),
-                power_density_footprint.flatten(),
-                (XX_FOOTPRINT, YY_FOOTPRINT), method='cubic',fill_value=0.0)
+            # fl = open("tmp.dat",'w')
+            # tmpx = XX_FOOTPRINT_old.copy().flatten()
+            # tmpy = YY_FOOTPRINT_old.copy().flatten()
+            # tmpz = power_density_footprint.copy().flatten()
+            # for i in range(XX_FOOTPRINT.size):
+            #     fl.write("%g  %g  %g  \n"%(tmpx[i],tmpy[i],tmpz[i]))
+            # fl.close()
+            # print("File written to disk tmp.dat")
 
+
+            interpolation_method = 2
+
+            if interpolation_method == 0:
+                pass
+            elif interpolation_method == 1:
+                from scipy.interpolate import interp2d
+                ff = interp2d(
+                    XX_FOOTPRINT_old.flatten(), YY_FOOTPRINT_old.flatten(),
+                    power_density_footprint.flatten(), kind='cubic')
+
+                power_density_footprint = ff(xx_footprint, yy_footprint)
+            elif interpolation_method == 2:
+                from scipy import interpolate
+                power_density_footprint = interpolate.griddata(
+                    (XX_FOOTPRINT_old.flatten(), YY_FOOTPRINT_old.flatten()),
+                    power_density_footprint.flatten(),
+                    (XX_FOOTPRINT, YY_FOOTPRINT), method='nearest',fill_value=0.0, rescale=True)
+            elif interpolation_method == 3:
+                from scipy import spatial
+                Xdeformed = XX_FOOTPRINT_old.flatten()
+                Ydeformed = YY_FOOTPRINT_old.flatten()
+                Zdeformed = power_density_footprint.copy().flatten()
+                triPi = numpy.array([Xdeformed, Ydeformed]).transpose()
+                tri = spatial.Delaunay(triPi)
+
+                import matplotlib.pylab as plt
+                fig = plt.figure()
+                plt.triplot(Xdeformed, Ydeformed, tri.simplices.copy())
+                plt.plot(Xdeformed, Ydeformed, "or", label="Data")
+                plt.grid()
+                plt.legend()
+                plt.title("triangulation")
+                plt.xlabel("x")
+                plt.ylabel("y")
+                plt.show()
+
+                P = numpy.array([XX_FOOTPRINT.flatten(), YY_FOOTPRINT.flatten()]).transpose()
+                power_density_footprint = interpolate.griddata(triPi, Zdeformed, P, method="nearest", rescale=True,
+                                                           fill_value=Zdeformed.min()).reshape(XX_FOOTPRINT.shape)
+
+            # debug_plot_3d(power_density_footprint.flatten(), XX_FOOTPRINT.flatten(), YY_FOOTPRINT.flatten(), title="INTERPOLATED")
+            #
+            #
+            #
             XX_IMAGE_old = XX_IMAGE.copy()
             YY_IMAGE_old = YY_IMAGE.copy()
             xx_image = numpy.linspace(XX_IMAGE_old.min(), XX_IMAGE_old.max(), XX_IMAGE_old.shape[0])
@@ -1653,8 +1798,24 @@ def compute_power_density_on_optical_elements(dict1,do_interpolation=True):
     return dict1
 
 
+def debug_plot_3d(zs,xs,ys,title=""):
+    import matplotlib.pylab as plt
+    from mpl_toolkits.mplot3d import Axes3D
 
+    fig = plt.figure()
+    self_axis = fig.add_subplot(111, projection='3d')
 
+    # For each set of style and range settings, plot n random points in the box
+    # defined by x in [23, 32], y in [0, 100], z in [zlow, zhigh].
+    # for m, zlow, zhigh in [('o', -50, -25), ('^', -30, -5)]:
+    for m, zlow, zhigh in [('o', zs.min(), zs.max())]:
+        self_axis.scatter(xs, ys, zs, marker=m)
+
+    self_axis.set_xlabel('X [mm]')
+    self_axis.set_ylabel('Y [mm]')
+    self_axis.set_zlabel('Z [um]')
+    self_axis.set_title(title)
+    plt.show()
 
 if __name__ == "__main__":
 
