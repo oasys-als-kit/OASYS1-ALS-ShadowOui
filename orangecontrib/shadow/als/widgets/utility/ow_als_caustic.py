@@ -43,13 +43,11 @@ class ALSCaustic(ow_automatic_element.AutomaticElement):
     y_max=Setting(5.0)
 
     no_lost  = Setting(1)
+    use_reflectivity = Setting(1)
     shadow_column = Setting(0)
 
     x_min = Setting(-0.2)
     x_max = Setting( 0.2)
-
-    z_min = Setting(-0.2)
-    z_max = Setting( 0.2)
 
 
     def __init__(self, show_automatic_box=True):
@@ -66,14 +64,18 @@ class ALSCaustic(ow_automatic_element.AutomaticElement):
                                      sendSelectedValue=False, orientation="horizontal")
 
 
-        box_y = oasysgui.widgetBox(general_box, "Propagation", addSpace=True, orientation="vertical", height=200)
+        gui.comboBox(general_box, self, "use_reflectivity", label="Include reflectivity",labelWidth=220,
+                                     items=["No","Yes"],
+                                     sendSelectedValue=False, orientation="horizontal")
+
+        box_y = oasysgui.widgetBox(general_box, "Propagation along Y (col 2)", addSpace=True, orientation="vertical", height=200)
         oasysgui.lineEdit(box_y, self, "npositions", "Y Points", labelWidth=260, valueType=int, orientation="horizontal")
         oasysgui.lineEdit(box_y, self, "y_min", "Y min", labelWidth=260, valueType=float, orientation="horizontal")
         oasysgui.lineEdit(box_y, self, "y_max", "Y max", labelWidth=260, valueType=float, orientation="horizontal")
 
 
         gui.comboBox(general_box, self, "shadow_column", label="Scan direction",labelWidth=220,
-                                     items=["X","Y"],
+                                     items=["X (col 1)","Z (col 3)"],
                                      sendSelectedValue=False, orientation="horizontal")
 
         box_x = oasysgui.widgetBox(general_box, "Scan direction", addSpace=True, orientation="vertical", height=200)
@@ -88,7 +90,7 @@ class ALSCaustic(ow_automatic_element.AutomaticElement):
         tabs_setting.setFixedWidth(self.IMAGE_WIDTH)
 
 
-        tmp = oasysgui.createTabPage(tabs_setting, "Intensity (x,y)")
+        tmp = oasysgui.createTabPage(tabs_setting, "Intensity vs y")
         self.image_box = gui.widgetBox(tmp, "", addSpace=True, orientation="vertical")
         self.image_box.setFixedHeight(self.IMAGE_HEIGHT-30)
         self.image_box.setFixedWidth(self.IMAGE_WIDTH-20)
@@ -98,7 +100,7 @@ class ALSCaustic(ow_automatic_element.AutomaticElement):
         self.box_fwhm.setFixedHeight(self.IMAGE_HEIGHT-30)
         self.box_fwhm.setFixedWidth(self.IMAGE_WIDTH-20)
 
-        tmp = oasysgui.createTabPage(tabs_setting, "Weighted Center(y)")
+        tmp = oasysgui.createTabPage(tabs_setting, "Center(y)")
         self.box_center = gui.widgetBox(tmp, "", addSpace=True, orientation="vertical")
         self.box_center.setFixedHeight(self.IMAGE_HEIGHT-30)
         self.box_center.setFixedWidth(self.IMAGE_WIDTH-20)
@@ -150,24 +152,39 @@ class ALSCaustic(ow_automatic_element.AutomaticElement):
             col = 1
         else:
             col = 3
+
+        if self.use_reflectivity:
+            ref = 23
+        else:
+            ref = 0
+
         for i in range(self.npositions):
             if numpy.mod(i,10) == 0:
                 print("Calculating position %d of %d"%(i+1,self.npositions))
             beami = beam_to_analize.duplicate()
             beami.retrace(positions[i])
-            tkt_x = beami.histo1(col, xrange=[self.x_min, self.x_max], nbins=self.npoints_x, nolost=self.no_lost, ref=23)
+            tkt_x = beami.histo1(col, xrange=[self.x_min, self.x_max], nbins=self.npoints_x, nolost=self.no_lost, ref=ref)
             out_x[:, i] = tkt_x["histogram"]
             fwhm[i] = tkt_x["fwhm"]
 
-            center[i] = numpy.average(beami.getshonecol(col,nolost=self.no_lost), weights=beami.getshonecol(23,nolost=self.no_lost))
+            if ref == 23:
+                center[i] = numpy.average(beami.getshonecol(col, nolost=self.no_lost),
+                                          weights=beami.getshonecol(23, nolost=self.no_lost))
+            else:
+                center[i] = numpy.average(beami.getshonecol(col,nolost=self.no_lost),)
 
 
         print("\nResult arrays X,Y (shapes): ", out_x.shape, tkt_x["bin_center"].shape, positions.shape )
         x = tkt_x["bin_center"]
         y = positions
+
+        if self.shadow_column == 0:
+            col_title="X (col 1)"
+        elif self.shadow_column == 1:
+            col_title = "Z (col 3)"
         plot_canvas = plot_data2D(
                              out_x.T, y, x,
-                             title="",ytitle="X [m] (%d pixels)"%x.size,xtitle="Y [m] (%d pixels)"%y.size,)
+                             title="",ytitle="%s [m] (%d pixels)"%(col_title,x.size),xtitle="Y [m] (%d pixels)"%y.size,)
         self.image_box.layout().removeItem(self.image_box.layout().itemAt(0))
         self.image_box.layout().addWidget(plot_canvas)
 
