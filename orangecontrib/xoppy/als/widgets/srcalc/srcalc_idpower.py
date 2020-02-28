@@ -74,12 +74,12 @@ class locations:
         return os.getcwd()
 
 
-class OWsrcalc(XoppyWidget, WidgetDecorator):
+class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
 
     IS_DEVELOP = False if not "OASYSDEVELOP" in os.environ.keys() else str(os.environ.get('OASYSDEVELOP')) == "1"
 
 
-    name = "SRCALC"
+    name = "IDPOWER"
     id = "orange.widgets.srcalc"
     description = "Power Absorbed and Transmitted by Optical Elements"
     icon = "icons/srcalc.png"
@@ -107,13 +107,13 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
     SIGMAXP = Setting(5.7e-3)
     SIGMAY = Setting(14.7e-3)
     SIGMAYP = Setting(4.7e-3)
-    NELEMENTS = Setting(2)
+    NELEMENTS = Setting(1)
 
-    EL0_SHAPE = Setting(2)
+    EL0_SHAPE = Setting(5)
     EL0_P_POSITION = Setting(15.00)  # this is then copied from  SOURCE_SCREEN_DISTANCE
-    EL0_Q_POSITION = Setting(0.0)
-    EL0_P_FOCUS = Setting(10.0)
-    EL0_Q_FOCUS = Setting(10.0)
+    EL0_Q_POSITION = Setting(15.0)
+    EL0_P_FOCUS = Setting(15.0)
+    EL0_Q_FOCUS = Setting(15.0)
     EL0_ANG = Setting(88.75)
     EL0_THICKNESS = Setting(1000)
     EL0_RELATIVE_TO_PREVIOUS = Setting(0)
@@ -169,8 +169,12 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
     EL5_RELATIVE_TO_PREVIOUS = Setting(0)
     EL5_COATING = Setting(9)
 
-    DO_PLOT_GRID = Setting(0)
+    RAY_TRACING_IMAGE = Setting(1)
+    RAY_TRACING_RUNS = Setting(5)
+    RAY_TRACING_SEED = Setting(123456)
+    DO_PLOT_GRID = Setting(1)
     DUMP_SHADOW_FILES = Setting(0)
+
 
     inputs = WidgetDecorator.syned_input_data()
 
@@ -412,7 +416,7 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
             box1 = gui.widgetBox(self.tab_el[element_index])
             oasysgui.lineEdit(box1, self, "EL%d_P_POSITION"%element_index,
                          label=self.unitLabels()[idx], addSpace=False,
-                        valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
+                        valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=300)
             self.show_at(self.unitFlags()[idx], box1)
 
 
@@ -425,7 +429,7 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
             box1 = gui.widgetBox(self.tab_el[element_index])
             oasysgui.lineEdit(box1, self, "EL%d_Q_POSITION"%element_index,
                          label=self.unitLabels()[idx], addSpace=False,
-                        valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
+                        valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=300)
             self.show_at(self.unitFlags()[idx], box1)
 
 
@@ -481,6 +485,36 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
 
 
 
+        #widget index xx
+        idx += 1
+        box1 = gui.widgetBox(box)
+        gui.separator(box1, height=7)
+
+        gui.comboBox(box1, self, "RAY_TRACING_IMAGE",
+                    label=self.unitLabels()[idx], addSpace=False,
+                    items=['No', 'Yes'],
+                    valueType=int, orientation="horizontal", labelWidth=350)
+
+        self.show_at(self.unitFlags()[idx], box1)
+
+        # widget index xx
+        idx += 1
+        box1 = gui.widgetBox(box)
+        gui.separator(box1, height=7)
+        oasysgui.lineEdit(box1, self, "RAY_TRACING_RUNS",
+                          label=self.unitLabels()[idx], addSpace=False,
+                          valueType=int, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
+        self.show_at(self.unitFlags()[idx], box1)
+
+        # widget index xx
+        idx += 1
+        box1 = gui.widgetBox(box)
+        gui.separator(box1, height=7)
+        oasysgui.lineEdit(box1, self, "RAY_TRACING_SEED",
+                          label=self.unitLabels()[idx], addSpace=False,
+                          valueType=int, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
+        self.show_at(self.unitFlags()[idx], box1)
+
 
         #widget index xx
         idx += 1
@@ -489,10 +523,11 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
 
         gui.comboBox(box1, self, "DO_PLOT_GRID",
                     label=self.unitLabels()[idx], addSpace=False,
-                    items=['No', 'Yes'],
-                    valueType=int, orientation="horizontal", labelWidth=250)
+                    items=['No', 'Yes (overplotted)', 'Yes (in a separated plot)'],
+                    valueType=int, orientation="horizontal", labelWidth=350)
 
         self.show_at(self.unitFlags()[idx], box1)
+
 
         #widget index xx
         idx += 1
@@ -501,8 +536,8 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
 
         gui.comboBox(box1, self, "DUMP_SHADOW_FILES",
                      label=self.unitLabels()[idx], addSpace=False,
-                    items=['No', 'Yes (begin_srcalc.dat mirr_srcalc.xx star_srcalc.xx'],
-                    valueType=int, orientation="horizontal", labelWidth=250)
+                    items=['No', 'Yes {begin,mirr,star}_srcalc.xx'],
+                    valueType=int, orientation="horizontal", labelWidth=350)
 
         self.show_at(self.unitFlags()[idx], box1)
 
@@ -557,9 +592,9 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
          for i in range(6):
             labels = labels + [
                 'Type',
-                'Distance from previous continuation plane [m]',
+                'Distance from previous cont. plane [m]',
                 'Distance to next continuation plane [m]',
-                'Focus Ent. Arm [m]',
+                'Focus Entrance Arm [m]',
                 'Focus Exit Arm [m]',
                 'Inc. Angle to normal [deg]',
                 'Thickness [??]',
@@ -567,7 +602,7 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
                 'Coating',
                 ]
 
-         labels = labels + ["Overplot ray-traced grid","Dump SHADOW files"]
+         labels = labels + ["Accurate simulation of power on images","Number of ray-tracing runs","Random seed (int): ", "Plot ray-traced grid","SHADOW files for last run"]
 
          return labels
 
@@ -586,7 +621,7 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
                  "True", "True", "True", "self.EL3_SHAPE not in (2,8,9)", "self.EL3_SHAPE not in (2,8,9)", "True", "self.EL3_SHAPE in (8,9)", "True", "True",  # OE fields
                  "True", "True", "True", "self.EL4_SHAPE not in (2,8,9)", "self.EL4_SHAPE not in (2,8,9)", "True", "self.EL4_SHAPE in (8,9)", "True", "True",  # OE fields
                  "True", "True", "True", "self.EL5_SHAPE not in (2,8,9)", "self.EL5_SHAPE not in (2,8,9)", "True", "self.EL5_SHAPE in (8,9)", "True", "True",  # OE fields
-                 'True','True']
+                 'True','self.RAY_TRACING_IMAGE == 1','self.RAY_TRACING_IMAGE == 1','True','True']
 
     def get_help_name(self):
         return 'srcalc'
@@ -732,24 +767,30 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
                 # current_index = self.tabs.currentIndex()
 
                 # try:
+                if self.RAY_TRACING_IMAGE == 0:
+                    nruns = 1
+                else:
+                    nruns = self.RAY_TRACING_RUNS
                 index = -1
                 if True:
                     for oe_n in range(self.NELEMENTS+1):
-                        totPower = calculated_data["Zlist"][oe_n].sum() * \
-                                   (calculated_data["X"][1] - calculated_data["X"][0]) * \
-                                   (calculated_data["Y"][1] - calculated_data["Y"][0])
-
+                        # totPower = calculated_data["Zlist"][oe_n].sum() * \
+                        #            (calculated_data["X"][1] - calculated_data["X"][0]) * \
+                        #            (calculated_data["Y"][1] - calculated_data["Y"][0])
+                        totPower2 = trapezoidal_rule_2d_1darrays(calculated_data["Zlist"][oe_n],
+                                                                 calculated_data["X"],
+                                                                 calculated_data["Y"])
                         #
                         # urgent results
                         #
                         if oe_n == 0:
-                            title = 'Power density [W/mm2] at %4.1f m, Integrated Power: %6.1f W'%(self.SOURCE_SCREEN_DISTANCE,totPower)
+                            title = 'Power density [W/mm2] at %4.1f m, Integrated Power: %6.1f W'%(self.SOURCE_SCREEN_DISTANCE,totPower2)
                             xtitle = 'H (urgent) [mm] (%d pixels)' % (calculated_data["X"].size)
                             ytitle = 'V (urgent) [mm] (%d pixels)' % (calculated_data["Y"].size)
                             x = calculated_data["X"]
                             y = calculated_data["Y"]
                         else:
-                            title = 'Power density [W/mm2] transmitted after element %d Integrated Power: %6.1f W'%(oe_n, totPower)
+                            title = 'Power density [W/mm2] transmitted after element %d Integrated Power: %6.1f W'%(oe_n, totPower2)
                             xtitle = 'H [pixels]'
                             ytitle = 'V [pixels]'
                             x = numpy.arange(calculated_data["X"].size)
@@ -761,7 +802,21 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
                         # ray tracing results
                         #
                         if oe_n > 0:
-                            if self.DO_PLOT_GRID:
+                            overplot_data_footprint = None
+                            overplot_data_image = None
+
+                            if self.DO_PLOT_GRID == 0:
+                                pass
+                            elif self.DO_PLOT_GRID == 1:
+                                overplot_data_footprint = [
+                                    1e3 * calculated_data["OE_FOOTPRINT"][oe_n - 1][0, :],
+                                    1e3 * calculated_data["OE_FOOTPRINT"][oe_n - 1][1, :],
+                                    ]
+                                overplot_data_image = [
+                                    1e3 * calculated_data["OE_IMAGE"][oe_n - 1][1, :],
+                                    1e3 * calculated_data["OE_IMAGE"][oe_n - 1][0, :],
+                                    ]
+                            elif self.DO_PLOT_GRID == 2:
                                 # mirror grid
                                 index += 1
                                 dataX = calculated_data["OE_FOOTPRINT"][oe_n-1][0, :]
@@ -772,27 +827,18 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
                                 dataX = calculated_data["OE_IMAGE"][oe_n-1][0, :]
                                 dataY = calculated_data["OE_IMAGE"][oe_n-1][1, :]
                                 self.plot_data1D(1e3*dataX, 1e3*dataY, index, 0, title="image just after oe %d perp to beam"%oe_n, xtitle="X (shadow col 1) [mm]",ytitle="Z (shadow col 2) [mm]")
-                                overplot_data_footprint = [
-                                    1e3 * calculated_data["OE_FOOTPRINT"][oe_n - 1][0, :],
-                                    1e3 * calculated_data["OE_FOOTPRINT"][oe_n - 1][1, :],
-                                    ]
-                                overplot_data_image = [
-                                    1e3 * calculated_data["OE_IMAGE"][oe_n - 1][1, :],
-                                    1e3 * calculated_data["OE_IMAGE"][oe_n - 1][0, :],
-                                    ]
-                            else:
-                                overplot_data_footprint = None
-                                overplot_data_image = None
 
                             # mirror power density
                             index += 1
-                            data2D = calculated_data["POWER_DENSITY_FOOTPRINT"][oe_n - 1]
+                            data2D = calculated_data["POWER_DENSITY_FOOTPRINT"][oe_n - 1] / nruns
                             H = 1e3 * calculated_data["POWER_DENSITY_FOOTPRINT_H"][oe_n - 1]
                             V = 1e3 * calculated_data["POWER_DENSITY_FOOTPRINT_V"][oe_n - 1]
                             stepx = H[1,0] - H[0,0]
                             stepy = V[0,1] - V[0,0]
-                            totPower = data2D.sum() * stepx * stepy
-                            title = 'Power density [W/mm2] absorbed at element %d Integrated Power: %6.1f W' % (oe_n, totPower)
+                            # totPower = data2D.sum() * stepx * stepy
+                            totPower2 =   trapezoidal_rule_2d(data2D,H,V)
+
+                            title = 'Power density [W/mm2] absorbed at element %d Integrated Power: %6.1f W' % (oe_n, totPower2)
 
 
                             self.plot_data2D(data2D.T,V[0,:],H[:,0],
@@ -803,13 +849,14 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
                                              title=title)
                             # image power density
                             index += 1
-                            data2D = calculated_data["POWER_DENSITY_IMAGE"][oe_n-1]
+                            data2D = calculated_data["POWER_DENSITY_IMAGE"][oe_n-1] / nruns
                             H = 1e3 * calculated_data["POWER_DENSITY_IMAGE_H"][oe_n - 1]
                             V = 1e3 * calculated_data["POWER_DENSITY_IMAGE_V"][oe_n - 1]
                             stepx = H[1,0] - H[0,0]
                             stepy = V[0,1] - V[0,0]
-                            totPower = data2D.sum() * stepx * stepy
-                            title = 'Power density [W/mm2] transmitted after element %d Integrated Power: %6.1f W' % (oe_n, totPower)
+                            # totPower = data2D.sum() * stepx * stepy
+                            totPower2 = trapezoidal_rule_2d(data2D, H, V)
+                            title = 'Power density [W/mm2] transmitted after element %d Integrated Power: %6.1f W' % (oe_n, totPower2)
                             self.plot_data2D(data2D,H[:,0],V[0,:],
                                              index, 0,
                                              overplot=overplot_data_image,
@@ -832,7 +879,7 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
         for oe_n in range(self.NELEMENTS+1):
             titles.append("[oe %d (urgent)]"%oe_n)
             if oe_n > 0:
-                if self.DO_PLOT_GRID:
+                if self.DO_PLOT_GRID == 2:
                     titles.append("[oe %d (ray-traced mirror grid)]" % oe_n)
                     titles.append("[oe %d (ray-traced image grid)]" % oe_n)
                 titles.append("[oe %d (ray tracing mirror power)]" % oe_n)
@@ -1051,18 +1098,41 @@ class OWsrcalc(XoppyWidget, WidgetDecorator):
             "EL5_RELATIVE_TO_PREVIOUS": self.EL5_RELATIVE_TO_PREVIOUS,
 
         }
+        if self.RAY_TRACING_IMAGE == 0:
+            number_of_runs = 1
+        else:
+            number_of_runs = self.RAY_TRACING_RUNS
 
-        out_dictionary_with_ray_tracing = ray_tracing(out_dictionary,
-                                             SOURCE_SCREEN_DISTANCE=self.SOURCE_SCREEN_DISTANCE,
-                                             number_of_elements=self.NELEMENTS,
-                                             oe_parameters=oe_parameters,
-                                             )
-        #
-        # calculate power density maps
-        #
-        out_dictionary_with_power_density = compute_power_density_on_optical_elements(out_dictionary_with_ray_tracing)
+        for i in range(number_of_runs):
 
-        return out_dictionary_with_power_density
+            if self.RAY_TRACING_IMAGE == 0:
+                real_space_shuffle = [0, 0, 0]
+            else:
+                # numpy.random.seed(self.RAY_TRACING_SEED)
+                depth = (numpy.random.random() - 0.5) * self.NUMBER_OF_PERIODS * self.PERIOD_LENGTH
+                if i == 0:
+                    depth = -0.5 * self.NUMBER_OF_PERIODS * self.PERIOD_LENGTH
+                # depth_step = self.NUMBER_OF_PERIODS * self.PERIOD_LENGTH / (number_of_runs - 1)
+                # depth = -0.5 * self.NUMBER_OF_PERIODS * self.PERIOD_LENGTH + i * depth_step
+                real_space_shuffle = [
+                    1e-3 * self.SIGMAX * numpy.random.randn(),
+                    depth,
+                    1e-3 * self.SIGMAY * numpy.random.randn(),
+                ]
+
+            print("\n\n\n\n>>>>>>>>>>>>>>>>>>>> STARTING RUN INDEX %d WITH INITIAL CONDITIONS: "%i,real_space_shuffle)
+            out_dictionary = ray_tracing(out_dictionary,
+                                                 SOURCE_SCREEN_DISTANCE=self.SOURCE_SCREEN_DISTANCE,
+                                                 number_of_elements=self.NELEMENTS,
+                                                 oe_parameters=oe_parameters,
+                                                 real_space_shuffle=real_space_shuffle,
+                                                 )
+            #
+            # calculate power density maps
+            #
+            out_dictionary = compute_power_density_on_optical_elements(out_dictionary)
+
+        return out_dictionary
 
     #
     # overwritten methods
@@ -1461,12 +1531,14 @@ def load_srcalc_output_file(filename="D_IDPower.TXT",skiprows=5,four_quadrants=T
 
         if do_plot:
             if four_quadrants:
-                totPower = int_mesh2[i].sum() * (hhh[1] - hhh[0]) * (vvv[1] - vvv[0])
-                plot_image(int_mesh2[i],hhh,vvv,title=">>%d<< Source Tot Power %f, pow density: %f"%(i,totPower,int_mesh2[i].max()),show=True)
+                # totPower = int_mesh2[i].sum() * (hhh[1] - hhh[0]) * (vvv[1] - vvv[0])
+                totPower2 = trapezoidal_rule_2d_1darrays(int_mesh2[i],hhh,vvv)
+                plot_image(int_mesh2[i],hhh,vvv,title=">>%d<< Source Tot Power %f, pow density: %f"%(i,totPower2,int_mesh2[i].max()),show=True)
             else:
-                totPower = int_mesh1[i].sum() * (hh[1] - hh[0]) * (vv[1] - vv[0])
+                # totPower = int_mesh1[i].sum() * (hh[1] - hh[0]) * (vv[1] - vv[0])
+                totPower2 = trapezoidal_rule_2d_1darrays(int_mesh1[i],hh,vv)
                 plot_image(int_mesh1[i], hh, vv,
-                           title=">>%d<< Source Tot Power %f, pow density: %f" % (i, totPower, int_mesh2[i].max()),
+                           title=">>%d<< Source Tot Power %f, pow density: %f" % (i, totPower2, int_mesh2[i].max()),
                            show=True)
 
     if four_quadrants:
@@ -1491,6 +1563,7 @@ def ray_tracing(
             "EL0_THICKNESS":1000,
             "EL0_RELATIVE_TO_PREVIOUS":2,
                         },
+        real_space_shuffle=[0,0,0],
         dump_shadow_files=True):
 
     import shadow4
@@ -1506,15 +1579,26 @@ def ray_tracing(
     vx = out_dictionary["X"] / ( 1e3 * SOURCE_SCREEN_DISTANCE )
     vz = out_dictionary["Y"] / ( 1e3 * SOURCE_SCREEN_DISTANCE )
 
-    VX = numpy.outer(vx,numpy.ones_like(vz))
-    VZ = numpy.outer(numpy.ones_like(vx),vz)
-    VY = numpy.sqrt( 1.0 - VX**2 + VZ**2)
+    nrays = vx.size * vz.size
+
+    VX = numpy.outer(vx, numpy.ones_like(vz)).flatten()
+    VZ = numpy.outer(numpy.ones_like(vx), vz).flatten()
+    VY = numpy.sqrt(1.0 - VX ** 2 + VZ ** 2).flatten()
+
+    X = numpy.ones(nrays) * real_space_shuffle[0]
+    Y = numpy.ones(nrays) * real_space_shuffle[1]
+    Z = numpy.ones(nrays) * real_space_shuffle[2]
+
 
     # print(VY)
-    beam = Beam.initialize_as_pencil(N=VX.size)
-    beam.set_column(4, VX.flatten())
-    beam.set_column(5, VY.flatten())
-    beam.set_column(6, VZ.flatten())
+
+    beam = Beam.initialize_as_pencil(N=nrays)
+    beam.set_column(1, X)
+    beam.set_column(2, Y)
+    beam.set_column(3, Z)
+    beam.set_column(4, VX)
+    beam.set_column(5, VY)
+    beam.set_column(6, VZ)
 
     if dump_shadow_files:
         Beam3.initialize_from_shadow4_beam(beam).write('begin_srcalc.dat')
@@ -1655,7 +1739,7 @@ def calculate_pixel_areas(X,Y,suppress_last_row_and_column=True):
 
 def compute_power_density_on_optical_elements(dict1,do_interpolation=True):
 
-    # first compute the area of the pixels at the screen used by usrgent
+    # first compute the area of the pixels at the screen used by urgent
 
     x = 1e-3 * dict1["X"]
     y = 1e-3 * dict1["Y"]
@@ -1707,8 +1791,21 @@ def compute_power_density_on_optical_elements(dict1,do_interpolation=True):
 
             XX_FOOTPRINT_old = XX_FOOTPRINT.copy()
             YY_FOOTPRINT_old = YY_FOOTPRINT.copy()
-            xx_footprint = numpy.linspace(XX_FOOTPRINT_old.min(), XX_FOOTPRINT_old.max(), XX_FOOTPRINT_old.shape[0])
-            yy_footprint = numpy.linspace(YY_FOOTPRINT_old.min(), YY_FOOTPRINT_old.max(), YY_FOOTPRINT_old.shape[1])
+
+            if "XX_FOOTPRINT_MIN" in dict1.keys():
+                XX_FOOTPRINT_MAX = numpy.max( (-dict1["XX_FOOTPRINT_MIN"], dict1["XX_FOOTPRINT_MAX"]))
+                XX_FOOTPRINT_MIN = -XX_FOOTPRINT_MAX
+                YY_FOOTPRINT_MAX = numpy.max( ( -dict1["YY_FOOTPRINT_MIN"], dict1["YY_FOOTPRINT_MAX"]))
+                YY_FOOTPRINT_MIN = -YY_FOOTPRINT_MAX
+            else:
+                XX_FOOTPRINT_MAX = numpy.max( (-XX_FOOTPRINT_old.min(), XX_FOOTPRINT_old.max()))
+                XX_FOOTPRINT_MIN = -XX_FOOTPRINT_MAX
+
+                YY_FOOTPRINT_MAX = numpy.max( (-YY_FOOTPRINT_old.min(), YY_FOOTPRINT_old.max()))
+                YY_FOOTPRINT_MIN = -YY_FOOTPRINT_MAX
+
+            xx_footprint = numpy.linspace(XX_FOOTPRINT_MIN, XX_FOOTPRINT_MAX, XX_FOOTPRINT_old.shape[0])
+            yy_footprint = numpy.linspace(YY_FOOTPRINT_MIN, YY_FOOTPRINT_MAX, YY_FOOTPRINT_old.shape[1])
 
             XX_FOOTPRINT = numpy.outer(xx_footprint,numpy.ones_like(yy_footprint))
             YY_FOOTPRINT = numpy.outer(numpy.ones_like(xx_footprint), yy_footprint)
@@ -1769,8 +1866,22 @@ def compute_power_density_on_optical_elements(dict1,do_interpolation=True):
             #
             XX_IMAGE_old = XX_IMAGE.copy()
             YY_IMAGE_old = YY_IMAGE.copy()
-            xx_image = numpy.linspace(XX_IMAGE_old.min(), XX_IMAGE_old.max(), XX_IMAGE_old.shape[0])
-            yy_image = numpy.linspace(YY_IMAGE_old.min(), YY_IMAGE_old.max(), YY_IMAGE_old.shape[1])
+
+
+            if "XX_IMAGE_MIN" in dict1.keys():
+                XX_IMAGE_MAX = numpy.max( (-dict1["XX_IMAGE_MIN"], dict1["XX_IMAGE_MAX"]))
+                XX_IMAGE_MIN = -XX_IMAGE_MAX
+                YY_IMAGE_MAX = numpy.max( ( -dict1["YY_IMAGE_MIN"], dict1["YY_IMAGE_MAX"]))
+                YY_IMAGE_MIN = -YY_IMAGE_MAX
+            else:
+                XX_IMAGE_MAX = numpy.max( (-XX_IMAGE_old.min(), XX_IMAGE_old.max()))
+                XX_IMAGE_MIN = -XX_IMAGE_MAX
+                YY_IMAGE_MAX = numpy.max( (-YY_IMAGE_old.min(), YY_IMAGE_old.max()))
+                YY_IMAGE_MIN = -YY_IMAGE_MAX
+
+
+            xx_image = numpy.linspace(XX_IMAGE_MIN, XX_IMAGE_MAX, XX_IMAGE_old.shape[0])
+            yy_image = numpy.linspace(YY_IMAGE_MIN, YY_IMAGE_MAX, YY_IMAGE_old.shape[1])
 
             XX_IMAGE = numpy.outer(xx_image,numpy.ones_like(yy_image))
             YY_IMAGE = numpy.outer(numpy.ones_like(xx_image), yy_image)
@@ -1788,15 +1899,46 @@ def compute_power_density_on_optical_elements(dict1,do_interpolation=True):
         POWER_DENSITY_IMAGE_H.append(XX_IMAGE)
         POWER_DENSITY_IMAGE_V.append(YY_IMAGE)
 
-    dict1["POWER_DENSITY_FOOTPRINT"] = POWER_DENSITY_FOOTPRINT
-    dict1["POWER_DENSITY_FOOTPRINT_H"] = POWER_DENSITY_FOOTPRINT_H
-    dict1["POWER_DENSITY_FOOTPRINT_V"] = POWER_DENSITY_FOOTPRINT_V
-    dict1["POWER_DENSITY_IMAGE"] = POWER_DENSITY_IMAGE
-    dict1["POWER_DENSITY_IMAGE_H"] = POWER_DENSITY_IMAGE_H
-    dict1["POWER_DENSITY_IMAGE_V"] = POWER_DENSITY_IMAGE_V
+    if "POWER_DENSITY_FOOTPRINT" in dict1.keys():
+        for element_index in range(number_of_elements_traced):
+
+            dict1["POWER_DENSITY_FOOTPRINT"]  [element_index] += POWER_DENSITY_FOOTPRINT [element_index]
+            # dict1["POWER_DENSITY_FOOTPRINT_H"][element_index] += POWER_DENSITY_FOOTPRINT_H [element_index]
+            # dict1["POWER_DENSITY_FOOTPRINT_V"][element_index] += POWER_DENSITY_FOOTPRINT_V [element_index]
+            dict1["POWER_DENSITY_IMAGE"]      [element_index] += POWER_DENSITY_IMAGE [element_index]
+            # dict1["POWER_DENSITY_IMAGE_H"]    [element_index] += POWER_DENSITY_IMAGE_H [element_index]
+            # dict1["POWER_DENSITY_IMAGE_V"]    [element_index] += POWER_DENSITY_IMAGE_V [element_index]
+
+    else:
+        dict1["POWER_DENSITY_FOOTPRINT"] = POWER_DENSITY_FOOTPRINT
+        dict1["POWER_DENSITY_FOOTPRINT_H"] = POWER_DENSITY_FOOTPRINT_H
+        dict1["POWER_DENSITY_FOOTPRINT_V"] = POWER_DENSITY_FOOTPRINT_V
+        dict1["POWER_DENSITY_IMAGE"] = POWER_DENSITY_IMAGE
+        dict1["POWER_DENSITY_IMAGE_H"] = POWER_DENSITY_IMAGE_H
+        dict1["POWER_DENSITY_IMAGE_V"] = POWER_DENSITY_IMAGE_V
+
+        dict1["XX_FOOTPRINT_MIN"] = XX_FOOTPRINT_MIN
+        dict1["XX_FOOTPRINT_MAX"] = XX_FOOTPRINT_MAX
+        dict1["YY_FOOTPRINT_MIN"] = YY_FOOTPRINT_MIN
+        dict1["YY_FOOTPRINT_MAX"] = YY_FOOTPRINT_MAX
+
+        dict1["XX_IMAGE_MIN"] = XX_IMAGE_MIN
+        dict1["XX_IMAGE_MAX"] = XX_IMAGE_MAX
+        dict1["YY_IMAGE_MIN"] = YY_IMAGE_MIN
+        dict1["YY_IMAGE_MAX"] = YY_IMAGE_MAX
+
 
     return dict1
 
+def trapezoidal_rule_2d(data2D,H,V):
+    totPower2 = numpy.trapz(data2D, V[0, :], axis=1)
+    totPower2 = numpy.trapz(totPower2, H[:, 0], axis=0)
+    return totPower2
+
+def trapezoidal_rule_2d_1darrays(data2D,h,v):
+    totPower2 = numpy.trapz(data2D, v, axis=1)
+    totPower2 = numpy.trapz(totPower2, h, axis=0)
+    return totPower2
 
 def debug_plot_3d(zs,xs,ys,title=""):
     import matplotlib.pylab as plt
@@ -1819,12 +1961,12 @@ def debug_plot_3d(zs,xs,ys,title=""):
 
 if __name__ == "__main__":
 
-
+    from srxraylib.plot.gol import plot_scatter
 
     test = 0  # 0= widget, 1=load D_IDPower.TXT, 2 =ray tracing
     if test == 0:
         app = QApplication(sys.argv)
-        w = OWsrcalc()
+        w = OWsrcalc_idpower()
         w.show()
         app.exec()
         w.saveSettings()

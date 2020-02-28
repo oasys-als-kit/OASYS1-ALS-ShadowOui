@@ -7,10 +7,10 @@ import subprocess
 
 NAME = 'OASYS1-ALS-ShadowOui'
 
-VERSION = '0.0.30'
+VERSION = '0.0.31'
 ISRELEASED = False
 
-DESCRIPTION = 'WIDGETS DEVELOPED FOR ALS TO EXTEND SHADOWOUI FUNCTIONALITIES'
+DESCRIPTION = 'WIDGETS DEVELOPED FOR ALS TO EXTEND OASYS FUNCTIONALITIES'
 README_FILE = os.path.join(os.path.dirname(__file__), 'README.txt')
 LONG_DESCRIPTION = open(README_FILE).read()
 AUTHOR = 'Luca Rebuffi and Antoine Wojdyla and Manuel Sanchez del Rio'
@@ -66,7 +66,6 @@ PACKAGES = find_packages(
                          )
 
 PACKAGE_DATA = {"orangecontrib.shadow.als.widgets.sources":["icons/*.png", "icons/*.jpg"],
-                "orangecontrib.shadow.als.widgets.optical_elements":["icons/*.png", "icons/*.jpg"],
                 "orangecontrib.shadow.als.widgets.utility":["icons/*.png", "icons/*.jpg",],
                 "orangecontrib.xoppy.als.widgets.srcalc":["icons/*.png", "icons/*.jpg",],
                 "orangecontrib.syned.als.widgets.tools":["icons/*.png", "icons/*.jpg",],
@@ -84,7 +83,6 @@ ENTRY_POINTS = {
     'oasys.addons' : ("ALS ShadowOui = orangecontrib.shadow.als","ALS XOPPY = orangecontrib.xoppy.als" ),
     'oasys.widgets' : (
         "Shadow ALS Sources = orangecontrib.shadow.als.widgets.sources",
-        "Shadow ALS Optical Elements = orangecontrib.shadow.als.widgets.optical_elements",
         "Shadow ALS Utility = orangecontrib.shadow.als.widgets.utility",
         "XOPPY ALS SRCALC = orangecontrib.xoppy.als.widgets.srcalc",
         "Syned ALS Tools = orangecontrib.syned.als.widgets.tools",

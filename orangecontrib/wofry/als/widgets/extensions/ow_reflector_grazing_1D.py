@@ -19,16 +19,16 @@ from orangecontrib.xoppy.util.python_script import PythonScript  # TODO: change 
 from wofry.propagator.wavefront1D.generic_wavefront import GenericWavefront1D
 
 
-class OWReflector1D(WofryWidget):
+class OWReflectorGrazing1D(WofryWidget):
 
-    name = "Wofry Reflector 1D"
-    id = "WofryReflector1D"
-    description = "Wofry Reflector 1D"
-    icon = "icons/reflector1D.png"
-    priority = 3
+    name = "Wofry Grazing Reflector 1D"
+    id = "WofryReflectorGrazing1D"
+    description = "Wofry Grazing Reflector 1D"
+    icon = "icons/reflector_grazing1D.png"
+    priority = 4
 
     category = "Wofry Wavefront Propagation"
-    keywords = ["data", "file", "load", "read"]
+    keywords = ["data", "file", "load", "read", "grazing"]
 
     outputs = [{"name":"GenericWavefront1D",
                 "type":GenericWavefront1D,
@@ -38,7 +38,12 @@ class OWReflector1D(WofryWidget):
     inputs = [("GenericWavefront1D", GenericWavefront1D, "set_input"),
               ("DABAM 1D Profile", numpy.ndarray, "receive_dabam_profile")]
 
-    grazing_angle = Setting(1.5e-3)
+    grazing_angle_in = Setting(1.5e-3)
+    grazing_angle_out = Setting(1.5e-3)
+    p_distance = Setting(1.0)
+    q_distance = Setting(1.0)
+    zoom_factor = Setting(1.0)
+
     shape = Setting(1)
     radius = Setting(1000.0)
     error_flag = Setting(0)
@@ -88,10 +93,17 @@ class OWReflector1D(WofryWidget):
 
         self.tab_sou = oasysgui.createTabPage(tabs_setting, "Generic Reflector 1D Settings")
 
+
+
+
         box_reflector = oasysgui.widgetBox(self.tab_sou, "Reflector", addSpace=False, orientation="vertical")
 
-        oasysgui.lineEdit(box_reflector, self, "grazing_angle", "Grazing angle [rad]",
+        oasysgui.lineEdit(box_reflector, self, "grazing_angle_in", "Grazing incidence angle [rad]",
                           labelWidth=300, valueType=float, orientation="horizontal")
+
+        oasysgui.lineEdit(box_reflector, self, "grazing_angle_out", "Grazing reflection angle [rad]",
+                          labelWidth=300, valueType=float, orientation="horizontal")
+
 
 
 
@@ -120,10 +132,22 @@ class OWReflector1D(WofryWidget):
         gui.comboBox(box_reflector, self, "write_profile", label="Dump profile to file", labelWidth=350,
                      items=["No","Yes [reflector_profile1D.dat]"], sendSelectedValue=False, orientation="horizontal")
 
-        gui.comboBox(box_reflector, self, "write_input_wavefront", label="Input wf to file (for script)", labelWidth=350,
+
+
+        box_propagator = oasysgui.widgetBox(self.tab_sou, "Propagator", addSpace=False, orientation="vertical")
+
+        oasysgui.lineEdit(box_propagator, self, "p_distance", "Entrance arm [m]",
+                          labelWidth=300, valueType=float, orientation="horizontal")
+
+
+        oasysgui.lineEdit(box_propagator, self, "q_distance", "Exit arm [m]",
+                          labelWidth=300, valueType=float, orientation="horizontal")
+
+        oasysgui.lineEdit(box_propagator, self, "zoom_factor", "Zoom factor",
+                          labelWidth=300, valueType=float, orientation="horizontal")
+
+        gui.comboBox(box_propagator, self, "write_input_wavefront", label="Input wf to file (for script)", labelWidth=350,
                      items=["No","Yes [wavefront_input.h5]"], sendSelectedValue=False, orientation="horizontal")
-
-
 
         self.set_visible()
 
@@ -153,7 +177,11 @@ class OWReflector1D(WofryWidget):
             tab.setFixedWidth(self.IMAGE_WIDTH)
 
     def check_fields(self):
-        self.grazing_angle = congruence.checkStrictlyPositiveNumber(self.grazing_angle, "Grazing angle")
+        self.grazing_angle_in = congruence.checkStrictlyPositiveNumber(self.grazing_angle_in, "Grazing incidence angle")
+        self.grazing_angle_out = congruence.checkStrictlyPositiveNumber(self.grazing_angle_out, "Grazing reflection angle")
+        self.p_distance = congruence.checkNumber(self.p_distance, "Entrance arm")
+        self.q_distance = congruence.checkNumber(self.q_distance, "Exit arm")
+        self.zoom_factor = congruence.checkStrictlyPositiveNumber(self.zoom_factor, "Zoom factor")
         self.radius = congruence.checkNumber(numpy.abs(self.radius), "Radius")
         self.error_file = congruence.checkFileName(self.error_file)
 
@@ -197,10 +225,14 @@ class OWReflector1D(WofryWidget):
 
         if self.wavefront1D is None: raise Exception("No Input Wavefront")
 
-        output_wavefront, abscissas_on_mirror, height = self.calculate_output_wavefront_after_reflector1D(self.wavefront1D,
+        output_wavefront, abscissas_on_mirror, height = self.calculate_output_wavefront_after_grazing_reflector1D(self.wavefront1D,
                                                                        shape=self.shape,
                                                                        radius=self.radius,
-                                                                       grazing_angle=self.grazing_angle,
+                                                                       grazing_angle_in=self.grazing_angle_in,
+                                                                       grazing_angle_out=self.grazing_angle_out,
+                                                                       p_distance=self.p_distance,
+                                                                       q_distance=self.q_distance,
+                                                                       zoom_factor=self.zoom_factor,
                                                                        error_flag=self.error_flag,
                                                                        error_file=self.error_file,
                                                                        write_profile=self.write_profile)
@@ -209,14 +241,18 @@ class OWReflector1D(WofryWidget):
             self.wavefront1D.save_h5_file("wavefront_input.h5",subgroupname="wfr",intensity=True,phase=True,overwrite=True,verbose=True)
 
         # script
-        dict_parameters = {"grazing_angle": self.grazing_angle,
+        dict_parameters = {"grazing_angle_in": self.grazing_angle_in,
+                           "grazing_angle_out": self.grazing_angle_out,
+                           "p_distance": self.p_distance,
+                           "q_distance": self.q_distance,
+                           "zoom_factor": self.zoom_factor,
                            "shape": self.shape,
                            "radius": self.radius,
                            "error_flag":self.error_flag,
                            "error_file":self.error_file,
                            "write_profile":self.write_profile}
 
-        script_template = self.script_template_output_wavefront_from_radius()
+        script_template = self.script_template_output_wavefront()
         self.wofry_script.set_code(script_template.format_map(dict_parameters))
 
 
@@ -225,103 +261,213 @@ class OWReflector1D(WofryWidget):
         self.send("GenericWavefront1D", output_wavefront)
 
     @classmethod
-    def calculate_output_wavefront_after_reflector1D(cls,input_wavefront,shape=1,radius=10000.0,grazing_angle=1.5e-3,
-                                               error_flag=0, error_file="", write_profile=0):
+    def goFromToSequential(cls, field1, x1, y1, x2, y2, wavelength=1e-10, normalize_intensities=False):
+        field2 = numpy.zeros_like(x2, dtype=complex)
+        wavenumber = numpy.pi * 2 / wavelength
 
-        output_wavefront = input_wavefront.duplicate()
-        abscissas = output_wavefront.get_abscissas()
-        abscissas_on_mirror = abscissas / numpy.sin(grazing_angle)
+        for i in range(field2.size):
+            r = numpy.sqrt(numpy.power(x1 - x2[i], 2) + numpy.power(y1 - y2[i], 2))
+            field2[i] = (field1 * numpy.exp(1.j * wavenumber * r)).sum()
+
+        if normalize_intensities:
+            field2 *= numpy.sqrt((numpy.abs(field1) ** 2).sum() / (numpy.abs(field2) ** 2).sum())
+        return field2
+
+
+    @classmethod
+    def propagator1D_offaxis(cls, input_wavefront, x2_oe, y2_oe, p, q, theta_grazing_in, theta_grazing_out=None,
+                             zoom_factor=1.0, normalize_intensities=False):
+
+        from wofry.propagator.wavefront1D.generic_wavefront import GenericWavefront1D
+
+        if theta_grazing_out is None:
+            theta_grazing_out = theta_grazing_in
+
+        x1 = input_wavefront.get_abscissas()
+        field1 = input_wavefront.get_complex_amplitude()
+        wavelength = input_wavefront.get_wavelength()
+
+        x1_oe = -p * numpy.cos(theta_grazing_in) + x1 * numpy.sin(theta_grazing_in)
+        y1_oe = p * numpy.sin(theta_grazing_in) + x1 * numpy.cos(theta_grazing_in)
+
+        # field2 is the electric field in the mirror
+        field2 = cls.goFromToSequential(field1, x1_oe, y1_oe, x2_oe, y2_oe,
+                                    wavelength=wavelength, normalize_intensities=normalize_intensities)
+
+        x3 = x1 * zoom_factor
+
+        x3_oe = q * numpy.cos(theta_grazing_out) + x3 * numpy.sin(theta_grazing_out)
+        y3_oe = q * numpy.sin(theta_grazing_out) + x3 * numpy.cos(theta_grazing_out)
+
+        # field2 is the electric field in the image plane
+        field3 = cls.goFromToSequential(field2, x2_oe, y2_oe, x3_oe, y3_oe,
+                                    wavelength=wavelength, normalize_intensities=normalize_intensities)
+
+        output_wavefront = GenericWavefront1D.initialize_wavefront_from_arrays(x3, field3, wavelength=wavelength)
+
+        return output_wavefront
+
+
+
+    @classmethod
+    def calculate_output_wavefront_after_grazing_reflector1D(cls,input_wavefront,shape=1,radius=10000.0,
+                                            grazing_angle_in=1.5e-3,grazing_angle_out=1.5e-3,
+                                            p_distance=1.0,
+                                            q_distance=1.0,
+                                            zoom_factor=1.0,
+                                            error_flag=0, error_file="", write_profile=0):
+
+
+
+        x1 = input_wavefront.get_abscissas()
+        field1 = input_wavefront.get_complex_amplitude()
+
+        if error_flag == 0: # no profile file
+            x2_oe = x1 / numpy.sin(grazing_angle_in)
+            y2_oe = numpy.zeros_like(x2_oe)
+        else:
+            a = numpy.loadtxt(error_file)
+            x2_oe = a[:, 0]
+            y2_oe = a[:, 1]
+
+
 
         if shape == 0:
-            height = numpy.zeros_like(abscissas_on_mirror)
+            pass
         elif shape == 1:
             if radius >= 0:
-                height = radius - numpy.sqrt(radius ** 2 - abscissas_on_mirror ** 2)
+                height = radius - numpy.sqrt(radius ** 2 - x2_oe ** 2)
             else:
-                height = radius + numpy.sqrt(radius ** 2 - abscissas_on_mirror ** 2)
+                height = radius + numpy.sqrt(radius ** 2 - x2_oe ** 2)
+            y2_oe += height
         else:
             raise Exception("Wrong shape")
 
-
-        if error_flag:
-            a = numpy.loadtxt(error_file)
-            finterpolate = interpolate.interp1d(a[:,0], a[:,1],fill_value=(0,0),bounds_error=False)
-            height_interpolated = finterpolate( abscissas_on_mirror)
-            height += height_interpolated
-
-        phi = -2 * output_wavefront.get_wavenumber() * height * numpy.sin(grazing_angle)
-
-        output_wavefront.add_phase_shifts(phi)
-
-        print("Wavefront limits [um]: %f %f"%(1e6*input_wavefront.get_abscissas().min(),1e6*input_wavefront.get_abscissas().max()))
-        if error_flag:
-            print("profile deformation limits [m]: %f %f"%(a[0, 0], a[-1, 0]))
-            print("profile deformation projected limits [um]: %f um %f um"%
-                  (1e6 * a[0,0] * numpy.sin(grazing_angle),1e6 * a[-1,0] * numpy.sin(grazing_angle) ))
-            print("Wavefront clipped to projected limits of profile deformation")
-            output_wavefront.clip(a[0,0] * numpy.sin(grazing_angle),a[-1,0] * numpy.sin(grazing_angle))
+        output_wavefront = cls.propagator1D_offaxis(input_wavefront, x2_oe, y2_oe,
+                                                     p_distance,q_distance,
+                                                     grazing_angle_in, grazing_angle_out,
+                                                     zoom_factor=zoom_factor,normalize_intensities=True)
 
         # output files
         if write_profile:
             f = open("reflector_profile1D.dat","w")
             for i in range(height.size):
-                f.write("%g %g\n"%(abscissas_on_mirror[i],height[i]))
+                f.write("%g %g\n"%(x2_oe[i],y2_oe[i]))
             f.close()
             print("File reflector_profile1D.dat written to disk.")
 
+        return output_wavefront, x2_oe, y2_oe
 
-        return output_wavefront, abscissas_on_mirror, height
 
     # warning: pay attention to the double backslash in \\n
-    def script_template_output_wavefront_from_radius(self):
+    def script_template_output_wavefront(self):
         return \
 """
 
-def calculate_output_wavefront_after_reflector1D(input_wavefront,radius=10000.0,grazing_angle=1.5e-3,error_flag=0, error_file="", write_profile=0):
-    import numpy
-    from scipy import interpolate
-    output_wavefront = input_wavefront.duplicate()
-    abscissas = output_wavefront.get_abscissas()
-    abscissas_on_mirror = abscissas / numpy.sin(grazing_angle)
-    if radius >= 0:
-        height = radius - numpy.sqrt(radius ** 2 - abscissas_on_mirror ** 2)
+import numpy
+
+def goFromToSequential(field1, x1, y1, x2, y2, wavelength=1e-10, normalize_intensities=False):
+    field2 = numpy.zeros_like(x2, dtype=complex)
+    wavenumber = numpy.pi * 2 / wavelength
+
+    for i in range(field2.size):
+        r = numpy.sqrt(numpy.power(x1 - x2[i], 2) + numpy.power(y1 - y2[i], 2))
+        field2[i] = (field1 * numpy.exp(1.j * wavenumber * r)).sum()
+
+    if normalize_intensities:
+        field2 *= numpy.sqrt((numpy.abs(field1) ** 2).sum() / (numpy.abs(field2) ** 2).sum())
+    return field2
+
+
+def propagator1D_offaxis(input_wavefront, x2_oe, y2_oe, p, q, theta_grazing_in, theta_grazing_out=None,
+                         zoom_factor=1.0, normalize_intensities=False):
+
+    from wofry.propagator.wavefront1D.generic_wavefront import GenericWavefront1D
+
+    if theta_grazing_out is None:
+        theta_grazing_out = theta_grazing_in
+
+    x1 = input_wavefront.get_abscissas()
+    field1 = input_wavefront.get_complex_amplitude()
+    wavelength = input_wavefront.get_wavelength()
+
+    x1_oe = -p * numpy.cos(theta_grazing_in) + x1 * numpy.sin(theta_grazing_in)
+    y1_oe = p * numpy.sin(theta_grazing_in) + x1 * numpy.cos(theta_grazing_in)
+
+    # field2 is the electric field in the mirror
+    field2 = goFromToSequential(field1, x1_oe, y1_oe, x2_oe, y2_oe,
+                                wavelength=wavelength, normalize_intensities=normalize_intensities)
+
+    x3 = x1 * zoom_factor
+
+    x3_oe = q * numpy.cos(theta_grazing_out) + x3 * numpy.sin(theta_grazing_out)
+    y3_oe = q * numpy.sin(theta_grazing_out) + x3 * numpy.cos(theta_grazing_out)
+
+    # field2 is the electric field in the image plane
+    field3 = goFromToSequential(field2, x2_oe, y2_oe, x3_oe, y3_oe,
+                                wavelength=wavelength, normalize_intensities=normalize_intensities)
+
+    output_wavefront = GenericWavefront1D.initialize_wavefront_from_arrays(x3, field3, wavelength=wavelength)
+
+    return output_wavefront
+
+def calculate_output_wavefront_after_grazing_reflector1D(input_wavefront,shape=1,radius=10000.0,
+                                        grazing_angle_in=1.5e-3,grazing_angle_out=1.5e-3,
+                                        p_distance=1.0,
+                                        q_distance=1.0,
+                                        zoom_factor=1.0,
+                                        error_flag=0, error_file="", write_profile=0):
+
+
+
+    x1 = input_wavefront.get_abscissas()
+    field1 = input_wavefront.get_complex_amplitude()
+
+    if error_flag == 0: # no profile file
+        x2_oe = x1 / numpy.sin(grazing_angle_in)
+        y2_oe = numpy.zeros_like(x2_oe)
     else:
-        height = radius + numpy.sqrt(radius ** 2 - abscissas_on_mirror ** 2)
-    
-
-    if error_flag:
         a = numpy.loadtxt(error_file)
-        finterpolate = interpolate.interp1d(a[:,0], a[:,1],fill_value="extrapolate")
-        height_interpolated = finterpolate( abscissas_on_mirror)
-        height += height_interpolated
+        x2_oe = a[:, 0]
+        y2_oe = a[:, 1]
 
-    phi = -2 * output_wavefront.get_wavenumber() * height * numpy.sin(grazing_angle)
-    output_wavefront.add_phase_shifts(phi)
 
-    print("Wavefront limits [um]: %f %f"%(1e6*input_wavefront.get_abscissas().min(),1e6*input_wavefront.get_abscissas().max()))
-    if error_flag:
-        print("profile deformation limits [m]: %f %f"%(a[0, 0], a[-1, 0]))
-        print("profile deformation projected limits [um]: %f um %f um"%
-              (1e6 * a[0,0] * numpy.sin(grazing_angle),1e6 * a[-1,0] * numpy.sin(grazing_angle) ))
-        print("Wavefront clipped to projected limits of profile deformation")
-        output_wavefront.clip(a[0,0] * numpy.sin(grazing_angle),a[-1,0] * numpy.sin(grazing_angle))
-            
+
+    if shape == 0:
+        pass
+    elif shape == 1:
+        if radius >= 0:
+            height = radius - numpy.sqrt(radius ** 2 - x2_oe ** 2)
+        else:
+            height = radius + numpy.sqrt(radius ** 2 - x2_oe ** 2)
+        y2_oe += height
+    else:
+        raise Exception("Wrong shape")
+
+    output_wavefront = propagator1D_offaxis(input_wavefront, x2_oe, y2_oe,
+                                                 p_distance,q_distance,
+                                                 grazing_angle_in, grazing_angle_out,
+                                                 zoom_factor=zoom_factor,normalize_intensities=True)
+
     # output files
     if write_profile:
         f = open("reflector_profile1D.dat","w")
         for i in range(height.size):
-            f.write("%g %g\\n"%(abscissas_on_mirror[i],height[i]))
+            f.write("%g %g\\n"%(x2_oe[i],y2_oe[i]))
         f.close()
         print("File reflector_profile1D.dat written to disk.")
-            
-    return output_wavefront, abscissas_on_mirror, height 
+
+    return output_wavefront, x2_oe, y2_oe
 
 #
 # main
 #
 from wofry.propagator.wavefront1D.generic_wavefront import GenericWavefront1D
 input_wavefront = GenericWavefront1D.load_h5_file("wavefront_input.h5","wfr")
-output_wavefront, abscissas_on_mirror, height = calculate_output_wavefront_after_reflector1D(input_wavefront,radius={radius},grazing_angle={grazing_angle},error_flag={error_flag},error_file="{error_file}",write_profile={write_profile})
+
+
+                                        
+output_wavefront, abscissas_on_mirror, height = calculate_output_wavefront_after_grazing_reflector1D(input_wavefront,radius={radius},grazing_angle_in={grazing_angle_in},grazing_angle_out={grazing_angle_out},p_distance={p_distance},q_distance={q_distance},zoom_factor={zoom_factor},error_flag={error_flag},error_file="{error_file}",write_profile={write_profile})
 
 from srxraylib.plot.gol import plot
 plot(output_wavefront.get_abscissas(),output_wavefront.get_intensity())
@@ -407,10 +553,10 @@ if __name__ == '__main__':
         return input_wavefront
 
     app = QApplication([])
-    ow = OWReflector1D()
+    ow = OWReflectorGrazing1D()
     ow.set_input(create_wavefront())
 
-    ow.receive_dabam_profile(numpy.array([[-0.50,0],[0.50,0]]))
+    ow.receive_dabam_profile(numpy.array([[1,2],[3,4]]))
     ow.propagate_wavefront()
 
     ow.show()
