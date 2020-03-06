@@ -107,29 +107,29 @@ class OWReflectorGrazing1D(WofryWidget):
 
 
 
-        gui.comboBox(box_reflector, self, "shape", label="Reflector shape", labelWidth=350,
+        gui.comboBox(box_reflector, self, "shape", label="Reflector shape",
                      items=["Flat","Curved"], sendSelectedValue=False, orientation="horizontal",callback=self.set_visible)
 
 
-        self.box_radius_id = oasysgui.widgetBox(box_reflector, "", addSpace=True, orientation="horizontal", width=400, height=35)
+        self.box_radius_id = oasysgui.widgetBox(box_reflector, "", addSpace=True, orientation="horizontal")
         oasysgui.lineEdit(self.box_radius_id, self, "radius", "Radius of curvature [m] (R<0 if convex)",
                           labelWidth=300, valueType=float, orientation="horizontal")
 
 
 
 
-        gui.comboBox(box_reflector, self, "error_flag", label="Add profile deformation", labelWidth=350,
+        gui.comboBox(box_reflector, self, "error_flag", label="Add profile deformation",
                      items=["No","Yes (from file)"],
                      callback=self.set_visible,
                      sendSelectedValue=False, orientation="horizontal")
 
-        self.file_box_id = oasysgui.widgetBox(box_reflector, "", addSpace=True, orientation="horizontal", width=400, height=35)
+        self.file_box_id = oasysgui.widgetBox(box_reflector, "", addSpace=True, orientation="horizontal")
         self.error_file_id = oasysgui.lineEdit(self.file_box_id, self, "error_file", "Error file X[m] Y[m]",
                                                     labelWidth=120, valueType=str, orientation="horizontal")
         gui.button(self.file_box_id, self, "...", callback=self.set_error_file)
 
 
-        gui.comboBox(box_reflector, self, "write_profile", label="Dump profile to file", labelWidth=350,
+        gui.comboBox(box_reflector, self, "write_profile", label="Dump profile to file",
                      items=["No","Yes [reflector_profile1D.dat]"], sendSelectedValue=False, orientation="horizontal")
 
 
@@ -137,16 +137,16 @@ class OWReflectorGrazing1D(WofryWidget):
         box_propagator = oasysgui.widgetBox(self.tab_sou, "Propagator", addSpace=False, orientation="vertical")
 
         oasysgui.lineEdit(box_propagator, self, "p_distance", "Entrance arm [m]",
-                          labelWidth=300, valueType=float, orientation="horizontal")
+                          valueType=float, orientation="horizontal")
 
 
         oasysgui.lineEdit(box_propagator, self, "q_distance", "Exit arm [m]",
-                          labelWidth=300, valueType=float, orientation="horizontal")
+                          valueType=float, orientation="horizontal")
 
         oasysgui.lineEdit(box_propagator, self, "zoom_factor", "Zoom factor",
-                          labelWidth=300, valueType=float, orientation="horizontal")
+                          valueType=float, orientation="horizontal")
 
-        gui.comboBox(box_propagator, self, "write_input_wavefront", label="Input wf to file (for script)", labelWidth=350,
+        gui.comboBox(box_propagator, self, "write_input_wavefront", label="Input wf to file (for script)",
                      items=["No","Yes [wavefront_input.h5]"], sendSelectedValue=False, orientation="horizontal")
 
         self.set_visible()
@@ -182,7 +182,7 @@ class OWReflectorGrazing1D(WofryWidget):
         self.p_distance = congruence.checkNumber(self.p_distance, "Entrance arm")
         self.q_distance = congruence.checkNumber(self.q_distance, "Exit arm")
         self.zoom_factor = congruence.checkStrictlyPositiveNumber(self.zoom_factor, "Zoom factor")
-        self.radius = congruence.checkNumber(numpy.abs(self.radius), "Radius")
+        self.radius = congruence.checkNumber(self.radius, "Radius")
         self.error_file = congruence.checkFileName(self.error_file)
 
 
