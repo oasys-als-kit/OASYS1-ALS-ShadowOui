@@ -277,25 +277,32 @@ class OWReflector1D(WofryWidget):
         return \
 """
 
-def calculate_output_wavefront_after_reflector1D(input_wavefront,radius=10000.0,grazing_angle=1.5e-3,error_flag=0, error_file="", write_profile=0):
+def calculate_output_wavefront_after_reflector1D(input_wavefront,shape=1,radius=10000.0,grazing_angle=1.5e-3,error_flag=0, error_file="", write_profile=0):
     import numpy
     from scipy import interpolate
     output_wavefront = input_wavefront.duplicate()
     abscissas = output_wavefront.get_abscissas()
     abscissas_on_mirror = abscissas / numpy.sin(grazing_angle)
-    if radius >= 0:
-        height = radius - numpy.sqrt(radius ** 2 - abscissas_on_mirror ** 2)
+
+    if shape == 0:
+        height = numpy.zeros_like(abscissas_on_mirror)
+    elif shape == 1:
+        if radius >= 0:
+            height = radius - numpy.sqrt(radius ** 2 - abscissas_on_mirror ** 2)
+        else:
+            height = radius + numpy.sqrt(radius ** 2 - abscissas_on_mirror ** 2)
     else:
-        height = radius + numpy.sqrt(radius ** 2 - abscissas_on_mirror ** 2)
-    
+        raise Exception("Wrong shape")
+
 
     if error_flag:
         a = numpy.loadtxt(error_file)
-        finterpolate = interpolate.interp1d(a[:,0], a[:,1],fill_value="extrapolate")
+        finterpolate = interpolate.interp1d(a[:,0], a[:,1],fill_value=(0,0),bounds_error=False)
         height_interpolated = finterpolate( abscissas_on_mirror)
         height += height_interpolated
 
     phi = -2 * output_wavefront.get_wavenumber() * height * numpy.sin(grazing_angle)
+
     output_wavefront.add_phase_shifts(phi)
 
     print("Wavefront limits [um]: %f %f"%(1e6*input_wavefront.get_abscissas().min(),1e6*input_wavefront.get_abscissas().max()))
@@ -305,7 +312,7 @@ def calculate_output_wavefront_after_reflector1D(input_wavefront,radius=10000.0,
               (1e6 * a[0,0] * numpy.sin(grazing_angle),1e6 * a[-1,0] * numpy.sin(grazing_angle) ))
         print("Wavefront clipped to projected limits of profile deformation")
         output_wavefront.clip(a[0,0] * numpy.sin(grazing_angle),a[-1,0] * numpy.sin(grazing_angle))
-            
+
     # output files
     if write_profile:
         f = open("reflector_profile1D.dat","w")
@@ -313,15 +320,17 @@ def calculate_output_wavefront_after_reflector1D(input_wavefront,radius=10000.0,
             f.write("%g %g\\n"%(abscissas_on_mirror[i],height[i]))
         f.close()
         print("File reflector_profile1D.dat written to disk.")
-            
-    return output_wavefront, abscissas_on_mirror, height 
+
+
+    return output_wavefront, abscissas_on_mirror, height
+        
 
 #
 # main
 #
 from wofry.propagator.wavefront1D.generic_wavefront import GenericWavefront1D
 input_wavefront = GenericWavefront1D.load_h5_file("wavefront_input.h5","wfr")
-output_wavefront, abscissas_on_mirror, height = calculate_output_wavefront_after_reflector1D(input_wavefront,radius={radius},grazing_angle={grazing_angle},error_flag={error_flag},error_file="{error_file}",write_profile={write_profile})
+output_wavefront, abscissas_on_mirror, height = calculate_output_wavefront_after_reflector1D(input_wavefront,shape={shape},radius={radius},grazing_angle={grazing_angle},error_flag={error_flag},error_file="{error_file}",write_profile={write_profile})
 
 from srxraylib.plot.gol import plot
 plot(output_wavefront.get_abscissas(),output_wavefront.get_intensity())
