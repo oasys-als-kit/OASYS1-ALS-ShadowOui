@@ -43,6 +43,7 @@ class OWReflector1D(WofryWidget):
     radius = Setting(1000.0)
     error_flag = Setting(0)
     error_file = Setting("<none>")
+    error_edge_management = Setting(0)
     write_profile = Setting(0)
     write_input_wavefront = Setting(0)
 
@@ -104,18 +105,22 @@ class OWReflector1D(WofryWidget):
                           labelWidth=300, valueType=float, orientation="horizontal")
 
 
-
-
         gui.comboBox(box_reflector, self, "error_flag", label="Add profile deformation",
                      items=["No","Yes (from file)"],
                      callback=self.set_visible,
                      sendSelectedValue=False, orientation="horizontal")
 
-        self.file_box_id = oasysgui.widgetBox(box_reflector, "", addSpace=True, orientation="horizontal")
-        self.error_file_id = oasysgui.lineEdit(self.file_box_id, self, "error_file", "Error file X[m] Y[m]",
-                                                    labelWidth=100, valueType=str, orientation="horizontal")
-        gui.button(self.file_box_id, self, "...", callback=self.set_error_file)
+        self.error_profile = oasysgui.widgetBox(box_reflector, "", addSpace=True, orientation="vertical")
+        file_box_id = oasysgui.widgetBox(self.error_profile, "", addSpace=True, orientation="horizontal")
 
+        self.error_file_id = oasysgui.lineEdit(file_box_id, self, "error_file", "Error file X[m] Y[m]",
+                                                    labelWidth=100, valueType=str, orientation="horizontal")
+        gui.button(file_box_id, self, "...", callback=self.set_error_file)
+
+        gui.comboBox(self.error_profile, self, "error_edge_management", label="Manage edges",
+                     items=["Extrapolate deformation profile","Crop beam to deformation profile dimension"],
+                     callback=self.set_visible,
+                     sendSelectedValue=False, orientation="horizontal")
 
         gui.comboBox(box_reflector, self, "write_profile", label="Dump profile to file",
                      items=["No","Yes [reflector_profile1D.dat]"], sendSelectedValue=False, orientation="horizontal")
@@ -128,7 +133,7 @@ class OWReflector1D(WofryWidget):
         self.set_visible()
 
     def set_visible(self):
-        self.file_box_id.setVisible(self.error_flag)
+        self.error_profile.setVisible(self.error_flag)
         self.box_radius_id.setVisible(self.shape)
 
     def set_error_file(self):
@@ -203,6 +208,7 @@ class OWReflector1D(WofryWidget):
                                                                        grazing_angle=self.grazing_angle,
                                                                        error_flag=self.error_flag,
                                                                        error_file=self.error_file,
+                                                                       error_edge_management=self.error_edge_management,
                                                                        write_profile=self.write_profile)
 
         if self.write_input_wavefront:
@@ -214,6 +220,7 @@ class OWReflector1D(WofryWidget):
                            "radius": self.radius,
                            "error_flag":self.error_flag,
                            "error_file":self.error_file,
+                           "error_edge_management": self.error_edge_management,
                            "write_profile":self.write_profile}
 
         script_template = self.script_template_output_wavefront_from_radius()
@@ -226,7 +233,7 @@ class OWReflector1D(WofryWidget):
 
     @classmethod
     def calculate_output_wavefront_after_reflector1D(cls,input_wavefront,shape=1,radius=10000.0,grazing_angle=1.5e-3,
-                                               error_flag=0, error_file="", write_profile=0):
+                                               error_flag=0, error_file="", error_edge_management=0, write_profile=0):
 
         output_wavefront = input_wavefront.duplicate()
         abscissas = output_wavefront.get_abscissas()
@@ -244,8 +251,13 @@ class OWReflector1D(WofryWidget):
 
 
         if error_flag:
-            a = numpy.loadtxt(error_file)
-            finterpolate = interpolate.interp1d(a[:,0], a[:,1],fill_value=(0,0),bounds_error=False)
+            a = numpy.loadtxt(error_file) # extrapolation
+            if error_edge_management == 0:
+                finterpolate = interpolate.interp1d(a[:, 0], a[:, 1], fill_value="extrapolate")  # fill_value=(0,0),bounds_error=False)
+            elif error_edge_management == 1:
+                finterpolate = interpolate.interp1d(a[:,0], a[:,1],fill_value=(0,0),bounds_error=False)
+            else: # crop
+                raise Exception("Bad value of error_edge_management")
             height_interpolated = finterpolate( abscissas_on_mirror)
             height += height_interpolated
 
@@ -253,13 +265,22 @@ class OWReflector1D(WofryWidget):
 
         output_wavefront.add_phase_shifts(phi)
 
-        print("Wavefront limits [um]: %f %f"%(1e6*input_wavefront.get_abscissas().min(),1e6*input_wavefront.get_abscissas().max()))
         if error_flag:
-            print("profile deformation limits [m]: %f %f"%(a[0, 0], a[-1, 0]))
-            print("profile deformation projected limits [um]: %f um %f um"%
-                  (1e6 * a[0,0] * numpy.sin(grazing_angle),1e6 * a[-1,0] * numpy.sin(grazing_angle) ))
-            print("Wavefront clipped to projected limits of profile deformation")
-            output_wavefront.clip(a[0,0] * numpy.sin(grazing_angle),a[-1,0] * numpy.sin(grazing_angle))
+            profile_limits = a[-1, 0] - a[0, 0]
+            profile_limits_projected = (a[-1,0] - a[0,0]) * numpy.sin(grazing_angle)
+            wavefront_dimension = output_wavefront.get_abscissas()[-1] - output_wavefront.get_abscissas()[0]
+            print("profile deformation dimension: %f m"%(profile_limits))
+            print("profile deformation projected perpendicular to optical axis: %f um"%(1e6 * profile_limits_projected))
+            print("wavefront window dimension: %f um" % (1e6 * wavefront_dimension))
+
+            if wavefront_dimension <= profile_limits_projected:
+                print("\nWavefront window inside error profile domain: no action needed")
+            else:
+                if error_edge_management == 0:
+                    print("\nProfile deformation extrapolated to fit wavefront dimensions")
+                else:
+                    output_wavefront.clip(a[0,0] * numpy.sin(grazing_angle),a[-1,0] * numpy.sin(grazing_angle))
+                    print("\nWavefront clipped to projected limits of profile deformation")
 
         # output files
         if write_profile:
@@ -277,9 +298,10 @@ class OWReflector1D(WofryWidget):
         return \
 """
 
-def calculate_output_wavefront_after_reflector1D(input_wavefront,shape=1,radius=10000.0,grazing_angle=1.5e-3,error_flag=0, error_file="", write_profile=0):
+def calculate_output_wavefront_after_reflector1D(input_wavefront,shape=1,radius=10000.0,grazing_angle=1.5e-3,error_flag=0, error_file="", error_edge_management=0, write_profile=0):
     import numpy
     from scipy import interpolate
+    
     output_wavefront = input_wavefront.duplicate()
     abscissas = output_wavefront.get_abscissas()
     abscissas_on_mirror = abscissas / numpy.sin(grazing_angle)
@@ -296,8 +318,13 @@ def calculate_output_wavefront_after_reflector1D(input_wavefront,shape=1,radius=
 
 
     if error_flag:
-        a = numpy.loadtxt(error_file)
-        finterpolate = interpolate.interp1d(a[:,0], a[:,1],fill_value=(0,0),bounds_error=False)
+        a = numpy.loadtxt(error_file) # extrapolation
+        if error_edge_management == 0:
+            finterpolate = interpolate.interp1d(a[:, 0], a[:, 1], fill_value="extrapolate")  # fill_value=(0,0),bounds_error=False)
+        elif error_edge_management == 1:
+            finterpolate = interpolate.interp1d(a[:,0], a[:,1],fill_value=(0,0),bounds_error=False)
+        else: # crop
+            raise Exception("Bad value of error_edge_management")
         height_interpolated = finterpolate( abscissas_on_mirror)
         height += height_interpolated
 
@@ -305,13 +332,23 @@ def calculate_output_wavefront_after_reflector1D(input_wavefront,shape=1,radius=
 
     output_wavefront.add_phase_shifts(phi)
 
-    print("Wavefront limits [um]: %f %f"%(1e6*input_wavefront.get_abscissas().min(),1e6*input_wavefront.get_abscissas().max()))
     if error_flag:
-        print("profile deformation limits [m]: %f %f"%(a[0, 0], a[-1, 0]))
-        print("profile deformation projected limits [um]: %f um %f um"%
-              (1e6 * a[0,0] * numpy.sin(grazing_angle),1e6 * a[-1,0] * numpy.sin(grazing_angle) ))
-        print("Wavefront clipped to projected limits of profile deformation")
-        output_wavefront.clip(a[0,0] * numpy.sin(grazing_angle),a[-1,0] * numpy.sin(grazing_angle))
+        profile_limits = a[-1, 0] - a[0, 0]
+        profile_limits_projected = (a[-1,0] - a[0,0]) * numpy.sin(grazing_angle)
+        wavefront_dimension = output_wavefront.get_abscissas()[-1] - output_wavefront.get_abscissas()[0]
+        print("profile deformation dimension: %f m"%(profile_limits))
+        print("profile deformation projected perpendicular to optical axis: %f um"%(1e6 * profile_limits_projected))
+        print("wavefront window dimension: %f um" % (1e6 * wavefront_dimension))
+
+        if wavefront_dimension <= profile_limits_projected:
+            print("\\nWavefront window inside error profile domain: no action needed")
+        else:
+            if error_edge_management == 0:
+                print("\\nProfile deformation extrapolated to fit wavefront dimensions")
+            else:
+                output_wavefront.clip(a[0,0] * numpy.sin(grazing_angle),a[-1,0] * numpy.sin(grazing_angle))
+                print("\\nWavefront clipped to projected limits of profile deformation")
+
 
     # output files
     if write_profile:
@@ -330,7 +367,7 @@ def calculate_output_wavefront_after_reflector1D(input_wavefront,shape=1,radius=
 #
 from wofry.propagator.wavefront1D.generic_wavefront import GenericWavefront1D
 input_wavefront = GenericWavefront1D.load_h5_file("wavefront_input.h5","wfr")
-output_wavefront, abscissas_on_mirror, height = calculate_output_wavefront_after_reflector1D(input_wavefront,shape={shape},radius={radius},grazing_angle={grazing_angle},error_flag={error_flag},error_file="{error_file}",write_profile={write_profile})
+output_wavefront, abscissas_on_mirror, height = calculate_output_wavefront_after_reflector1D(input_wavefront,shape={shape},radius={radius},grazing_angle={grazing_angle},error_flag={error_flag},error_file="{error_file}",error_edge_management={error_edge_management},write_profile={write_profile})
 
 from srxraylib.plot.gol import plot
 plot(output_wavefront.get_abscissas(),output_wavefront.get_intensity())
