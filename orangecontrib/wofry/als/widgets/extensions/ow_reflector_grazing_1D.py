@@ -18,6 +18,21 @@ from orangecontrib.xoppy.util.python_script import PythonScript  # TODO: change 
 
 from wofry.propagator.wavefront1D.generic_wavefront import GenericWavefront1D
 
+from numba import jit, prange
+
+
+@jit(nopython=True, parallel=True)
+def goFromToSequential(field1, x1, y1, x2, y2, wavelength=1e-10, normalize_intensities=False):
+    field2 = x2 * 0j
+    wavenumber = numpy.pi * 2 / wavelength
+
+    for i in prange(field2.size):
+        r = numpy.sqrt(numpy.power(x1 - x2[i], 2) + numpy.power(y1 - y2[i], 2))
+        field2[i] = (field1 * numpy.exp(1.j * wavenumber * r)).sum()
+
+    if normalize_intensities:
+        field2 *= numpy.sqrt((numpy.abs(field1) ** 2).sum() / (numpy.abs(field2) ** 2).sum())
+    return field2
 
 class OWReflectorGrazing1D(WofryWidget):
 
@@ -260,19 +275,6 @@ class OWReflectorGrazing1D(WofryWidget):
 
         self.send("GenericWavefront1D", output_wavefront)
 
-    @classmethod
-    def goFromToSequential(cls, field1, x1, y1, x2, y2, wavelength=1e-10, normalize_intensities=False):
-        field2 = numpy.zeros_like(x2, dtype=complex)
-        wavenumber = numpy.pi * 2 / wavelength
-
-        for i in range(field2.size):
-            r = numpy.sqrt(numpy.power(x1 - x2[i], 2) + numpy.power(y1 - y2[i], 2))
-            field2[i] = (field1 * numpy.exp(1.j * wavenumber * r)).sum()
-
-        if normalize_intensities:
-            field2 *= numpy.sqrt((numpy.abs(field1) ** 2).sum() / (numpy.abs(field2) ** 2).sum())
-        return field2
-
 
     @classmethod
     def propagator1D_offaxis(cls, input_wavefront, x2_oe, y2_oe, p, q, theta_grazing_in, theta_grazing_out=None,
@@ -291,7 +293,7 @@ class OWReflectorGrazing1D(WofryWidget):
         y1_oe = p * numpy.sin(theta_grazing_in) + x1 * numpy.cos(theta_grazing_in)
 
         # field2 is the electric field in the mirror
-        field2 = cls.goFromToSequential(field1, x1_oe, y1_oe, x2_oe, y2_oe,
+        field2 = goFromToSequential(field1, x1_oe, y1_oe, x2_oe, y2_oe,
                                     wavelength=wavelength, normalize_intensities=normalize_intensities)
 
         x3 = x1 * zoom_factor
@@ -300,7 +302,7 @@ class OWReflectorGrazing1D(WofryWidget):
         y3_oe = q * numpy.sin(theta_grazing_out) + x3 * numpy.cos(theta_grazing_out)
 
         # field2 is the electric field in the image plane
-        field3 = cls.goFromToSequential(field2, x2_oe, y2_oe, x3_oe, y3_oe,
+        field3 = goFromToSequential(field2, x2_oe, y2_oe, x3_oe, y3_oe,
                                     wavelength=wavelength, normalize_intensities=normalize_intensities)
 
         output_wavefront = GenericWavefront1D.initialize_wavefront_from_arrays(x3, field3, wavelength=wavelength)
@@ -365,12 +367,14 @@ class OWReflectorGrazing1D(WofryWidget):
 """
 
 import numpy
+from numba import jit, prange
 
+@jit(nopython=True, parallel=True)
 def goFromToSequential(field1, x1, y1, x2, y2, wavelength=1e-10, normalize_intensities=False):
-    field2 = numpy.zeros_like(x2, dtype=complex)
+    field2 = x2 * 0j
     wavenumber = numpy.pi * 2 / wavelength
 
-    for i in range(field2.size):
+    for i in prange(field2.size):
         r = numpy.sqrt(numpy.power(x1 - x2[i], 2) + numpy.power(y1 - y2[i], 2))
         field2[i] = (field1 * numpy.exp(1.j * wavenumber * r)).sum()
 
@@ -467,7 +471,7 @@ input_wavefront = GenericWavefront1D.load_h5_file("wavefront_input.h5","wfr")
 
 
                                         
-output_wavefront, abscissas_on_mirror, height = calculate_output_wavefront_after_grazing_reflector1D(input_wavefront,radius={radius},grazing_angle_in={grazing_angle_in},grazing_angle_out={grazing_angle_out},p_distance={p_distance},q_distance={q_distance},zoom_factor={zoom_factor},error_flag={error_flag},error_file="{error_file}",write_profile={write_profile})
+output_wavefront, abscissas_on_mirror, height = calculate_output_wavefront_after_grazing_reflector1D(input_wavefront,shape={shape},radius={radius},grazing_angle_in={grazing_angle_in},grazing_angle_out={grazing_angle_out},p_distance={p_distance},q_distance={q_distance},zoom_factor={zoom_factor},error_flag={error_flag},error_file="{error_file}",write_profile={write_profile})
 
 from srxraylib.plot.gol import plot
 plot(output_wavefront.get_abscissas(),output_wavefront.get_intensity())
