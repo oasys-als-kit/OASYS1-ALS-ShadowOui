@@ -43,7 +43,7 @@ SETUP_REQUIRES = (
 
 INSTALL_REQUIRES = (
                     'setuptools',
-                    'shadow4>=0.0.13',
+                    'shadow4>=0.0.16',
                     'wofry>=0.0.24',
                     'numba',
                    )

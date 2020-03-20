@@ -18,8 +18,6 @@ from orangecontrib.xoppy.util.python_script import PythonScript  # TODO: change 
 
 from wofry.propagator.wavefront1D.generic_wavefront import GenericWavefront1D
 
-from shadow4.optical_surfaces.conic import Conic
-
 from numba import jit, prange
 
 
@@ -56,13 +54,13 @@ class OWReflectorGrazing1D(WofryWidget):
               ("DABAM 1D Profile", numpy.ndarray, "receive_dabam_profile")]
 
     grazing_angle_in = Setting(1.5e-3)
+    grazing_angle_out = Setting(1.5e-3)
     p_distance = Setting(1.0)
     q_distance = Setting(1.0)
     zoom_factor = Setting(1.0)
 
     shape = Setting(1)
-    p_focus = Setting(1.0)
-    q_focus = Setting(1.0)
+    radius = Setting(1000.0)
     error_flag = Setting(0)
     error_file = Setting("<none>")
     write_profile = Setting(0)
@@ -118,14 +116,22 @@ class OWReflectorGrazing1D(WofryWidget):
         oasysgui.lineEdit(box_reflector, self, "grazing_angle_in", "Grazing incidence angle [rad]",
                           labelWidth=300, valueType=float, orientation="horizontal")
 
-        gui.comboBox(box_reflector, self, "shape", label="Reflector shape",
-                     items=["Flat","Circle","Ellipse","Parabola"], sendSelectedValue=False, orientation="horizontal",callback=self.set_visible)
+        oasysgui.lineEdit(box_reflector, self, "grazing_angle_out", "Grazing reflection angle [rad]",
+                          labelWidth=300, valueType=float, orientation="horizontal")
 
-        self.box_focal_id = oasysgui.widgetBox(box_reflector, "", addSpace=True, orientation="vertical")
-        oasysgui.lineEdit(self.box_focal_id, self, "p_focus", "Focal entrance arm [m]",
+
+
+
+        gui.comboBox(box_reflector, self, "shape", label="Reflector shape",
+                     items=["Flat","Curved"], sendSelectedValue=False, orientation="horizontal",callback=self.set_visible)
+
+
+        self.box_radius_id = oasysgui.widgetBox(box_reflector, "", addSpace=True, orientation="horizontal")
+        oasysgui.lineEdit(self.box_radius_id, self, "radius", "Radius of curvature [m] (R<0 if convex)",
                           labelWidth=300, valueType=float, orientation="horizontal")
-        oasysgui.lineEdit(self.box_focal_id, self, "q_focus", "Focal exit arm [m]",
-                          labelWidth=300, valueType=float, orientation="horizontal")
+
+
+
 
         gui.comboBox(box_reflector, self, "error_flag", label="Add profile deformation",
                      items=["No","Yes (from file)"],
@@ -162,7 +168,7 @@ class OWReflectorGrazing1D(WofryWidget):
 
     def set_visible(self):
         self.file_box_id.setVisible(self.error_flag)
-        self.box_focal_id.setVisible(self.shape)
+        self.box_radius_id.setVisible(self.shape)
 
     def set_error_file(self):
         self.error_file_id.setText(oasysgui.selectFileFromDialog(self, self.error_file, "Open file with profile error"))
@@ -187,11 +193,11 @@ class OWReflectorGrazing1D(WofryWidget):
 
     def check_fields(self):
         self.grazing_angle_in = congruence.checkStrictlyPositiveNumber(self.grazing_angle_in, "Grazing incidence angle")
+        self.grazing_angle_out = congruence.checkStrictlyPositiveNumber(self.grazing_angle_out, "Grazing reflection angle")
         self.p_distance = congruence.checkNumber(self.p_distance, "Entrance arm")
         self.q_distance = congruence.checkNumber(self.q_distance, "Exit arm")
         self.zoom_factor = congruence.checkStrictlyPositiveNumber(self.zoom_factor, "Zoom factor")
-        self.p_focus = congruence.checkNumber(self.p_focus, "p focus")
-        self.q_focus = congruence.checkNumber(self.q_focus, "q focus")
+        self.radius = congruence.checkNumber(self.radius, "Radius")
         self.error_file = congruence.checkFileName(self.error_file)
 
 
@@ -236,9 +242,9 @@ class OWReflectorGrazing1D(WofryWidget):
 
         output_wavefront, abscissas_on_mirror, height = self.calculate_output_wavefront_after_grazing_reflector1D(self.wavefront1D,
                                                                        shape=self.shape,
-                                                                       p_focus=self.p_focus,
-                                                                       q_focus=self.q_focus,
+                                                                       radius=self.radius,
                                                                        grazing_angle_in=self.grazing_angle_in,
+                                                                       grazing_angle_out=self.grazing_angle_out,
                                                                        p_distance=self.p_distance,
                                                                        q_distance=self.q_distance,
                                                                        zoom_factor=self.zoom_factor,
@@ -251,12 +257,12 @@ class OWReflectorGrazing1D(WofryWidget):
 
         # script
         dict_parameters = {"grazing_angle_in": self.grazing_angle_in,
+                           "grazing_angle_out": self.grazing_angle_out,
                            "p_distance": self.p_distance,
                            "q_distance": self.q_distance,
                            "zoom_factor": self.zoom_factor,
                            "shape": self.shape,
-                           "p_focus": self.p_focus,
-                           "q_focus": self.q_focus,
+                           "radius": self.radius,
                            "error_flag":self.error_flag,
                            "error_file":self.error_file,
                            "write_profile":self.write_profile}
@@ -306,11 +312,8 @@ class OWReflectorGrazing1D(WofryWidget):
 
 
     @classmethod
-    def calculate_output_wavefront_after_grazing_reflector1D(cls,input_wavefront,
-                                            shape=1,
-                                            p_focus=1.0,
-                                            q_focus=1.0,
-                                            grazing_angle_in=1.5e-3,
+    def calculate_output_wavefront_after_grazing_reflector1D(cls,input_wavefront,shape=1,radius=10000.0,
+                                            grazing_angle_in=1.5e-3,grazing_angle_out=1.5e-3,
                                             p_distance=1.0,
                                             q_distance=1.0,
                                             zoom_factor=1.0,
@@ -334,26 +337,17 @@ class OWReflectorGrazing1D(WofryWidget):
         if shape == 0:
             pass
         elif shape == 1:
-            ccc = Conic.initialize_as_sphere_from_focal_distances(p_focus, q_focus, grazing_angle_in)
-            height = ccc.height(x2_oe)
-            print(ccc.info())
-            y2_oe += height
-        elif shape == 2:
-            ccc = Conic.initialize_as_ellipsoid_from_focal_distances(p_focus, q_focus, grazing_angle_in)
-            height = ccc.height(x2_oe)
-            print(ccc.info())
-            y2_oe += height
-        elif shape == 3:
-            ccc = Conic.initialize_as_paraboloid_from_focal_distances(p_focus, q_focus, grazing_angle_in)
-            height = ccc.height(x2_oe)
-            print(ccc.info())
+            if radius >= 0:
+                height = radius - numpy.sqrt(radius ** 2 - x2_oe ** 2)
+            else:
+                height = radius + numpy.sqrt(radius ** 2 - x2_oe ** 2)
             y2_oe += height
         else:
             raise Exception("Wrong shape")
 
         output_wavefront = cls.propagator1D_offaxis(input_wavefront, x2_oe, y2_oe,
                                                      p_distance,q_distance,
-                                                     grazing_angle_in,
+                                                     grazing_angle_in, grazing_angle_out,
                                                      zoom_factor=zoom_factor,normalize_intensities=True)
 
         # output files
@@ -421,10 +415,8 @@ def propagator1D_offaxis(input_wavefront, x2_oe, y2_oe, p, q, theta_grazing_in, 
 
     return output_wavefront
 
-def calculate_output_wavefront_after_grazing_reflector1D(input_wavefront,shape=1,
-                                        p_focus=1.0,
-                                        q_focus=1.0,
-                                        grazing_angle_in=1.5e-3,
+def calculate_output_wavefront_after_grazing_reflector1D(input_wavefront,shape=1,radius=10000.0,
+                                        grazing_angle_in=1.5e-3,grazing_angle_out=1.5e-3,
                                         p_distance=1.0,
                                         q_distance=1.0,
                                         zoom_factor=1.0,
@@ -448,18 +440,17 @@ def calculate_output_wavefront_after_grazing_reflector1D(input_wavefront,shape=1
     if shape == 0:
         pass
     elif shape == 1:
-        # if radius >= 0:
-        #     height = radius - numpy.sqrt(radius ** 2 - x2_oe ** 2)
-        # else:
-        #     height = radius + numpy.sqrt(radius ** 2 - x2_oe ** 2)
-        # y2_oe += height
-        pass
+        if radius >= 0:
+            height = radius - numpy.sqrt(radius ** 2 - x2_oe ** 2)
+        else:
+            height = radius + numpy.sqrt(radius ** 2 - x2_oe ** 2)
+        y2_oe += height
     else:
         raise Exception("Wrong shape")
 
     output_wavefront = propagator1D_offaxis(input_wavefront, x2_oe, y2_oe,
                                                  p_distance,q_distance,
-                                                 grazing_angle_in,
+                                                 grazing_angle_in, grazing_angle_out,
                                                  zoom_factor=zoom_factor,normalize_intensities=True)
 
     # output files
@@ -480,7 +471,7 @@ input_wavefront = GenericWavefront1D.load_h5_file("wavefront_input.h5","wfr")
 
 
                                         
-output_wavefront, abscissas_on_mirror, height = calculate_output_wavefront_after_grazing_reflector1D(input_wavefront,shape={shape},p_focus={p_focus},grazing_angle_in={grazing_angle_in},p_distance={p_distance},q_distance={q_distance},zoom_factor={zoom_factor},error_flag={error_flag},error_file="{error_file}",write_profile={write_profile})
+output_wavefront, abscissas_on_mirror, height = calculate_output_wavefront_after_grazing_reflector1D(input_wavefront,shape={shape},radius={radius},grazing_angle_in={grazing_angle_in},grazing_angle_out={grazing_angle_out},p_distance={p_distance},q_distance={q_distance},zoom_factor={zoom_factor},error_flag={error_flag},error_file="{error_file}",write_profile={write_profile})
 
 from srxraylib.plot.gol import plot
 plot(output_wavefront.get_abscissas(),output_wavefront.get_intensity())
