@@ -373,6 +373,7 @@ class OWReflectorGrazing1D(WofryWidget):
 """
 
 import numpy
+from shadow4.optical_surfaces.conic import Conic
 from numba import jit, prange
 
 @jit(nopython=True, parallel=True)
@@ -444,16 +445,23 @@ def calculate_output_wavefront_after_grazing_reflector1D(input_wavefront,shape=1
         y2_oe = a[:, 1]
 
 
-
     if shape == 0:
         pass
     elif shape == 1:
-        # if radius >= 0:
-        #     height = radius - numpy.sqrt(radius ** 2 - x2_oe ** 2)
-        # else:
-        #     height = radius + numpy.sqrt(radius ** 2 - x2_oe ** 2)
-        # y2_oe += height
-        pass
+        ccc = Conic.initialize_as_sphere_from_focal_distances(p_focus, q_focus, grazing_angle_in)
+        height = ccc.height(x2_oe)
+        print(ccc.info())
+        y2_oe += height
+    elif shape == 2:
+        ccc = Conic.initialize_as_ellipsoid_from_focal_distances(p_focus, q_focus, grazing_angle_in)
+        height = ccc.height(x2_oe)
+        print(ccc.info())
+        y2_oe += height
+    elif shape == 3:
+        ccc = Conic.initialize_as_paraboloid_from_focal_distances(p_focus, q_focus, grazing_angle_in)
+        height = ccc.height(x2_oe)
+        print(ccc.info())
+        y2_oe += height
     else:
         raise Exception("Wrong shape")
 
@@ -480,7 +488,7 @@ input_wavefront = GenericWavefront1D.load_h5_file("wavefront_input.h5","wfr")
 
 
                                         
-output_wavefront, abscissas_on_mirror, height = calculate_output_wavefront_after_grazing_reflector1D(input_wavefront,shape={shape},p_focus={p_focus},grazing_angle_in={grazing_angle_in},p_distance={p_distance},q_distance={q_distance},zoom_factor={zoom_factor},error_flag={error_flag},error_file="{error_file}",write_profile={write_profile})
+output_wavefront, abscissas_on_mirror, height = calculate_output_wavefront_after_grazing_reflector1D(input_wavefront,shape={shape},p_focus={p_focus},q_focus={q_focus},grazing_angle_in={grazing_angle_in},p_distance={p_distance},q_distance={q_distance},zoom_factor={zoom_factor},error_flag={error_flag},error_file="{error_file}",write_profile={write_profile})
 
 from srxraylib.plot.gol import plot
 plot(output_wavefront.get_abscissas(),output_wavefront.get_intensity())
