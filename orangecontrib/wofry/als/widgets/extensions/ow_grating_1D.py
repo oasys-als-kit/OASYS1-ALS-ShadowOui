@@ -34,12 +34,12 @@ def goFromToSequential(field1, x1, y1, x2, y2, wavelength=1e-10, normalize_inten
         field2 *= numpy.sqrt((numpy.abs(field1) ** 2).sum() / (numpy.abs(field2) ** 2).sum())
     return field2
 
-class OWReflectorGrazing1D(WofryWidget):
+class OWGrating1D(WofryWidget):
 
-    name = "Wofry Grazing Reflector 1D"
-    id = "WofryReflectorGrazing1D"
-    description = "Wofry Grazing Reflector 1D"
-    icon = "icons/reflector_grazing1D.png"
+    name = "Wofry Grating 1D"
+    id = "WofryGrating1D"
+    description = "Wofry Grating 1D"
+    icon = "icons/grating1D.png"
     priority = 4
 
     category = "Wofry Wavefront Propagation"
@@ -53,19 +53,36 @@ class OWReflectorGrazing1D(WofryWidget):
     inputs = [("GenericWavefront1D", GenericWavefront1D, "set_input"),
               ("DABAM 1D Profile", numpy.ndarray, "receive_dabam_profile")]
 
-    grazing_angle_in = Setting(1.5e-3)
-    grazing_angle_out = Setting(1.5e-3)
+
+    # Grating
+    angle_in_deg = Setting(87.239145)
+    angle_out_deg = Setting(85.829039)
+
+
+    grating_flag = Setting(0) # 0 = calculated, 1=from file
+
+
+    # radius = Setting(1000.0)  # TODO: delete?
+    # shape = Setting(1)
+
+
+    g_0 = Setting(300000.0)
+    g_1 = Setting(269816.234363)
+    g_2 = Setting(87748.010405)
+    g_3 = Setting(27876.983114)
+    grating_amplitude = Setting(20e-9)
+    points_per_period = Setting(9.0)
+
+    grating_file = Setting("<none>")
+    write_profile = Setting(0)
+
+    # Propagator
     p_distance = Setting(1.0)
     q_distance = Setting(1.0)
     zoom_factor = Setting(1.0)
 
-    shape = Setting(1)
-    radius = Setting(1000.0)
-    error_flag = Setting(0)
-    error_file = Setting("<none>")
-    write_profile = Setting(0)
-    write_input_wavefront = Setting(0)
 
+    write_input_wavefront = Setting(0)
 
     wavefront1D = None
     titles = ["Wavefront 1D Intensity", "Wavefront 1D Phase","Wavefront Real(Amplitude)","Wavefront Imag(Amplitude)","O.E. Profile"]
@@ -106,46 +123,54 @@ class OWReflectorGrazing1D(WofryWidget):
         tabs_setting.setFixedHeight(self.TABS_AREA_HEIGHT + 50)
         tabs_setting.setFixedWidth(self.CONTROL_AREA_WIDTH-5)
 
-        self.tab_sou = oasysgui.createTabPage(tabs_setting, "Generic Reflector 1D Settings")
+        self.tab_sou = oasysgui.createTabPage(tabs_setting, "Grating 1D Settings")
 
 
+        box_grating = oasysgui.widgetBox(self.tab_sou, "Grating", addSpace=False, orientation="vertical")
+
+        oasysgui.lineEdit(box_grating, self, "angle_in_deg", "Incidence angle [deg]",
+                          labelWidth=200, valueType=float, orientation="horizontal")
+
+        oasysgui.lineEdit(box_grating, self, "angle_out_deg", "Reflection angle [deg]",
+                          labelWidth=200, valueType=float, orientation="horizontal")
 
 
-        box_reflector = oasysgui.widgetBox(self.tab_sou, "Reflector", addSpace=False, orientation="vertical")
-
-        oasysgui.lineEdit(box_reflector, self, "grazing_angle_in", "Grazing incidence angle [rad]",
-                          labelWidth=300, valueType=float, orientation="horizontal")
-
-        oasysgui.lineEdit(box_reflector, self, "grazing_angle_out", "Grazing reflection angle [rad]",
-                          labelWidth=300, valueType=float, orientation="horizontal")
-
-
-
-
-        gui.comboBox(box_reflector, self, "shape", label="Reflector shape",
-                     items=["Flat","Curved"], sendSelectedValue=False, orientation="horizontal",callback=self.set_visible)
-
-
-        self.box_radius_id = oasysgui.widgetBox(box_reflector, "", addSpace=True, orientation="horizontal")
-        oasysgui.lineEdit(self.box_radius_id, self, "radius", "Radius of curvature [m] (R<0 if convex)",
-                          labelWidth=300, valueType=float, orientation="horizontal")
-
-
-
-
-        gui.comboBox(box_reflector, self, "error_flag", label="Add profile deformation",
-                     items=["No","Yes (from file)"],
+        gui.comboBox(box_grating, self, "grating_flag", label="Grating profile",
+                     items=["Calculated (sin)",
+                            "Calculated (cos)",
+                            "Calculated (square)",
+                            "Calculated (VLS)",
+                            "Fom file"],
                      callback=self.set_visible,
                      sendSelectedValue=False, orientation="horizontal")
 
-        self.file_box_id = oasysgui.widgetBox(box_reflector, "", addSpace=True, orientation="horizontal")
-        self.error_file_id = oasysgui.lineEdit(self.file_box_id, self, "error_file", "Error file X[m] Y[m]",
-                                                    labelWidth=120, valueType=str, orientation="horizontal")
-        gui.button(self.file_box_id, self, "...", callback=self.set_error_file)
+        self.grating_flag0_box_id = oasysgui.widgetBox(box_grating, "", addSpace=True, orientation="vertical")
+
+        oasysgui.lineEdit(self.grating_flag0_box_id, self, "grating_amplitude", "grating amplitude [m]",
+                          labelWidth=200, valueType=float, orientation="horizontal")
+        oasysgui.lineEdit(self.grating_flag0_box_id, self, "points_per_period", "points per period",
+                          labelWidth=200, valueType=float, orientation="horizontal")
+
+        oasysgui.lineEdit(self.grating_flag0_box_id, self, "g_0", "g0 (lines/m)",
+                          labelWidth=200, valueType=float, orientation="horizontal")
+
+        self.grating_flag0vls_box_id = oasysgui.widgetBox(box_grating, "", addSpace=True, orientation="vertical")
+
+        oasysgui.lineEdit(self.grating_flag0vls_box_id, self, "g_1", "g1 (m^-2)",
+                          labelWidth=200, valueType=float, orientation="horizontal")
+        oasysgui.lineEdit(self.grating_flag0vls_box_id, self, "g_2", "g2 (m^-3)",
+                          labelWidth=200, valueType=float, orientation="horizontal")
+        oasysgui.lineEdit(self.grating_flag0vls_box_id, self, "g_3", "g3 (m^-4)",
+                          labelWidth=200, valueType=float, orientation="horizontal")
+
+        self.grating_flag1_box_id = oasysgui.widgetBox(box_grating, "", addSpace=True, orientation="horizontal")
+        self.grating_file_id = oasysgui.lineEdit(self.grating_flag1_box_id, self, "grating_file", "Grating file X[m] Y[m]",
+                                                 labelWidth=120, valueType=str, orientation="horizontal")
+        gui.button(self.grating_flag1_box_id, self, "...", callback=self.set_grating_file)
 
 
-        gui.comboBox(box_reflector, self, "write_profile", label="Dump profile to file",
-                     items=["No","Yes [reflector_profile1D.dat]"], sendSelectedValue=False, orientation="horizontal")
+        gui.comboBox(box_grating, self, "write_profile", label="Dump profile to file",
+                     items=["No","Yes [grating_profile1D.dat]"], sendSelectedValue=False, orientation="horizontal")
 
 
 
@@ -167,11 +192,21 @@ class OWReflectorGrazing1D(WofryWidget):
         self.set_visible()
 
     def set_visible(self):
-        self.file_box_id.setVisible(self.error_flag)
-        self.box_radius_id.setVisible(self.shape)
+        if self.grating_flag ==4: # file
+            self.grating_flag0_box_id.setVisible(False)
+            self.grating_flag0vls_box_id.setVisible(False)
+            self.grating_flag1_box_id.setVisible(True)
+        else:
+            self.grating_flag0_box_id.setVisible(True)
+            if self.grating_flag == 3:
+                self.grating_flag0vls_box_id.setVisible(True)
+            else:
+                self.grating_flag0vls_box_id.setVisible(False)
+            self.grating_flag1_box_id.setVisible(False)
 
-    def set_error_file(self):
-        self.error_file_id.setText(oasysgui.selectFileFromDialog(self, self.error_file, "Open file with profile error"))
+
+    def set_grating_file(self):
+        self.grating_file_id.setText(oasysgui.selectFileFromDialog(self, self.grating_file, "Open file with profile error"))
 
     def initializeTabs(self):
         size = len(self.tab)
@@ -192,13 +227,13 @@ class OWReflectorGrazing1D(WofryWidget):
             tab.setFixedWidth(self.IMAGE_WIDTH)
 
     def check_fields(self):
-        self.grazing_angle_in = congruence.checkStrictlyPositiveNumber(self.grazing_angle_in, "Grazing incidence angle")
-        self.grazing_angle_out = congruence.checkStrictlyPositiveNumber(self.grazing_angle_out, "Grazing reflection angle")
+        self.angle_in_deg = congruence.checkStrictlyPositiveNumber(self.angle_in_deg, "Grazing incidence angle")
+        self.angle_out_deg = congruence.checkStrictlyPositiveNumber(self.angle_out_deg, "Grazing reflection angle")
         self.p_distance = congruence.checkNumber(self.p_distance, "Entrance arm")
         self.q_distance = congruence.checkNumber(self.q_distance, "Exit arm")
         self.zoom_factor = congruence.checkStrictlyPositiveNumber(self.zoom_factor, "Zoom factor")
-        self.radius = congruence.checkNumber(self.radius, "Radius")
-        self.error_file = congruence.checkFileName(self.error_file)
+        # self.radius = congruence.checkNumber(self.radius, "Radius")
+        self.grating_file = congruence.checkFileName(self.grating_file)
 
 
     def set_input(self, wavefront):
@@ -221,8 +256,8 @@ class OWReflectorGrazing1D(WofryWidget):
                 file.flush()
                 file.close()
 
-                self.error_flag = 1
-                self.error_file = file_name
+                self.grating_flag = 4 # file
+                self.grating_file = file_name
                 self.set_visible()
 
             except Exception as exception:
@@ -240,32 +275,59 @@ class OWReflectorGrazing1D(WofryWidget):
 
         if self.wavefront1D is None: raise Exception("No Input Wavefront")
 
-        output_wavefront, abscissas_on_mirror, height = self.calculate_output_wavefront_after_grazing_reflector1D(self.wavefront1D,
-                                                                       shape=self.shape,
-                                                                       radius=self.radius,
-                                                                       grazing_angle_in=self.grazing_angle_in,
-                                                                       grazing_angle_out=self.grazing_angle_out,
-                                                                       p_distance=self.p_distance,
-                                                                       q_distance=self.q_distance,
-                                                                       zoom_factor=self.zoom_factor,
-                                                                       error_flag=self.error_flag,
-                                                                       error_file=self.error_file,
-                                                                       write_profile=self.write_profile)
+        output_wavefront, abscissas_on_mirror, height = self.calculate_output_wavefront_after_grating1D(
+            self.wavefront1D,
+            angle_in=self.angle_in_deg,
+            angle_out=self.angle_out_deg,
+            grating_flag=self.grating_flag,
+            grating_amplitude=self.grating_amplitude,
+            points_per_period=self.points_per_period,
+            g_0=self.g_0,
+            g_1=self.g_1,
+            g_2=self.g_2,
+            g_3=self.g_3,
+            grating_file=self.grating_file,
+            p_distance=self.p_distance,
+            q_distance=self.q_distance,
+            zoom_factor=self.zoom_factor,
+            write_profile=self.write_profile)
 
         if self.write_input_wavefront:
             self.wavefront1D.save_h5_file("wavefront_input.h5",subgroupname="wfr",intensity=True,phase=True,overwrite=True,verbose=True)
 
         # script
-        dict_parameters = {"grazing_angle_in": self.grazing_angle_in,
-                           "grazing_angle_out": self.grazing_angle_out,
-                           "p_distance": self.p_distance,
-                           "q_distance": self.q_distance,
-                           "zoom_factor": self.zoom_factor,
-                           "shape": self.shape,
-                           "radius": self.radius,
-                           "error_flag":self.error_flag,
-                           "error_file":self.error_file,
-                           "write_profile":self.write_profile}
+
+        # input_wavefront,
+        # angle_in = {angle_in},
+        # angle_out = {angle_out},
+        # grating_flag = {grating_flag},
+        # grating_amplitude = {grating_amplitude},
+        # points_per_period = {points_per_period},
+        # g_0 = {g_0},
+        # g_1 = {g_1},
+        # g_2 = {g_2},
+        # g_3 = {g_3},
+        # grating_file = {grating_file},
+        # p_distance = {p_distance},
+        # q_distance = {q_distance},
+        # zoom_factor = {zoom_factor},
+        # write_profile = {write_profile}
+
+
+        dict_parameters = {"angle_in": self.angle_in_deg,
+                            "angle_out": self.angle_out_deg,
+                            "grating_flag": self.grating_flag,
+                            "grating_amplitude": self.grating_amplitude,
+                            "points_per_period": self.points_per_period,
+                            "g_0": self.g_0,
+                            "g_1": self.g_1,
+                            "g_2": self.g_2,
+                            "g_3": self.g_3,
+                            "grating_file": "'"+self.grating_file+"'",
+                            "p_distance": self.p_distance,
+                            "q_distance": self.q_distance,
+                            "zoom_factor": self.zoom_factor,
+                            "write_profile":self.write_profile}
 
         script_template = self.script_template_output_wavefront()
         self.wofry_script.set_code(script_template.format_map(dict_parameters))
@@ -312,38 +374,72 @@ class OWReflectorGrazing1D(WofryWidget):
 
 
     @classmethod
-    def calculate_output_wavefront_after_grazing_reflector1D(cls,input_wavefront,shape=1,radius=10000.0,
-                                            grazing_angle_in=1.5e-3,grazing_angle_out=1.5e-3,
-                                            p_distance=1.0,
-                                            q_distance=1.0,
-                                            zoom_factor=1.0,
-                                            error_flag=0, error_file="", write_profile=0):
+    def create_grating(cls, grating_length=0.150,
+                       points_per_period=9,
+                       grating_flag=0,
+                       g_0=300000.0,
+                       g_1=0.0,
+                       g_2=0.0,
+                       g_3=0.0):
+
+        lines_per_m = g_0
+        period = 1. / lines_per_m
+        number_of_periods = grating_length / period
+        print("Number of periods: ", number_of_periods)
+        print("Period: %f um" % (1e6 * period))
+
+        x = numpy.linspace(-grating_length / 2, grating_length / 2, int(points_per_period * number_of_periods))
+        if grating_flag == 0:  # sin
+            y = (numpy.sin(2 * numpy.pi * x / period) + 1) / 2
+        elif grating_flag == 1:  # cos
+            y = (numpy.cos(2 * numpy.pi * x / period) + 1) / 2
+        elif grating_flag == 2:  # square
+            from scipy.signal import square
+            y = (square(2 * numpy.pi * x / period, duty=0.5) + 1) / 2
+        elif grating_flag == 3:  # vls
+            from scipy.signal import sweep_poly
+            p = numpy.poly1d([g_3, g_2, g_1, g_0])
+            y = numpy.ceil(sweep_poly(x, p))
+        return x, y
 
 
+
+    @classmethod
+    def calculate_output_wavefront_after_grating1D(cls,input_wavefront,
+                                                   angle_in=88.0,
+                                                   angle_out=87.0,
+                                                   grating_flag=3,
+                                                   grating_amplitude=20e-9,
+                                                   points_per_period=5,
+                                                   g_0=300000.0,
+                                                   g_1=0.0,
+                                                   g_2=0.0,
+                                                   g_3=0.0,
+                                                   grating_file="",
+                                                   p_distance=1.0,
+                                                   q_distance=1.0,
+                                                   zoom_factor=1.0,
+                                                   write_profile=0):
+
+        grazing_angle_in = (90 - angle_in) * numpy.pi / 180
+        grazing_angle_out = (90 - numpy.abs(angle_out)) * numpy.pi / 180
 
         x1 = input_wavefront.get_abscissas()
         field1 = input_wavefront.get_complex_amplitude()
 
-        if error_flag == 0: # no profile file
-            x2_oe = x1 / numpy.sin(grazing_angle_in)
-            y2_oe = numpy.zeros_like(x2_oe)
-        else:
-            a = numpy.loadtxt(error_file)
+        if grating_flag == 4: # grating profile from file
+            a = numpy.loadtxt(grating_file)
             x2_oe = a[:, 0]
             y2_oe = a[:, 1]
-
-
-
-        if shape == 0:
-            pass
-        elif shape == 1:
-            if radius >= 0:
-                height = radius - numpy.sqrt(radius ** 2 - x2_oe ** 2)
-            else:
-                height = radius + numpy.sqrt(radius ** 2 - x2_oe ** 2)
-            y2_oe += height
         else:
-            raise Exception("Wrong shape")
+            x2_oe,y2_oe = cls.create_grating(
+                           grating_length=(x1[-1] - x1[0]) / numpy.sin(grazing_angle_in),
+                           points_per_period=points_per_period,
+                           grating_flag=grating_flag,
+                           g_0=g_0, g_1=g_1, g_2=g_2, g_3=g_3)
+            y2_oe -= y2_oe.min()
+            y2_oe /= y2_oe.max()
+            y2_oe *= grating_amplitude
 
         output_wavefront = cls.propagator1D_offaxis(input_wavefront, x2_oe, y2_oe,
                                                      p_distance,q_distance,
@@ -352,11 +448,11 @@ class OWReflectorGrazing1D(WofryWidget):
 
         # output files
         if write_profile:
-            f = open("reflector_profile1D.dat","w")
-            for i in range(height.size):
+            f = open("grating_profile1D.dat","w")
+            for i in range(x2_oe.size):
                 f.write("%g %g\n"%(x2_oe[i],y2_oe[i]))
             f.close()
-            print("File reflector_profile1D.dat written to disk.")
+            print("File grating_profile1D.dat written to disk.")
 
         return output_wavefront, x2_oe, y2_oe
 
@@ -415,38 +511,70 @@ def propagator1D_offaxis(input_wavefront, x2_oe, y2_oe, p, q, theta_grazing_in, 
 
     return output_wavefront
 
-def calculate_output_wavefront_after_grazing_reflector1D(input_wavefront,shape=1,radius=10000.0,
-                                        grazing_angle_in=1.5e-3,grazing_angle_out=1.5e-3,
-                                        p_distance=1.0,
-                                        q_distance=1.0,
-                                        zoom_factor=1.0,
-                                        error_flag=0, error_file="", write_profile=0):
+def create_grating(grating_length=0.150,
+                   points_per_period=9,
+                   grating_flag=0,
+                   g_0=300000.0,
+                   g_1=0.0,
+                   g_2=0.0,
+                   g_3=0.0):
+
+    lines_per_m = g_0
+    period = 1. / lines_per_m
+    number_of_periods = grating_length / period
+    print("Number of periods: ", number_of_periods)
+    print("Period: %f um" % (1e6 * period))
+
+    x = numpy.linspace(-grating_length / 2, grating_length / 2, int(points_per_period * number_of_periods))
+    if grating_flag == 0:  # sin
+        y = (numpy.sin(2 * numpy.pi * x / period) + 1) / 2
+    elif grating_flag == 1:  # cos
+        y = (numpy.cos(2 * numpy.pi * x / period) + 1) / 2
+    elif grating_flag == 2:  # square
+        from scipy.signal import square
+        y = (square(2 * numpy.pi * x / period, duty=0.5) + 1) / 2
+    elif grating_flag == 3:  # vls
+        from scipy.signal import sweep_poly
+        p = numpy.poly1d([g_3, g_2, g_1, g_0])
+        y = numpy.ceil(sweep_poly(x, p))
+    return x, y
 
 
+def calculate_output_wavefront_after_grating1D(input_wavefront,
+                                               angle_in=88.0,
+                                               angle_out=87.0,
+                                               grating_flag=3,
+                                               grating_amplitude=20e-9,
+                                               points_per_period=5,
+                                               g_0=300000.0,
+                                               g_1=0.0,
+                                               g_2=0.0,
+                                               g_3=0.0,
+                                               grating_file="",
+                                               p_distance=1.0,
+                                               q_distance=1.0,
+                                               zoom_factor=1.0,
+                                               write_profile=0):
+
+    grazing_angle_in = (90 - angle_in) * numpy.pi / 180
+    grazing_angle_out = (90 - numpy.abs(angle_out)) * numpy.pi / 180
 
     x1 = input_wavefront.get_abscissas()
     field1 = input_wavefront.get_complex_amplitude()
 
-    if error_flag == 0: # no profile file
-        x2_oe = x1 / numpy.sin(grazing_angle_in)
-        y2_oe = numpy.zeros_like(x2_oe)
-    else:
-        a = numpy.loadtxt(error_file)
+    if grating_flag == 4: # grating profile from file
+        a = numpy.loadtxt(grating_file)
         x2_oe = a[:, 0]
         y2_oe = a[:, 1]
-
-
-
-    if shape == 0:
-        pass
-    elif shape == 1:
-        if radius >= 0:
-            height = radius - numpy.sqrt(radius ** 2 - x2_oe ** 2)
-        else:
-            height = radius + numpy.sqrt(radius ** 2 - x2_oe ** 2)
-        y2_oe += height
     else:
-        raise Exception("Wrong shape")
+        x2_oe,y2_oe = create_grating(
+                       grating_length=(x1[-1] - x1[0]) / numpy.sin(grazing_angle_in),
+                       points_per_period=points_per_period,
+                       grating_flag=grating_flag,
+                       g_0=g_0, g_1=g_1, g_2=g_2, g_3=g_3)
+        y2_oe -= y2_oe.min()
+        y2_oe /= y2_oe.max()
+        y2_oe *= grating_amplitude
 
     output_wavefront = propagator1D_offaxis(input_wavefront, x2_oe, y2_oe,
                                                  p_distance,q_distance,
@@ -455,14 +583,14 @@ def calculate_output_wavefront_after_grazing_reflector1D(input_wavefront,shape=1
 
     # output files
     if write_profile:
-        f = open("reflector_profile1D.dat","w")
-        for i in range(height.size):
+        f = open("grating_profile1D.dat","w")
+        for i in range(x2_oe.size):
             f.write("%g %g\\n"%(x2_oe[i],y2_oe[i]))
         f.close()
-        print("File reflector_profile1D.dat written to disk.")
+        print("File grating_profile1D.dat written to disk.")
 
     return output_wavefront, x2_oe, y2_oe
-
+        
 #
 # main
 #
@@ -471,8 +599,23 @@ input_wavefront = GenericWavefront1D.load_h5_file("wavefront_input.h5","wfr")
 
 
                                         
-output_wavefront, abscissas_on_mirror, height = calculate_output_wavefront_after_grazing_reflector1D(input_wavefront,shape={shape},radius={radius},grazing_angle_in={grazing_angle_in},grazing_angle_out={grazing_angle_out},p_distance={p_distance},q_distance={q_distance},zoom_factor={zoom_factor},error_flag={error_flag},error_file="{error_file}",write_profile={write_profile})
-
+output_wavefront, abscissas_on_mirror, height = calculate_output_wavefront_after_grating1D(
+            input_wavefront,
+            angle_in={angle_in},
+            angle_out={angle_out},
+            grating_flag={grating_flag},
+            grating_amplitude={grating_amplitude},
+            points_per_period={points_per_period},
+            g_0={g_0},
+            g_1={g_1},
+            g_2={g_2},
+            g_3={g_3},
+            grating_file={grating_file},
+            p_distance={p_distance},
+            q_distance={q_distance},
+            zoom_factor={zoom_factor},
+            write_profile={write_profile})
+            
 from srxraylib.plot.gol import plot
 plot(output_wavefront.get_abscissas(),output_wavefront.get_intensity())
 """
@@ -557,7 +700,7 @@ if __name__ == '__main__':
         return input_wavefront
 
     app = QApplication([])
-    ow = OWReflectorGrazing1D()
+    ow = OWGrating1D()
     ow.set_input(create_wavefront())
 
     # ow.receive_dabam_profile(numpy.array([[1,2],[3,4]]))
