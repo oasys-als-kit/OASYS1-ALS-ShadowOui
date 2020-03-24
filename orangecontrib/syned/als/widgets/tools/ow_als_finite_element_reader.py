@@ -61,6 +61,10 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
 
     file_in = Setting("/home/manuel/OASYS1.2/alsu-scripts/ANSYS/s4.txt")
     file_in_type = Setting(0)
+    file_factor_x = Setting(1.0)
+    file_factor_y = Setting(1.0)
+    file_factor_z = Setting(1.0)
+
     file_in_skiprows = Setting(0)
     replicate_raw_data_flag = Setting(0)  # 0=None, 1=axis0, 2=axis1, 3=both axis
     # raw_render_option = Setting(2)
@@ -71,6 +75,7 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
     invert_axes_names = Setting(1)
     detrended = Setting(1)
     reset_height_method = Setting(0)
+    remove_nan = Setting(2)
     extract_profile1D = Setting(0)
     coordinate_profile1D = Setting(0.0)
 
@@ -123,6 +128,15 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
                      items=["X Y Z DX DY DZ",],
                      sendSelectedValue=False, orientation="horizontal")
 
+        data_file_expansion_box = oasysgui.widgetBox(data_file_box, "Expansion factor", addSpace=True, orientation="horizontal")
+        oasysgui.lineEdit(data_file_expansion_box, self, "file_factor_x", "X:", labelWidth=10,
+                          valueType=float, orientation="horizontal")
+        oasysgui.lineEdit(data_file_expansion_box, self, "file_factor_y", "Y:", labelWidth=10,
+                          valueType=float, orientation="horizontal")
+        oasysgui.lineEdit(data_file_expansion_box, self, "file_factor_z", "Z:", labelWidth=10,
+                          valueType=float, orientation="horizontal")
+
+
         oasysgui.lineEdit(data_file_box, self, "file_in_skiprows", "Skip rows:", labelWidth=260, valueType=int,
                           orientation="horizontal")
 
@@ -145,6 +159,10 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
 
         gui.comboBox(interpolation_box, self, "invert_axes_names", label="Invert axes", labelWidth=120,
                      items=['No','Yes'],
+                     sendSelectedValue=False, orientation="horizontal")
+
+        gui.comboBox(interpolation_box, self, "remove_nan", label="Remove interp NaN", labelWidth=220,
+                     items=["No", "Yes (replace by min height)", "Yes (replace by zero)"],
                      sendSelectedValue=False, orientation="horizontal")
 
         gui.comboBox(interpolation_box, self, "detrended", label="Detrend straight line", labelWidth=220,
@@ -223,7 +241,10 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
     def load_raw_data(self):
         self.fea_file_object = FEA_File()
         self.fea_file_object.set_filename(self.file_in)
-        self.fea_file_object.load_multicolumn_file(skiprows=self.file_in_skiprows)
+        self.fea_file_object.load_multicolumn_file(skiprows=self.file_in_skiprows,
+                                                   factorX=self.file_factor_x,
+                                                   factorY=self.file_factor_y,
+                                                   factorZ=self.file_factor_z)
         self.fea_file_object.replicate_raw_data(self.replicate_raw_data_flag)
 
     def calculate(self):
@@ -233,7 +254,7 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
         self.fea_file_object.triangulate()
 
         # add 3 pixels to match requested pixels after edge removal
-        self.fea_file_object.interpolate(self.n_axis_0 + 3, self.n_axis_1 + 3)
+        self.fea_file_object.interpolate(self.n_axis_0 + 3, self.n_axis_1 + 3, remove_nan=self.remove_nan)
 
         if self.fea_file_object.does_interpolated_have_nan():
             self.fea_file_object.remove_borders_in_interpolated_data()
@@ -476,6 +497,9 @@ if __name__ == "__main__":
     import sys
     a = QApplication(sys.argv)
     ow = ALSFiniteElementReader()
+
+    ow.set_input_file("C:/Users/Manuel/Oasys/dispCOSMIC_M1_H_XOPPY.txt")
+
     ow.show()
     a.exec_()
     ow.saveSettings()

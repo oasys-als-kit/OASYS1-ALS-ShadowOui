@@ -99,20 +99,20 @@ class FEA_File():
     def set_filename(self,filename):
         self.filename = filename
 
-    def load_multicolumn_file(self,skiprows=0):
+    def load_multicolumn_file(self,skiprows=0,factorX=1.0,factorY=1.0,factorZ=1.0):
         a = numpy.loadtxt(self.filename,skiprows=skiprows )
 
         node = numpy.round(a, 10)
 
         # Coordinates
 
-        self.Xundeformed = node[:, 1]  # X=x in m
-        self.Yundeformed = node[:, 2]  # Y=z in m
-        self.Zundeformed = node[:, 3]  # Z=uy vertical displacement in m
+        self.Xundeformed = factorX * node[:, 1]  # X=x in m
+        self.Yundeformed = factorY * node[:, 2]  # Y=z in m
+        self.Zundeformed = factorZ * node[:, 3]  # Z=uy vertical displacement in m
 
-        self.Xdeformation = node[:, 4]  # X=x in m
-        self.Ydeformation = node[:, 5]  # Y=z in m
-        self.Zdeformation = node[:, 6]  # Z=uy vertical displacement in m
+        self.Xdeformation = factorX * node[:, 4]  # X=x in m
+        self.Ydeformation = factorY * node[:, 5]  # Y=z in m
+        self.Zdeformation = factorZ * node[:, 6]  # Z=uy vertical displacement in m
 
     def Xdeformed(self):
         return self.Xundeformed + self.Xdeformation
@@ -223,7 +223,14 @@ class FEA_File():
         return numpy.outer(numpy.ones_like(self.x_interpolated),self.y_interpolated)
 
 
-    def interpolate(self,nx,ny,remove_nan=False):
+    def interpolate(self,nx,ny,remove_nan=0):
+        """
+
+        :param nx:
+        :param ny:
+        :param remove_nan: 0=No, 1=Yes (replace with minimum height) 2=Yes (replace with 0)
+        :return:
+        """
         if self.tri is None:
             self.triangulate()
 
@@ -236,9 +243,11 @@ class FEA_File():
 
         self.P = numpy.array([X_INTERPOLATED.flatten(), Y_INTERPOLATED.flatten() ]).transpose()
 
-        if remove_nan:
+        if remove_nan ==2:
+            self.Z_INTERPOLATED = interpolate.griddata(self.triPi, self.Zdeformed(), self.P, method = "cubic", fill_value=0.0 ).reshape([nx,ny])
+        elif remove_nan ==1:
             self.Z_INTERPOLATED = interpolate.griddata(self.triPi, self.Zdeformed(), self.P, method = "cubic", fill_value=self.Zdeformed().min() ).reshape([nx,ny])
-        else:
+        elif remove_nan == 0:
             self.Z_INTERPOLATED = interpolate.griddata(self.triPi, self.Zdeformed(), self.P, method="cubic").reshape([nx, ny])
 
 

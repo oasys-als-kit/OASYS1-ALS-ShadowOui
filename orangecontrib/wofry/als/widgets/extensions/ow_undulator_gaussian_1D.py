@@ -1,4 +1,5 @@
 import numpy
+import sys
 
 from PyQt5.QtGui import QPalette, QColor, QFont
 from PyQt5.QtWidgets import QMessageBox
@@ -7,6 +8,7 @@ from orangewidget import widget
 from orangewidget.settings import Setting
 from oasys.widgets import gui as oasysgui
 from oasys.widgets import congruence
+from oasys.util.oasys_util import EmittingStream, TTYGrabber
 
 from wofry.propagator.wavefront1D.generic_wavefront import GenericWavefront1D
 
@@ -225,9 +227,11 @@ class OWGaussianUndulator1D(WofryWidget):
 
     def generate(self):
 
+        self.progressBarInit()
+
         self.wofry_output.setText("")
 
-        self.progressBarInit()
+        sys.stdout = EmittingStream(textWritten=self.writeStdOut)
 
         self.check_fields()
 
@@ -310,6 +314,10 @@ class OWGaussianUndulator1D(WofryWidget):
         sigma_r = 2.740 / 4 / numpy.pi * numpy.sqrt(wavelength * undulator_length)
         sigma_r_prime = 0.69 * numpy.sqrt(wavelength / undulator_length)
 
+        print("Radiation values:")
+        print("   intensity sigma': %6.3f urad, FWHM': %6.3f urad" % (sigma_r_prime * 1e6, sigma_r_prime * 2.355e6))
+        print("   intensity sigma : %6.3f um, FWHM: %6.3f um\n" % (sigma_r * 1e6, sigma_r * 2.355e6))
+
         wavefront1D = GenericWavefront1D.initialize_wavefront_from_range(x_min=x_min, x_max=x_max, number_of_points=number_of_points)
         wavefront1D.set_wavelength(wavelength)
 
@@ -324,6 +332,11 @@ class OWGaussianUndulator1D(WofryWidget):
             sigma_amplitude = sigma * numpy.sqrt(2)
             Gx = numpy.exp(-X * X / 2 / sigma_amplitude ** 2)
             wavefront1D.set_complex_amplitude(A * Gx)
+
+            print("intensity sigma at %3.1f m : %6.3f um, FWHM: %6.3f um"%\
+                  (undulator_distance,sigma*1e6,sigma*2.35e6))
+            print("amplitude sigma at %3.1f m : %6.3f um, FWHM: %6.3f um\n"%\
+                  (undulator_distance,sigma_amplitude*1e6,sigma_amplitude*2.35e6))
 
         if add_random_phase:
             wavefront1D.add_phase_shifts(2*numpy.pi*numpy.random.random(wavefront1D.size()))
