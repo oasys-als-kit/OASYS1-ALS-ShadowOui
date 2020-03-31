@@ -68,7 +68,40 @@ class locations:
     def home_bin_run(cls):
         return os.getcwd()
 
+###############################################################
+#
+# MESSAGING (copied from srw_util)
+#
+###############################################################
 
+from PyQt5.QtWidgets import QMessageBox
+
+def showConfirmMessage(message, informative_text, parent=None):
+    msgBox = QMessageBox()
+    if not parent is None: msgBox.setParent(parent)
+    msgBox.setIcon(QMessageBox.Question)
+    msgBox.setText(message)
+    msgBox.setInformativeText(informative_text)
+    msgBox.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+    msgBox.setDefaultButton(QMessageBox.No)
+
+    return msgBox.exec_() == QMessageBox.Yes
+
+def showWarningMessage(message, parent=None):
+    msgBox = QMessageBox()
+    if not parent is None: msgBox.setParent(parent)
+    msgBox.setIcon(QMessageBox.Warning)
+    msgBox.setText(message)
+    msgBox.setStandardButtons(QMessageBox.Ok)
+    msgBox.exec_()
+
+def showCriticalMessage(message, parent=None):
+    msgBox = QMessageBox()
+    if not parent is None: msgBox.setParent(parent)
+    msgBox.setIcon(QMessageBox.Critical)
+    msgBox.setText(message)
+    msgBox.setStandardButtons(QMessageBox.Ok)
+    msgBox.exec_()
 class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
 
     IS_DEVELOP = False if not "OASYSDEVELOP" in os.environ.keys() else str(os.environ.get('OASYSDEVELOP')) == "1"
@@ -173,9 +206,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
     INTERPOLATION_METHOD = Setting(2) # 0 linear, 1 nearest, 2 cubic
     RATIO_PIXELS = Setting(1.0)
 
-
-    # not in interface
-    DEBUG_RUN_URGENT = Setting(1)
+    DEBUG_RUN_URGENT = Setting(0)
 
     inputs = WidgetDecorator.syned_input_data()
 
@@ -335,7 +366,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
         box1 = gui.widgetBox(box)
         oasysgui.lineEdit(box1, self, "NUMBER_OF_POINTS_H",
                      label=self.unitLabels()[idx], addSpace=False,
-                    valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
+                    valueType=int, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
         self.show_at(self.unitFlags()[idx], box1)
 
         ########
@@ -343,7 +374,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
         box1 = gui.widgetBox(box)
         oasysgui.lineEdit(box1, self, "NUMBER_OF_POINTS_V",
                      label=self.unitLabels()[idx], addSpace=False,
-                    valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
+                    valueType=int, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
         self.show_at(self.unitFlags()[idx], box1)
 
         ########
@@ -595,6 +626,21 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
                           valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
         self.show_at(self.unitFlags()[idx], box1)
         #
+        # widget index xx
+        idx += 1
+        box1 = gui.widgetBox(box)
+        gui.separator(box1, height=7)
+
+        gui.comboBox(box1, self, "DEBUG_RUN_URGENT",
+                     label=self.unitLabels()[idx], addSpace=False,
+                     items=['No [default]', 'Yes [skip running URGENT]'],
+                     valueType=int, orientation="horizontal", labelWidth=350)
+
+        self.show_at(self.unitFlags()[idx], box1)
+
+        #
+        #
+        #
         self.mirror_tabs_visibility()
 
     def guess_number_of_harmonics(self):
@@ -655,7 +701,8 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
 
          labels = labels + ["Calculate power on images","Number of ray-tracing runs","Random seed (int): ",
                             "Plot ray-traced grid","Write SHADOW files",
-                            "Show URGENT plots","Calculation method for images","Interpolation","Ratio pixels at o.e. / pixels at source"]
+                            "Show URGENT plots","Calculation method for images","Interpolation","Ratio pixels at o.e. / pixels at source",
+                            "Debug mode (do not run URGENT)"]
 
          return labels
 
@@ -676,7 +723,8 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
                  "True", "True", "True", "self.EL5_SHAPE not in (2,8,9)", "self.EL5_SHAPE not in (2,8,9)", "True", "self.EL5_SHAPE in (8,9)", "True", "True",  # OE fields
                  'True','self.RAY_TRACING_IMAGE == 1','self.RAY_TRACING_IMAGE == 1',
                  'True','True',
-                 'True','True','True','True']
+                 'True','True','True','True',
+                 'True']
 
     def get_help_name(self):
         return 'srcalc-idpower'
@@ -943,7 +991,15 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
     def run_urgent(self):
         polarization_list,polarization_info = self.get_polarization_list()
 
-        if self.DEBUG_RUN_URGENT:
+        if self.NUMBER_OF_POINTS_H > 50:
+            showCriticalMessage("Max NUMBER_OF_POINTS_H is 50")
+            raise Exception("Bad inputs")
+
+        if self.NUMBER_OF_POINTS_V > 50:
+            showCriticalMessage("Max NUMBER_OF_POINTS_V is 50")
+            raise Exception("Bad inputs")
+
+        if self.DEBUG_RUN_URGENT == 0:
             for file in ["IDPower.TXT","O_IDPower.TXT","D_IDPower.TXT"]:
                 try:
                     os.remove(os.path.join(locations.home_bin_run(),file))
@@ -1721,6 +1777,12 @@ def ray_tracing(
     beam.set_column(6, VZ)
 
     if dump_shadow_files:
+        beam.set_column(7, (numpy.sqrt(out_dictionary["Zlist"][0]).flatten()))
+        beam.set_column(8, 0.0)
+        beam.set_column(9, 0.0)
+        beam.set_column(16, 0.0)
+        beam.set_column(17, 0.0)
+        beam.set_column(18, 0.0)
         Beam3.initialize_from_shadow4_beam(beam).write('begin_srcalc.dat')
 
     OE_FOOTPRINT = []
@@ -1818,6 +1880,12 @@ def ray_tracing(
         print("      theta_grazing: %f rad = %f deg" %  (theta_grazing, theta_grazing*180/numpy.pi) )
         print("      theta_normal: %f rad = %f deg \n" % (numpy.pi/2 - theta_grazing, 90 - theta_grazing * 180 / numpy.pi))
         if dump_shadow_files:
+            newbeam.set_column(7, (numpy.sqrt(out_dictionary["Zlist"][oe_index] - out_dictionary["Zlist"][oe_index + 1]).flatten()))
+            newbeam.set_column(8, 0.0)
+            newbeam.set_column(9, 0.0)
+            newbeam.set_column(16, 0.0)
+            newbeam.set_column(17, 0.0)
+            newbeam.set_column(18, 0.0)
             Beam3.initialize_from_shadow4_beam(newbeam).write('mirr_srcalc.%02d'%(oe_index+1))
 
         tmp = newbeam.get_columns((2, 1, 23))
@@ -1832,6 +1900,12 @@ def ray_tracing(
         newbeam.retrace(q, resetY=True)
 
         if dump_shadow_files:
+            newbeam.set_column(7, (numpy.sqrt(out_dictionary["Zlist"][oe_index + 1]).flatten()))
+            newbeam.set_column(8, 0.0)
+            newbeam.set_column(9, 0.0)
+            newbeam.set_column(16, 0.0)
+            newbeam.set_column(17, 0.0)
+            newbeam.set_column(18, 0.0)
             Beam3.initialize_from_shadow4_beam(newbeam).write('star_srcalc.%02d'%(oe_index+1))
 
         tmp = newbeam.get_columns((1, 3, 23))
@@ -1870,23 +1944,23 @@ def ray_tracing(
         print("\n")
     return out_dictionary
 
-def calculate_pixel_areas(X,Y,suppress_last_row_and_column=True):
-    u1 = numpy.roll(X, -1, axis=0) - X
-    u2 = numpy.roll(Y, -1, axis=0) - Y
-    v1 = numpy.roll(X, -1, axis=1) - X
-    v2 = numpy.roll(Y, -1, axis=1) - Y
-
-    if suppress_last_row_and_column:
-        u1 = u1[0:-1, 0:-1].copy()
-        u2 = u2[0:-1, 0:-1].copy()
-        v1 = v1[0:-1, 0:-1].copy()
-        v2 = v2[0:-1, 0:-1].copy()
-        XX = X[0:-1, 0:-1].copy()
-        YY = Y[0:-1, 0:-1].copy()
-    else:
-        XX = X.copy()
-        YY = Y.copy()
-    return u1 * v2 - u2 * v1, XX, YY
+# def calculate_pixel_areas(X,Y,suppress_last_row_and_column=True):
+#     u1 = numpy.roll(X, -1, axis=0) - X
+#     u2 = numpy.roll(Y, -1, axis=0) - Y
+#     v1 = numpy.roll(X, -1, axis=1) - X
+#     v2 = numpy.roll(Y, -1, axis=1) - Y
+#
+#     if suppress_last_row_and_column:
+#         u1 = u1[0:-1, 0:-1].copy()
+#         u2 = u2[0:-1, 0:-1].copy()
+#         v1 = v1[0:-1, 0:-1].copy()
+#         v2 = v2[0:-1, 0:-1].copy()
+#         XX = X[0:-1, 0:-1].copy()
+#         YY = Y[0:-1, 0:-1].copy()
+#     else:
+#         XX = X.copy()
+#         YY = Y.copy()
+#     return u1 * v2 - u2 * v1, XX, YY
 
 def interpolate_to_regular_grid(power_density_footprint, XX_FOOTPRINT, YY_FOOTPRINT,
                                 nx=None, ny=None,
@@ -2148,7 +2222,7 @@ if __name__ == "__main__":
     if test == 0:
         app = QApplication(sys.argv)
         w = OWsrcalc_idpower()
-        w.DEBUG_RUN_URGENT = 0
+        w.DEBUG_RUN_URGENT = 1
         w.show()
         app.exec()
         w.saveSettings()
