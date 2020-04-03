@@ -608,7 +608,33 @@ def debug_plot_3d(zs,xs,ys,title=""):
     self_axis.set_title(title)
     plt.show()
 
+def write_ansys_files(absorbed2d, H, V, oe_number=1):
 
+    filename="idpower_fea_3columns_element%d.txt" % oe_number
+    f = open(filename, 'w')
+    for i in range(H.size):
+        for j in range(V.size):
+            f.write("%g  %g  %g\n" % (H[i]*1e-3, V[i]*1e-3, absorbed2d[i,j]*1e-6))
+    f.close()
+    print("File written to disk: %s" % filename)
+
+    #
+
+    filename="idpower_fea_matrix_element%d.txt" % oe_number
+    f = open(filename, 'w')
+
+    f.write("%10.5g" % 0)
+    for i in range(H.size):
+        f.write(", %10.5g" % (H[i] * 1e-3))
+    f.write("\n")
+
+    for j in range(V.size):
+            f.write("%10.5g" % (V[j] * 1e-3))
+            for i in range(H.size):
+                f.write(", %10.5g" % (absorbed2d[i,j] * 1e-6))
+            f.write("\n")
+    f.close()
+    print("File written to disk: %s" % filename)
 
 if __name__ == "__main__":
     path = "C:/Users/Manuel/OASYS1.2/OASYS1-ALS-ShadowOui/orangecontrib/xoppy/als/widgets/srcalc/"

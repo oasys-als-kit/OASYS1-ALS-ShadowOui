@@ -29,7 +29,7 @@ from orangecontrib.xoppy.als.util.messages import  showCriticalMessage
 from orangecontrib.xoppy.als.util.srcalc import  load_srcalc_output_file, ray_tracing
 from orangecontrib.xoppy.als.util.srcalc import  compute_power_density_footprint, compute_power_density_image
 from orangecontrib.xoppy.als.util.srcalc import  trapezoidal_rule_2d, trapezoidal_rule_2d_1darrays
-
+from orangecontrib.xoppy.als.util.srcalc import  write_ansys_files
 #
 # TO DO: uncomment import and delete class when moving to xoppy
 #
@@ -170,6 +170,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
 
     DO_PLOT_GRID = Setting(0)
     DUMP_SHADOW_FILES = Setting(0)
+    DUMP_ANSYS_FILES = Setting(0)
     SHOW_URGENT_PLOTS = Setting(0) # 0 only source, 1 all
     INTERPOLATION_OR_HISTOGRAMMING = Setting(0)  # 0 interpolation, 1 histogramming
     INTERPOLATION_METHOD = Setting(2) # 0 linear, 1 nearest, 2 cubic
@@ -545,6 +546,18 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
         box1 = gui.widgetBox(box)
         gui.separator(box1, height=7)
 
+        gui.comboBox(box1, self, "DUMP_ANSYS_FILES",
+                     label=self.unitLabels()[idx], addSpace=False,
+                    items=['No', 'Yes (as plotted)', 'Yes (transposed)'],
+                    valueType=int, orientation="horizontal", labelWidth=350)
+
+        self.show_at(self.unitFlags()[idx], box1)
+
+        #widget index xx
+        idx += 1
+        box1 = gui.widgetBox(box)
+        gui.separator(box1, height=7)
+
         gui.comboBox(box1, self, "SHOW_URGENT_PLOTS",
                      label=self.unitLabels()[idx], addSpace=False,
                     items=['Only source', 'Source + elements'],
@@ -663,7 +676,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
                 ]
 
          labels = labels + ["Calculate power on images","Number of ray-tracing runs","Random seed (int): ",
-                            "Plot ray-traced grid","Write SHADOW files",
+                            "Plot ray-traced grid","Write SHADOW files","Write FEA/ANSYS files",
                             "Show URGENT plots","Calculation method for images","Interpolation","Ratio pixels at o.e. / pixels at source",
                             "Debug mode (do not run URGENT)"]
 
@@ -685,7 +698,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
                  "True", "True", "True", "self.EL4_SHAPE not in (2,8,9)", "self.EL4_SHAPE not in (2,8,9)", "True", "self.EL4_SHAPE in (8,9)", "True", "True",  # OE fields
                  "True", "True", "True", "self.EL5_SHAPE not in (2,8,9)", "self.EL5_SHAPE not in (2,8,9)", "True", "self.EL5_SHAPE in (8,9)", "True", "True",  # OE fields
                  'True','self.RAY_TRACING_IMAGE == 1','self.RAY_TRACING_IMAGE == 1',
-                 'True','True',
+                 'True','True','True',
                  'True','True','True','True',
                  'True']
 
@@ -828,10 +841,6 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
             if calculated_data is None:
                 raise Exception("Empty Data")
 
-            if self.RAY_TRACING_IMAGE == 0:
-                nruns = 1
-            else:
-                nruns = self.RAY_TRACING_RUNS
             index = -1
 
             for oe_n in range(self.NELEMENTS+1):
@@ -912,6 +921,13 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
                                      ytitle='Y (shadow col 2) [mm]',
                                      xtitle='X (shadow col 1) [mm]',
                                      title=title)
+
+                    if self.DUMP_ANSYS_FILES == 0:
+                        pass
+                    if self.DUMP_ANSYS_FILES == 1: # as plotted
+                        write_ansys_files(data2D.T / (stepx * stepy), V[0,:], H[:,0], oe_number=oe_n)
+                    elif self.DUMP_ANSYS_FILES == 2: # transposed
+                        write_ansys_files(data2D / (stepx * stepy), H[:,0], V[0,:],  oe_number=oe_n)
 
                     if self.RAY_TRACING_IMAGE:
                         # image power density

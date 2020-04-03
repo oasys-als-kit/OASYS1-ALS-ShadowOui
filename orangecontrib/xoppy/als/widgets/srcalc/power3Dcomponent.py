@@ -1,25 +1,30 @@
 import sys
+import os
+
 import numpy
+
+
 from PyQt5.QtWidgets import QApplication, QMessageBox, QSizePolicy
 from PyQt5.QtGui import QIntValidator, QDoubleValidator
 
 from orangewidget import gui
 from orangewidget.settings import Setting
+
 from oasys.widgets import gui as oasysgui, congruence
-
-
 from oasys.widgets.exchange import DataExchangeObject
 # from orangecontrib.xoppy.util.xoppy_exchange import RadiationDataExchangeObject #as DataExchangeObject
 
+from oasys.util.oasys_util import TTYGrabber
 from orangecontrib.xoppy.widgets.gui.ow_xoppy_widget import XoppyWidget
 from orangecontrib.xoppy.util.xoppy_xraylib_util import reflectivity_fresnel
+# from orangecontrib.xoppy.als.util.messages import  showCriticalMessage
+from oasys.widgets.gui import ConfirmDialog
 
 import scipy.constants as codata
 import xraylib
-
 from srxraylib.util.h5_simple_writer import H5SimpleWriter
 
-from oasys.util.oasys_util import TTYGrabber
+
 
 class OWpower3Dcomponent(XoppyWidget):
     name = "Power3Dcomponent"
@@ -126,7 +131,7 @@ class OWpower3Dcomponent(XoppyWidget):
 
         gui.comboBox(box1, self, "FILE_DUMP",
                      label=self.unitLabels()[idx], addSpace=False,
-                    items=['No', 'Yes'],
+                    items=['No', 'Yes (hdf5)','Yes (x,y,absorption)', 'Yes (absorption matrix)'],
                     valueType=int, orientation="horizontal", labelWidth=250)
         self.show_at(self.unitFlags()[idx], box1)
 
@@ -158,8 +163,8 @@ class OWpower3Dcomponent(XoppyWidget):
         labels.append('Rotation angle around H axis [deg]')
 
         labels.append("Plot")
-        labels.append("Dump hdf5 file")
-        labels.append("HDF5 file *.h5")
+        labels.append("Write output file")
+        labels.append("File name")
 
         return labels
 
@@ -180,7 +185,7 @@ class OWpower3Dcomponent(XoppyWidget):
         flags.append('self.EL1_FLAG  in (0, 4)')   # rotation
         flags.append("True")
         flags.append("True")
-        flags.append('self.FILE_DUMP == 1')  # rotation
+        flags.append('self.FILE_DUMP >= 1')
         return flags
 
     def get_help_name(self):
@@ -689,8 +694,14 @@ class OWpower3Dcomponent(XoppyWidget):
 
         calculated_data = (transmittance, absorbance, E, H, V)
 
-        if self.FILE_DUMP:
+        if self.FILE_DUMP == 0:
+            pass
+        elif self.FILE_DUMP == 1:
             self.xoppy_write_h5file(calculated_data)
+        elif self.FILE_DUMP == 2:
+            self.xoppy_write_txt(calculated_data, method="3columns")
+        elif self.FILE_DUMP == 3:
+            self.xoppy_write_txt(calculated_data, method="matrix")
 
         return calculated_data
 
@@ -720,7 +731,45 @@ class OWpower3Dcomponent(XoppyWidget):
 
         return txt
 
+    def xoppy_write_txt(self, calculated_data, method="3columns"):
 
+        p0, e0, h0, v0 = self.input_beam.get_content("xoppy_data")
+        p = p0.copy()
+        p_spectral_power = p * codata.e * 1e3
+        transmittance, absorbance, E, H, V = calculated_data
+
+        if (os.path.splitext(self.FILE_NAME))[-1] not in [".txt",".dat",".TXT",".DAT"]:
+            filename_alternative = (os.path.splitext(self.FILE_NAME))[0] + ".txt"
+            tmp = ConfirmDialog.confirmed(self,
+                                      message="Invalid file extension in output file: \n%s\nIt must be: .txt, .dat, .TXT, .DAT\nChange to: %s ?"%(self.FILE_NAME,filename_alternative),
+                                      title="Invalid file extension")
+            if tmp == False: return
+            self.FILE_NAME = filename_alternative
+
+        absorbed3d = p_spectral_power * absorbance / (H[0] / h0[0]) / (V[0] / v0[0])
+        absorbed2d = numpy.trapz(absorbed3d, E, axis=0)
+
+        f = open(self.FILE_NAME, 'w')
+        if method == "3columns":
+            for i in range(H.size):
+                for j in range(V.size):
+                    f.write("%g  %g  %g\n" % (H[i]*1e-3, V[i]*1e-3, absorbed2d[i,j]*1e-6))
+        elif method == "matrix":
+            f.write("%10.5g" % 0)
+            for i in range(H.size):
+                f.write(", %10.5g" % (H[i] * 1e-3))
+            f.write("\n")
+
+            for j in range(V.size):
+                    f.write("%10.5g" % (V[j] * 1e-3))
+                    for i in range(H.size):
+                        f.write(", %10.5g" % (absorbed2d[i,j] * 1e-6))
+                    f.write("\n")
+        else:
+            raise Exception("File type not understood.")
+        f.close()
+
+        print("File written to disk: %s" % self.FILE_NAME)
 
     def xoppy_write_h5file(self,calculated_data):
 
@@ -733,6 +782,16 @@ class OWpower3Dcomponent(XoppyWidget):
         p_spectral_power = p * codata.e * 1e3
         transmittance, absorbance, E, H, V = calculated_data
 
+        # if (os.path.splitext(self.FILE_NAME))[-1] not in [".h5",".H5",".hdf5",".HDF5"]:
+        #     showCriticalMessage("Invalid file extension in output file: \n%s\nIt must be: .h5, .H5, .hdf5, .HDF5"%self.FILE_NAME)
+        #     return
+        if (os.path.splitext(self.FILE_NAME))[-1] not in [".h5",".H5",".hdf5",".HDF5"]:
+            filename_alternative = (os.path.splitext(self.FILE_NAME))[0] + ".h5"
+            tmp = ConfirmDialog.confirmed(self,
+                                      message="Invalid file extension in output file: \n%s\nIt must be: .h5, .H5, .hdf5, .HDF5\nChange to: %s ?"%(self.FILE_NAME,filename_alternative),
+                                      title="Invalid file extension")
+            if tmp == False: return
+            self.FILE_NAME = filename_alternative
 
         try:
             h5w = H5SimpleWriter.initialize_file(self.FILE_NAME, creator="power3Dcomponent.py")
@@ -816,9 +875,21 @@ class OWpower3Dcomponent(XoppyWidget):
                             entry_name=entry_name, dataset_name="Transmitted Spectral Power",
                             title_x="Photon Energy [eV]",
                             title_y="Spectral density [W/eV]")
-
         except:
             print("ERROR writing h5 file (optical element)")
+
+        try:
+            h5_entry_name = "XOPPY_RADIATION"
+
+            h5w.create_entry(h5_entry_name,nx_default=None)
+            h5w.add_stack(e, h, v, transmitted,stack_name="Radiation",entry_name=h5_entry_name,
+                title_0="Photon energy [eV]",
+                title_1="X gap [mm]",
+                title_2="Y gap [mm]")
+        except:
+            print("ERROR writing h5 file (adding XOPPY_RADIATION)")
+
+
 
         print("File written to disk: %s" % self.FILE_NAME)
 
