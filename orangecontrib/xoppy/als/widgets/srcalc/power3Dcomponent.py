@@ -2,7 +2,7 @@ import sys
 import os
 
 import numpy
-
+import h5py
 
 from PyQt5.QtWidgets import QApplication, QMessageBox, QSizePolicy
 from PyQt5.QtGui import QIntValidator, QDoubleValidator
@@ -39,6 +39,9 @@ class OWpower3Dcomponent(XoppyWidget):
                "type": DataExchangeObject,
                "handler": "acceptExchangeData" } ]
 
+    INPUT_BEAM_FROM = Setting(0)
+    INPUT_BEAM_FILE = Setting("undulator_radiation.h5")
+
     EL1_FOR = Setting("Be")
     EL1_FLAG = Setting(0)  # 0=Filter 1=Mirror 2 = Aperture 3 magnifier
     EL1_THI = Setting(0.5)
@@ -63,11 +66,31 @@ class OWpower3Dcomponent(XoppyWidget):
         self.leftWidgetPart.setMaximumWidth(self.CONTROL_AREA_WIDTH + 20)
         self.leftWidgetPart.updateGeometry()
 
-        box = oasysgui.widgetBox(self.controlArea, self.name + " Input Parameters", orientation="vertical", width=self.CONTROL_AREA_WIDTH-10)
+        box = oasysgui.widgetBox(self.controlArea, self.name + " Input Parameters", orientation="vertical",width=self.CONTROL_AREA_WIDTH-10)
 
-        idx = -1 
+        idx = -1
+        box11 = gui.widgetBox(box, "Input beam")
 
-        box11 = gui.widgetBox(box)
+        #widget index 12
+        idx += 1
+        box1 = gui.widgetBox(box11)
+        gui.comboBox(box1, self, "INPUT_BEAM_FROM",
+                    label=self.unitLabels()[idx], addSpace=False,
+                    items=['Oasys wire','h5 file (from undulator_radiation)'],
+                    valueType=int, orientation="horizontal", callback=self.visibility_input_file, labelWidth=250)
+        self.show_at(self.unitFlags()[idx], box1)
+
+        #widget index 12 ***********   File Browser ******************
+        idx += 1
+        box1 = gui.widgetBox(box11)
+        self.file_box_id = oasysgui.widgetBox(box1, "", addSpace=False, orientation="horizontal")
+        self.file_id = oasysgui.lineEdit(self.file_box_id, self, "INPUT_BEAM_FILE", "File hdf5",
+                                    labelWidth=100, valueType=str, orientation="horizontal")
+        gui.button(self.file_box_id, self, "...", callback=self.select_input_file, width=25)
+
+
+        #
+        box11 = gui.widgetBox(box, "Optical element")
         #widget index 12
         idx += 1
         box1 = gui.widgetBox(box11)
@@ -110,6 +133,7 @@ class OWpower3Dcomponent(XoppyWidget):
             self.show_at(self.unitFlags()[idx], box1)
 
 
+        box = gui.widgetBox(box, "Presentation")
         #widget index 41
         idx += 1
         box1 = gui.widgetBox(box)
@@ -143,11 +167,17 @@ class OWpower3Dcomponent(XoppyWidget):
                      label=self.unitLabels()[idx], addSpace=False, orientation="horizontal", labelWidth=150)
         self.show_at(self.unitFlags()[idx], box1)
 
+        #
+        #
+        self.visibility_input_file()
+
     def set_EL_FLAG(self):
         self.initializeTabs()
 
     def unitLabels(self):
         labels = []
+        labels.append('input beam from:')
+        labels.append('input beam file:')
         labels.append('optical element is:')
         labels.append('formula: ')
         labels.append('Filter thick[mm]')
@@ -170,6 +200,8 @@ class OWpower3Dcomponent(XoppyWidget):
 
     def unitFlags(self):
         flags =  []
+        flags.append('True')  # input from
+        flags.append('self.INPUT_BEAM_FROM  ==  1')  # input file
         flags.append('True')                   # kind
         flags.append('self.EL1_FLAG  <=  1')   # formula
         flags.append('self.EL1_FLAG  ==  0')   # thickness
@@ -204,6 +236,58 @@ class OWpower3Dcomponent(XoppyWidget):
         except Exception as exception:
             QMessageBox.critical(self, "Error", str(exception), QMessageBox.Ok)
 
+    def select_input_file(self):
+        self.file_id.setText(oasysgui.selectFileFromDialog(self, self.INPUT_BEAM_FILE,
+                                    "Open hdf File from Undulator Radiation",
+                                    file_extension_filter="hdf5 Files (*.h5 *.hdf5)"))
+
+    def visibility_input_file(self):
+        self.file_box_id.setVisible(self.INPUT_BEAM_FROM == 1)
+
+    def load_input_file(self):
+
+        e, h, v, p, code = self.extract_data_from_h5file(self.INPUT_BEAM_FILE, "XOPPY_RADIATION")
+
+        received_data = DataExchangeObject("XOPPY", "POWER3DCOMPONENT")
+        received_data.add_content("xoppy_data", [p, e, h, v])
+        received_data.add_content("xoppy_code", code)
+        self.input_beam = received_data
+
+        print("Input beam read from file %s \n\n"%self.INPUT_BEAM_FILE)
+
+    # copied from undulator radiation ... TODO: put it in util?
+    def extract_data_from_h5file(self, file_h5, subtitle):
+
+        hf = h5py.File(file_h5, 'r')
+
+        if not subtitle in hf:
+            raise Exception("XOPPY_RADIATION not found in h5 file %s"%file_h5)
+
+        try:
+            p = hf[subtitle + "/Radiation/stack_data"][:]
+            e = hf[subtitle + "/Radiation/axis0"][:]
+            h = hf[subtitle + "/Radiation/axis1"][:]
+            v = hf[subtitle + "/Radiation/axis2"][:]
+        except:
+            raise Exception("Error reading h5 file %s \n"%file_h5 + "\n" + str(e))
+
+        code = "unknown"
+
+        try:
+            if hf[subtitle + "/parameters/METHOD"].value == 0:
+                code = 'US'
+            elif hf[subtitle + "/parameters/METHOD"].value == 1:
+                code = 'URGENT'
+            elif hf[subtitle + "/parameters/METHOD"].value == 2:
+                code = 'SRW'
+            elif hf[subtitle + "/parameters/METHOD"].value == 3:
+                code = 'pySRU'
+        except:
+            pass
+
+        hf.close()
+
+        return e, h, v, p, code
 
     def check_fields(self):
 
@@ -532,7 +616,12 @@ class OWpower3Dcomponent(XoppyWidget):
         hrot = self.EL1_HROT
         vrot = self.EL1_VROT
 
+
+        if self.INPUT_BEAM_FROM == 1:
+            self.load_input_file()
+
         p0, e0, h0, v0 = self.input_beam.get_content("xoppy_data")
+
         p = p0.copy()
         e = e0.copy()
         h = h0.copy()
@@ -928,30 +1017,30 @@ def integral_3d(data3D, e=None, h=None, v=None, method=0):
 
 if __name__ == "__main__":
 
-    # create unulator_radiation xoppy exchange data
-    from orangecontrib.xoppy.util.xoppy_undulators import xoppy_calc_undulator_radiation
-    from oasys.widgets.exchange import DataExchangeObject
-
-    e, h, v, p, code = xoppy_calc_undulator_radiation(ELECTRONENERGY=6.04,ELECTRONENERGYSPREAD=0.001,ELECTRONCURRENT=0.2,\
-                                       ELECTRONBEAMSIZEH=0.000395,ELECTRONBEAMSIZEV=9.9e-06,\
-                                       ELECTRONBEAMDIVERGENCEH=1.05e-05,ELECTRONBEAMDIVERGENCEV=3.9e-06,\
-                                       PERIODID=0.018,NPERIODS=222,KV=1.68,DISTANCE=30.0,
-                                       SETRESONANCE=0,HARMONICNUMBER=1,
-                                       GAPH=0.001,GAPV=0.001,\
-                                       HSLITPOINTS=41,VSLITPOINTS=41,METHOD=2,
-                                       PHOTONENERGYMIN=7000,PHOTONENERGYMAX=8100,PHOTONENERGYPOINTS=20,
-                                       USEEMITTANCES=1)
-
-    received_data = DataExchangeObject("XOPPY", "Power3Dcomponent")
-    received_data.add_content("xoppy_data", [p, e, h, v])
-    received_data.add_content("xoppy_code", code)
+    # # create unulator_radiation xoppy exchange data
+    # from orangecontrib.xoppy.util.xoppy_undulators import xoppy_calc_undulator_radiation
+    # from oasys.widgets.exchange import DataExchangeObject
+    #
+    # e, h, v, p, code = xoppy_calc_undulator_radiation(ELECTRONENERGY=6.04,ELECTRONENERGYSPREAD=0.001,ELECTRONCURRENT=0.2,\
+    #                                    ELECTRONBEAMSIZEH=0.000395,ELECTRONBEAMSIZEV=9.9e-06,\
+    #                                    ELECTRONBEAMDIVERGENCEH=1.05e-05,ELECTRONBEAMDIVERGENCEV=3.9e-06,\
+    #                                    PERIODID=0.018,NPERIODS=222,KV=1.68,DISTANCE=30.0,
+    #                                    SETRESONANCE=0,HARMONICNUMBER=1,
+    #                                    GAPH=0.001,GAPV=0.001,\
+    #                                    HSLITPOINTS=41,VSLITPOINTS=41,METHOD=2,
+    #                                    PHOTONENERGYMIN=7000,PHOTONENERGYMAX=8100,PHOTONENERGYPOINTS=20,
+    #                                    USEEMITTANCES=1)
+    #
+    # received_data = DataExchangeObject("XOPPY", "Power3Dcomponent")
+    # received_data.add_content("xoppy_data", [p, e, h, v])
+    # received_data.add_content("xoppy_code", code)
 
 
     #
     app = QApplication(sys.argv)
     w = OWpower3Dcomponent()
 
-    w.acceptExchangeData(received_data)
+    # w.acceptExchangeData(received_data)
 
     w.show()
     app.exec()
