@@ -411,7 +411,7 @@ def interpolate_to_regular_grid(power_density_footprint, XX_FOOTPRINT, YY_FOOTPR
 
 def compute_power_density_footprint(dict1,verbose=True,
                                     interpolation_method=0,
-                                    ratio_pixels=1.0):
+                                    ratio_pixels_0=1.0,ratio_pixels_1=1.0):
 
     shapeXY = (dict1["X"].size, dict1["Y"].size)
 
@@ -437,7 +437,7 @@ def compute_power_density_footprint(dict1,verbose=True,
         power_density_footprint, XX_FOOTPRINT, YY_FOOTPRINT = \
             interpolate_to_regular_grid(
             power_density_footprint, XX_FOOTPRINT, YY_FOOTPRINT,
-            nx=int(shapeXY[0]*ratio_pixels),ny=int(shapeXY[0]*ratio_pixels),
+            nx=int(shapeXY[0]*ratio_pixels_0),ny=int(shapeXY[1]*ratio_pixels_1),
             interpolation_method=interpolation_method)
 
         POWER_DENSITY_FOOTPRINT.append( power_density_footprint )
@@ -459,7 +459,7 @@ def compute_power_density_footprint(dict1,verbose=True,
 
 
 def compute_power_density_image(dict1, verbose=True, interpolation_or_histogramming=False,
-                                interpolation_method=0, ratio_pixels=1.0):
+                                interpolation_method=0, ratio_pixels_0=1.0, ratio_pixels_1=1.0):
 
     # x0 = dict1["X"]
     # y0 = dict1["Y"]
@@ -498,7 +498,7 @@ def compute_power_density_image(dict1, verbose=True, interpolation_or_histogramm
             # make histograms for image
             # plot_scatter(image_H,image_V,title="Element index: %d"%element_index)
             (hh,xx,yy) = numpy.histogram2d(image_H, image_V,
-                            bins=[int(shapeXY[0]*ratio_pixels),int(shapeXY[1]*ratio_pixels)], #[100,100], #2*nx0,2*ny0],
+                            bins=[int(shapeXY[0]*ratio_pixels_0),int(shapeXY[1]*ratio_pixels_1)], #[100,100], #2*nx0,2*ny0],
                             range=[[-image_H_max,image_H_max],[-image_V_max,image_V_max]],
                             normed=False,
                             weights=weights)
@@ -521,7 +521,7 @@ def compute_power_density_image(dict1, verbose=True, interpolation_or_histogramm
             image_H_splitted = numpy.split(image_H, nruns)
             image_V_splitted = numpy.split(image_V, nruns)
 
-            power_density_image = numpy.zeros((int(shapeXY[0]*ratio_pixels),int(shapeXY[1]*ratio_pixels)))
+            power_density_image = numpy.zeros((int(shapeXY[0]*ratio_pixels_0),int(shapeXY[1]*ratio_pixels_1)))
 
             for i in range(nruns):
 
@@ -534,8 +534,8 @@ def compute_power_density_image(dict1, verbose=True, interpolation_or_histogramm
                         yrange=[-image_V_max,image_V_max],
                         renormalize_integrals=False,
                         interpolation_method=interpolation_method,
-                        nx=int(shapeXY[0]*ratio_pixels),
-                        ny=int(shapeXY[1]*ratio_pixels))
+                        nx=int(shapeXY[0]*ratio_pixels_0),
+                        ny=int(shapeXY[1]*ratio_pixels_1))
 
                 power_density_image += power_density_image_i
 
@@ -614,7 +614,7 @@ def write_ansys_files(absorbed2d, H, V, oe_number=1):
     f = open(filename, 'w')
     for i in range(H.size):
         for j in range(V.size):
-            f.write("%g  %g  %g\n" % (H[i]*1e-3, V[i]*1e-3, absorbed2d[i,j]*1e-6))
+            f.write("%g  %g  %g\n" % (H[i]*1e-3, V[i]*1e-3, absorbed2d[i,j]*1e6))
     f.close()
     print("File written to disk: %s" % filename)
 
@@ -631,7 +631,7 @@ def write_ansys_files(absorbed2d, H, V, oe_number=1):
     for j in range(V.size):
             f.write("%10.5g" % (V[j] * 1e-3))
             for i in range(H.size):
-                f.write(", %10.5g" % (absorbed2d[i,j] * 1e-6))
+                f.write(", %10.5g" % (absorbed2d[i,j] * 1e6))
             f.write("\n")
     f.close()
     print("File written to disk: %s" % filename)

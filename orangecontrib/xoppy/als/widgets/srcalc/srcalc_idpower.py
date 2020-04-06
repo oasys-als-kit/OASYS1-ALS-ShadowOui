@@ -174,7 +174,8 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
     SHOW_URGENT_PLOTS = Setting(0) # 0 only source, 1 all
     INTERPOLATION_OR_HISTOGRAMMING = Setting(0)  # 0 interpolation, 1 histogramming
     INTERPOLATION_METHOD = Setting(2) # 0 linear, 1 nearest, 2 cubic
-    RATIO_PIXELS = Setting(1.0)
+    RATIO_PIXELS_0 = Setting(1.0)
+    RATIO_PIXELS_1 = Setting(1.0)
     DEBUG_RUN_URGENT = Setting(0)
 
     inputs = WidgetDecorator.syned_input_data()
@@ -597,10 +598,22 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
         idx += 1
         box1 = gui.widgetBox(box)
         gui.separator(box1, height=7)
-        oasysgui.lineEdit(box1, self, "RATIO_PIXELS",
+        oasysgui.lineEdit(box1, self, "RATIO_PIXELS_0",
                           label=self.unitLabels()[idx], addSpace=False,
                           valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
         self.show_at(self.unitFlags()[idx], box1)
+
+        # widget index xx
+        idx += 1
+        box1 = gui.widgetBox(box)
+        gui.separator(box1, height=7)
+        oasysgui.lineEdit(box1, self, "RATIO_PIXELS_1",
+                          label=self.unitLabels()[idx], addSpace=False,
+                          valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
+        self.show_at(self.unitFlags()[idx], box1)
+
+
+
         #
         # widget index xx
         idx += 1
@@ -677,7 +690,8 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
 
          labels = labels + ["Calculate power on images","Number of ray-tracing runs","Random seed (int): ",
                             "Plot ray-traced grid","Write SHADOW files","Write FEA/ANSYS files",
-                            "Show URGENT plots","Calculation method for images","Interpolation","Ratio pixels at o.e. / pixels at source",
+                            "Show URGENT plots","Calculation method for images","Interpolation",
+                            "Ratio pixels axis 0 o.e./source","Ratio pixels axis 1 o.e./source",
                             "Debug mode (do not run URGENT)"]
 
          return labels
@@ -699,7 +713,8 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
                  "True", "True", "True", "self.EL5_SHAPE not in (2,8,9)", "self.EL5_SHAPE not in (2,8,9)", "True", "self.EL5_SHAPE in (8,9)", "True", "True",  # OE fields
                  'True','self.RAY_TRACING_IMAGE == 1','self.RAY_TRACING_IMAGE == 1',
                  'True','True','True',
-                 'True','True','True','True',
+                 'True','True','True',
+                 'True','True',
                  'True']
 
     def get_help_name(self):
@@ -896,14 +911,18 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
                         index += 1
                         dataX = calculated_data["OE_FOOTPRINT"][oe_n-1][0, :]
                         dataY = calculated_data["OE_FOOTPRINT"][oe_n-1][1, :]
-                        self.plot_data1D(1e3*dataY, 1e3*dataX, index, 0, title="footprint oe %d"%oe_n, ytitle="Y (shadow col 2) [mm]",xtitle="X (shadow col 1) [mm]")
+                        self.plot_data1D(1e3*dataY, 1e3*dataX, index, 0, title="footprint oe %d"%oe_n,
+                                         ytitle="Y (shadow col 2) [mm]",
+                                         xtitle="X (shadow col 1) [mm]")
 
                         if self.RAY_TRACING_IMAGE:
                             # image grid
                             index += 1
                             dataX = calculated_data["OE_IMAGE"][oe_n-1][0, :]
                             dataY = calculated_data["OE_IMAGE"][oe_n-1][1, :]
-                            self.plot_data1D(1e3*dataX, 1e3*dataY, index, 0, title="image just after oe %d perp to beam"%oe_n, xtitle="X (shadow col 1) [mm]",ytitle="Z (shadow col 2) [mm]")
+                            self.plot_data1D(1e3*dataX, 1e3*dataY, index, 0,
+                                             title="image just after oe %d perp to beam"%oe_n,
+                                             xtitle="X (shadow col 1) [mm]", ytitle="Z (shadow col 2) [mm]")
 
 
                     # mirror power density
@@ -918,8 +937,8 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
                     self.plot_data2D(data2D.T / (stepx * stepy) , V[0,:], H[:,0],
                                      index, 0,
                                      overplot=overplot_data_footprint,
-                                     ytitle='Y (shadow col 2) [mm]',
-                                     xtitle='X (shadow col 1) [mm]',
+                                     ytitle='Y (shadow col 2) [mm] (%d pixels)' % (H.shape[0]),
+                                     xtitle='X (shadow col 1) [mm] (%d pixels)' % (H.shape[1]),
                                      title=title)
 
                     if self.DUMP_ANSYS_FILES == 0:
@@ -942,8 +961,8 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
                         self.plot_data2D(data2D / (stepx * stepy), H[:,0], V[0,:],
                                          index, 0,
                                          overplot=overplot_data_image,
-                                         xtitle='X (shadow col 1) [mm]',
-                                         ytitle='Z (shadow col 3) [mm]',
+                                         xtitle='X (shadow col 1) [mm] (%d pixels)' % (H.shape[0]),
+                                         ytitle='Z (shadow col 3) [mm] (%d pixels)' % (H.shape[1]),
                                          title=title)
 
 
@@ -1207,7 +1226,8 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
                             )
         out_dictionary = compute_power_density_footprint(out_dictionary,
                                     interpolation_method=self.INTERPOLATION_METHOD,
-                                    ratio_pixels=self.RATIO_PIXELS)
+                                    ratio_pixels_0=self.RATIO_PIXELS_0,
+                                    ratio_pixels_1=self.RATIO_PIXELS_1)
 
         if self.RAY_TRACING_IMAGE == 1:
         #     number_of_runs = 1
@@ -1243,7 +1263,8 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
             out_dictionary = compute_power_density_image(out_dictionary,
                                     interpolation_or_histogramming=self.INTERPOLATION_OR_HISTOGRAMMING,
                                     interpolation_method=self.INTERPOLATION_METHOD,
-                                    ratio_pixels=self.RATIO_PIXELS)
+                                    ratio_pixels_0=self.RATIO_PIXELS_0,
+                                    ratio_pixels_1=self.RATIO_PIXELS_1,)
 
         return out_dictionary
 
