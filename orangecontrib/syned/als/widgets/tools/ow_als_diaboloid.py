@@ -65,6 +65,7 @@ class OWALSDiaboloid(OWWidget):
     semilength_x = Setting(0.015)
     semilength_y = Setting(0.4)
     detrend = Setting(1)
+    detrend_toroid = Setting(0)
     filename_h5 = Setting("diaboloid.h5")
 
     #
@@ -110,7 +111,8 @@ class OWALSDiaboloid(OWWidget):
         # configiration = Setting(1)
         gui.comboBox(out_calc, self, "configuration", label="Focusing configuration", labelWidth=300,
                      items=["Point-to-segment K", "Segment-to-point K",
-                            "Point-to-segment V", "Segment-to-point V"],
+                            "Point-to-segment V", "Segment-to-point V",
+                            "Toroid point-to-segment","Toroid segment-to-point"],
                      sendSelectedValue=False, orientation="horizontal")
 
         # source_diaboloid = Setting(18.8)
@@ -125,7 +127,11 @@ class OWALSDiaboloid(OWWidget):
 
         # detrend = Setting(1)
         gui.comboBox(out_calc, self, "detrend", label="detrend", labelWidth=300,
-                     items=["No", "Yes (theta*y)", "Yes (fit)"], sendSelectedValue=False, orientation="horizontal")
+                     items=["No", "Yes (theta*y) [default]", "Yes (fit)"], sendSelectedValue=False, orientation="horizontal")
+
+        # detrend_toroid = Setting(0)
+        gui.comboBox(out_calc, self, "detrend_toroid", label="detrend toroid", labelWidth=300,
+                     items=["No [default]", "Yes",], sendSelectedValue=False, orientation="horizontal")
 
         #
         # --------------- MESH
@@ -255,6 +261,7 @@ class OWALSDiaboloid(OWWidget):
         print("Inputs: p=%g, q=%g, theta=%g rad, filename=%s: " %
               (p, q, theta, filename_h5))
 
+        mirror_txt = "Diaboloid"
         if self.configuration == 0: #
             Z, X, Y = ken_diaboloid_point_to_segment(p=p, q=q, theta=theta, x=x, y=y,
                                                      detrend=detrend, filename_h5=filename_h5)
@@ -267,13 +274,30 @@ class OWALSDiaboloid(OWWidget):
         elif self.configuration == 3:  #
             Z, X, Y = valeriy_diaboloid_segment_to_point(p=p, q=q, theta=theta, x=x, y=y,
                                                      detrend=detrend, filename_h5=filename_h5)
+        elif self.configuration == 4:  # point to segment
+            Z = toroid(configuration=self.configuration,
+                       p=p, q=q, theta=theta, x=x, y=y, filename_h5=filename_h5)
+            mirror_txt = "Toroid"
+        elif self.configuration == 5:  #
+            Z = toroid(configuration=self.configuration,
+                       p=p, q=q, theta=theta, x=x, y=y, filename_h5=filename_h5)
+            mirror_txt = "Toroid"
         else:
             raise Exception("Not implemented")
 
+        if self.detrend_toroid:
+            if self.configuration in [0,2,4]:
+                Ztor = toroid(configuration=4, p=p, q=q, theta=theta, x=x, y=y, filename_h5=filename_h5)
+                Z -= Ztor
+            elif self.configuration in [1,3,5]:
+                Ztor = toroid(configuration=5, p=p, q=q, theta=theta, x=x, y=y, filename_h5=filename_h5)
+                Z -= Ztor
+            mirror_txt += " (toroid removed)"
+
 
         self.plot_data2D(Z, x, y, self.tab[0],
-                         title="Diaboloid p:%6.3f m, q:%6.3f %6.3f mrad" %
-                               (self.source_diaboloid, self.diaboloid_image, self.theta),
+                         title="%s p:%6.3f m, q:%6.3f %6.3f mrad" %
+                               (mirror_txt, self.source_diaboloid, self.diaboloid_image, self.theta),
                          xtitle="x (sagittal) [m] (%d pixels)" % x.size,
                          ytitle="y (tangential) [m] (%d pixels)" % y.size)
 
@@ -402,7 +426,6 @@ def ken_diaboloid_segment_to_point(
     for i in range(Z.shape[0]):
         Z[i, :] = Z[i, :] - zfit
 
-
     if filename_h5 != "":
         write_surface_file(Z.T, x, y, filename_h5, overwrite=True)
         print("HDF5 file %s written to disk." % filename_h5)
@@ -467,8 +490,45 @@ def valeriy_diaboloid_segment_to_point(
                                               detrend=detrend, filename_h5=filename_h5)
     for i in range(x.size):
         Z[i,:] = numpy.flip(Z[i,:])
+
+
     return Z, X, Y
 
+def toroid(configuration=4,
+        p=29.3,
+        q=19.53,
+        theta=4.5e-3,
+        x=numpy.linspace(-0.01, 0.01, 101),
+        y=numpy.linspace(-0.1, 0.1, 1001),
+        filename_h5=""):
+
+    if configuration == 4: # point to segment
+        Rt = 2.0 / numpy.sin(theta) / (1 / p)
+    elif configuration == 5: # segment to point
+        Rt = 2.0 / numpy.sin(theta) / (1 / q)
+    else:
+        raise Exception("Bad configuration flag")
+
+    Rs = 2.0 * numpy.sin(theta) / (1 / p + 1 / q)
+
+    print("Toroid Rt: %f6.3 m, Rs: %6.3f m" % (Rt, Rs))
+
+    height_tangential = Rt - numpy.sqrt(Rt ** 2 - y ** 2)
+    height_sagittal = Rs - numpy.sqrt(Rs ** 2 - x ** 2)
+
+    Z = numpy.zeros((x.size, y.size))
+
+    for i in range(x.size):
+        Z[i,:] = height_tangential
+
+    for i in range(y.size):
+        Z[:,i] += height_sagittal
+
+    if filename_h5 != "":
+        write_surface_file(Z.T, x, y, filename_h5, overwrite=True)
+        print("HDF5 file %s written to disk." % filename_h5)
+
+    return Z
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
@@ -476,3 +536,6 @@ if __name__ == "__main__":
     w.show()
     app.exec()
     w.saveSettings()
+
+    # Z = toroid_point_to_segment()
+    # print(Z.shape)
