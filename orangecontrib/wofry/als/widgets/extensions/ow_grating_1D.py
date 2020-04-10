@@ -71,6 +71,7 @@ class OWGrating1D(WofryWidget):
     g_2 = Setting(87748.010405)
     g_3 = Setting(27876.983114)
     grating_amplitude = Setting(20e-9)
+    grating_length = Setting(150e-3)
     points_per_period = Setting(9.0)
 
     grating_file = Setting("<none>")
@@ -169,7 +170,11 @@ class OWGrating1D(WofryWidget):
         gui.button(self.grating_flag1_box_id, self, "...", callback=self.set_grating_file)
 
 
-        gui.comboBox(box_grating, self, "write_profile", label="Dump profile to file",
+        self.grating_file_write_id = oasysgui.widgetBox(box_grating, "", addSpace=True, orientation="vertical")
+        oasysgui.lineEdit(self.grating_file_write_id, self, "grating_length", "Grating length [m]",
+                          labelWidth=200, valueType=float, orientation="horizontal")
+        tmp_id = oasysgui.widgetBox(self.grating_file_write_id, "", addSpace=True, orientation="horizontal")
+        gui.comboBox(tmp_id, self, "write_profile", label="Dump profile to file",
                      items=["No","Yes [grating_profile1D.dat]"], sendSelectedValue=False, orientation="horizontal")
 
 
@@ -196,8 +201,10 @@ class OWGrating1D(WofryWidget):
             self.grating_flag0_box_id.setVisible(False)
             self.grating_flag0vls_box_id.setVisible(False)
             self.grating_flag1_box_id.setVisible(True)
+            self.grating_file_write_id.setVisible(False)
         else:
             self.grating_flag0_box_id.setVisible(True)
+            self.grating_file_write_id.setVisible(True)
             if self.grating_flag == 3:
                 self.grating_flag0vls_box_id.setVisible(True)
             else:
@@ -410,6 +417,7 @@ class OWGrating1D(WofryWidget):
                                                    angle_out=87.0,
                                                    grating_flag=3,
                                                    grating_amplitude=20e-9,
+                                                   grating_length=150e-3,
                                                    points_per_period=5,
                                                    g_0=300000.0,
                                                    g_1=0.0,
@@ -433,7 +441,7 @@ class OWGrating1D(WofryWidget):
             y2_oe = a[:, 1]
         else:
             x2_oe,y2_oe = cls.create_grating(
-                           grating_length=(x1[-1] - x1[0]) / numpy.sin(grazing_angle_in),
+                           grating_length=grating_length,
                            points_per_period=points_per_period,
                            grating_flag=grating_flag,
                            g_0=g_0, g_1=g_1, g_2=g_2, g_3=g_3)
@@ -545,6 +553,7 @@ def calculate_output_wavefront_after_grating1D(input_wavefront,
                                                angle_out=87.0,
                                                grating_flag=3,
                                                grating_amplitude=20e-9,
+                                               grating_length=150e-3,
                                                points_per_period=5,
                                                g_0=300000.0,
                                                g_1=0.0,
@@ -568,7 +577,7 @@ def calculate_output_wavefront_after_grating1D(input_wavefront,
         y2_oe = a[:, 1]
     else:
         x2_oe,y2_oe = create_grating(
-                       grating_length=(x1[-1] - x1[0]) / numpy.sin(grazing_angle_in),
+                       grating_length=grating_length,
                        points_per_period=points_per_period,
                        grating_flag=grating_flag,
                        g_0=g_0, g_1=g_1, g_2=g_2, g_3=g_3)
