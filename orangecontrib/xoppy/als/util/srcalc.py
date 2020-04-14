@@ -614,7 +614,7 @@ def write_ansys_files(absorbed2d, H, V, oe_number=1):
     f = open(filename, 'w')
     for i in range(H.size):
         for j in range(V.size):
-            f.write("%g  %g  %g\n" % (H[i]*1e-3, V[i]*1e-3, absorbed2d[i,j]*1e6))
+            f.write("%g  %g  %g\n" % (H[i]*1e-3, V[j]*1e-3, absorbed2d[i,j]*1e6))
     f.close()
     print("File written to disk: %s" % filename)
 
