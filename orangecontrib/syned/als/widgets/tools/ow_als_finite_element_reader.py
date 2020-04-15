@@ -2,7 +2,7 @@
 
 # class ALSFiniteElementReader(ALSShadowWidget):
 
-import os
+import os, sys
 import numpy
 
 from PyQt5 import QtGui, QtWidgets
@@ -20,6 +20,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
 
+from oasys.util.oasys_util import EmittingStream
 
 from orangecontrib.syned.als.util.FEA_File import FEA_File
 from silx.gui.plot import Plot2D
@@ -74,6 +75,7 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
     n_axis_1 = Setting(51)
     invert_axes_names = Setting(1)
     detrended = Setting(1)
+    detrended_fit_range = Setting(1.0)
     reset_height_method = Setting(0)
     remove_nan = Setting(2)
     extract_profile1D = Setting(0)
@@ -165,9 +167,16 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
                      items=["No", "Yes (replace by min height)", "Yes (replace by zero)"],
                      sendSelectedValue=False, orientation="horizontal")
 
-        gui.comboBox(interpolation_box, self, "detrended", label="Detrend straight line", labelWidth=220,
-                     items=["No", "Yes (along axis 0)", "Yes (along axis 1)"],
-                     sendSelectedValue=False, orientation="horizontal")
+        gui.comboBox(interpolation_box, self, "detrended", label="Detrend profile", labelWidth=220,
+                     items=["None", "Straight line (along axis 0)", "Straight line (along axis 1)",
+                            "Best circle (along axis 0)", "Best circle (along axis 1)"],
+                     sendSelectedValue=False, orientation="horizontal",
+                     callback=self.set_visible)
+
+        self.detrended_fit_range_id = oasysgui.widgetBox(interpolation_box, "", addSpace=True,
+                                         orientation="vertical",)
+        oasysgui.lineEdit(self.detrended_fit_range_id, self, "detrended_fit_range", "detrend fit up to [m]",
+                          labelWidth=220, valueType=float, orientation="horizontal")
 
         gui.comboBox(interpolation_box, self, "reset_height_method", label="Reset zero height", labelWidth=220,
                      items=["No", "To height minimum", "To center"],
@@ -190,8 +199,13 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
                           orientation="horizontal")
 
 
-        # self.set_visible()
+        self.set_visible()
 
+    def set_visible(self):
+        if self.detrended == 0:
+            self.detrended_fit_range_id.setVisible(False)
+        else:
+            self.detrended_fit_range_id.setVisible(True)
 
     def create_tabs_results(self):
 
@@ -220,6 +234,12 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
         self.profile1D_id = gui.widgetBox(tmp, "", addSpace=True, orientation="vertical")
         self.profile1D_id.setFixedHeight(self.IMAGE_HEIGHT - 30)
         self.profile1D_id.setFixedWidth(self.IMAGE_WIDTH - 20)
+
+        tmp = oasysgui.createTabPage(tabs_setting, "1D slope")
+        self.slope1D_id = gui.widgetBox(tmp, "", addSpace=True, orientation="vertical")
+        self.slope1D_id.setFixedHeight(self.IMAGE_HEIGHT - 30)
+        self.slope1D_id.setFixedWidth(self.IMAGE_WIDTH - 20)
+
         #
         tmp = oasysgui.createTabPage(tabs_setting, "Output")
         self.info_id = oasysgui.textArea(height=self.IMAGE_HEIGHT - 35)
@@ -247,7 +267,19 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
                                                    factorZ=self.file_factor_z)
         self.fea_file_object.replicate_raw_data(self.replicate_raw_data_flag)
 
+    def writeStdOut(self, text="", initialize=False):
+        cursor = self.info_id.textCursor()
+        if initialize:
+            self.info_id.setText(text)
+        else:
+            cursor.movePosition(QtGui.QTextCursor.End)
+            cursor.insertText(text)
+
     def calculate(self):
+        self.writeStdOut(initialize=True)
+
+        # sys.stdout = EmittingStream(textWritten=self.writeStdOut)
+        sys.stdout = EmittingStream(textWritten=self.writeStdOut)
 
         self.load_raw_data()
 
@@ -263,10 +295,13 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
         if self.detrended == 0:
             pass
         elif self.detrended == 1:
-            self.fea_file_object.detrend(axis=0)
+            self.fea_file_object.detrend_straight_line(axis=0, fitting_domain_ratio=self.detrended_fit_range)
         elif self.detrended == 2:
-            self.fea_file_object.detrend(axis=1)
-
+            self.fea_file_object.detrend_straight_line(axis=1, fitting_domain_ratio=self.detrended_fit_range)
+        elif self.detrended == 3:
+            self.fea_file_object.detrend_best_circle(axis=0, fitting_domain_ratio=self.detrended_fit_range)
+        elif self.detrended == 4:
+            self.fea_file_object.detrend_best_circle(axis=1, fitting_domain_ratio=self.detrended_fit_range)
 
         if self.reset_height_method == 0:
             pass
@@ -277,28 +312,16 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
 
         self.file_out = os.path.splitext(self.file_in)[0] + '.h5'
         self.fea_file_object.write_h5_surface(filename=self.file_out, invert_axes_names=self.invert_axes_names)
-        self.write_info("File %s written to disk.\n" % self.file_out, initialize=False)
+
+        print("File %s written to disk.\n" % self.file_out)
 
         self.plot_and_send_results()
 
 
-    def write_info(self, text, initialize=True):
-        cursor = self.info_id.textCursor()
-        if initialize:
-            self.info_id.setText(text)
-        else:
-            cursor.movePosition(QtGui.QTextCursor.End)
-            cursor.insertText(text)
-            self.info_id.setTextCursor(cursor)
-            self.info_id.ensureCursorVisible()
-
-
     def plot_and_send_results(self):
-
         #
         # result
         #
-
         if self.invert_axes_names:
             self.plot_data2D(self.fea_file_object.Z_INTERPOLATED,
                            self.fea_file_object.x_interpolated,
@@ -400,11 +423,14 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
             profile1D = mesh[:, index0]
             if self.invert_axes_names:
                 title = "profile at X[%d] = %f" % (index0, perp_abscissas[index0])
+                titleS = "slope at X[%d] = %f" % (index0, perp_abscissas[index0])
                 xtitle = "Y [m] "
             else:
                 title = "profile at Y[%d] = %f" % (index0, perp_abscissas[index0])
+                titleS = "profile at Y[%d] = %f" % (index0, perp_abscissas[index0])
                 xtitle = "X [m] "
-            self.plot_data1D(abscissas, profile1D, self.profile1D_id, title=title, xtitle=xtitle, ytitle="Z [m] ")
+            self.plot_data1D(abscissas, 1e6*profile1D, self.profile1D_id, title=title, xtitle=xtitle, ytitle="Z [um] ")
+            self.plot_data1D(abscissas, 1e6*numpy.gradient(profile1D,abscissas), self.slope1D_id, title=titleS, xtitle=xtitle, ytitle="Z' [urad]")
         else:
             abscissas = y
             perp_abscissas = x
@@ -416,12 +442,14 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
             profile1D = mesh[index0, :]
             if self.invert_axes_names:
                 title = "profile at Y[%d] = %f" % (index0, perp_abscissas[index0])
+                titleS = "slopes at Y[%d] = %f" % (index0, perp_abscissas[index0])
                 xtitle = "X [m] "
             else:
                 title = "profile at X[%d] = %f" % (index0, perp_abscissas[index0])
+                titleS = "slopes at X[%d] = %f" % (index0, perp_abscissas[index0])
                 xtitle = "Y [m] "
             self.plot_data1D(abscissas, profile1D, self.profile1D_id, title=title, xtitle=xtitle, ytitle="Z [m] ")
-
+            self.plot_data1D(abscissas, numpy.gradient(profile1D,abscissas), self.slope1D_id, title=titleS, xtitle=xtitle, ytitle="Z'")
 
         if self.invert_axes_names:
             self.send("Surface Data",

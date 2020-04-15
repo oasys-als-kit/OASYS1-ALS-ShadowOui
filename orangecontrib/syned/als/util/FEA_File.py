@@ -49,7 +49,8 @@ class FEA_File():
     @classmethod
     def process_file(cls, filename_in, n_axis_0=301, n_axis_1=51,
                      filename_out="", invert_axes_names=False,
-                     detrend=True, reset_height_method=0,
+                     detrend=0, # 0=none 1(2)=straight line axis 0 (1), 3(4) best circle axis 0(1)
+                     reset_height_method=0,
                      replicate_raw_data_flag=0, # 0=None, 1=axis0, 2=axis1, 3=both axis
                      do_plot=False):
 
@@ -76,8 +77,16 @@ class FEA_File():
         if do_plot:
             o1.plot_surface_image()
 
-        if detrend:
-            o1.detrend()
+        if detrend == 0:
+            pass
+        elif detrend == 1:
+            o1.detrend_straight_line(axis=0)
+        elif detrend == 2:
+            o1.detrend_straight_line(axis=1)
+        elif detrend == 3:
+            o1.detrend_best_circle(axis=0)
+        elif detrend == 5:
+            o1.detrend_best_circle(axis=1)
 
         # o1.reset_height_to_minimum()
 
@@ -285,7 +294,7 @@ class FEA_File():
         self.y_interpolated = self.y_interpolated[1:-2].copy()
         self.Z_INTERPOLATED = self.Z_INTERPOLATED[1:-2,1:-2].copy()
 
-    def detrend(self,axis=0):
+    def detrend_straight_line(self,axis=0,fitting_domain_ratio=0.5):
         if axis == 0:
             xm = self.x_interpolated.copy()
             zm = self.Z_INTERPOLATED[:,self.y_interpolated.size//2]
@@ -295,17 +304,29 @@ class FEA_File():
 
         zm.shape = -1
 
-        icut = numpy.argwhere( xm > -xm[-1])
+        icut = numpy.argwhere( numpy.abs(xm) < (numpy.max((-xm[0],xm[-1])) * fitting_domain_ratio))
+        if len(icut) <=5:
+            raise Exception("Not enough points for fitting.")
+
         xcut = xm[icut]
         zmcut = zm[icut]
 
         xcut.shape = -1
         zmcut.shape = -1
 
-        print( numpy.argwhere(numpy.isnan(self.Z_INTERPOLATED)) )
-        coeff = numpy.polyfit(xcut, zmcut, deg=2)
+        # plot(xcut, zmcut, xm, zm, legend=["cut", "original"])
 
-        zfit = coeff[1] * xm  + coeff[0]
+        print( numpy.argwhere(numpy.isnan(self.Z_INTERPOLATED)) )
+        print("Fitting interval: [%g,%g]" % (xcut[0],xcut[-1]))
+
+        coeff = numpy.polyfit(xcut.copy(), zmcut.copy(), deg=1)
+
+        zfit = coeff[0] * xm  + coeff[1]
+
+        print("Detrending straight line (axis=%d): zfit = %g * coordinate + %g " % (axis, coeff[1], coeff[0]))
+
+        # plot(xcut, zmcut, xm, zfit, legend=["data","fit"])
+        # plot(xcut, zmcut, xm, zfit, legend=["cut","fit"],yrange=[-0.000015,0.000005])
 
         if axis ==0:
             for i in range(self.Z_INTERPOLATED.shape[1]):
@@ -313,6 +334,56 @@ class FEA_File():
         elif axis == 1:
             for i in range(self.Z_INTERPOLATED.shape[0]):
                 self.Z_INTERPOLATED[i,:] -= zfit
+
+    def detrend_best_circle(self,axis=0,fitting_domain_ratio=0.5):
+        if axis == 0:
+            xm = self.x_interpolated.copy()
+            zm = self.Z_INTERPOLATED[:,self.y_interpolated.size//2]
+        elif axis == 1:
+            xm = self.y_interpolated.copy()
+            zm = self.Z_INTERPOLATED[self.x_interpolated.size // 2, :]
+
+        zm.shape = -1
+
+        # icut = numpy.argwhere( numpy.abs(xm) < (numpy.max((-xm[0],xm[-1])) * fitting_domain_ratio))
+        icut = numpy.argwhere(numpy.abs(xm) <= fitting_domain_ratio)
+        if len(icut) <=5:
+            raise Exception("Not enough points for fitting.")
+
+        xcut = xm[icut]
+        zmcut = zm[icut]
+
+        xcut.shape = -1
+        zmcut.shape = -1
+
+        # plot(xcut, zmcut, xm, zm, legend=["cut", "original"])
+
+        print( numpy.argwhere(numpy.isnan(self.Z_INTERPOLATED)) )
+        print("Fitting interval: [%g,%g] (using %d points)" % (xcut[0],xcut[-1],xcut.size))
+
+        coeff = numpy.polyfit(xcut, numpy.gradient(zmcut,xcut), deg=1)
+
+        # zfit = coeff[0] * xm  + coeff[1]
+        radius = 1 / coeff[0]
+        print("Detrending straight line on sloped (axis=%d): zfit = %g * coordinate + %g " % (axis, coeff[1], coeff[0]))
+        print("Radius of curvature: %g m" % (1.0 / coeff[0]))
+
+        if radius >= 0:
+            zfit = radius - numpy.sqrt(radius ** 2 - xm ** 2)
+        else:
+            zfit = radius + numpy.sqrt(radius ** 2 - xm ** 2)
+
+        # plot(xm, zfit, legend=["fit"])
+        # plot(xcut, zmcut, xm, zfit, legend=["cut","fit"],yrange=[-0.000015,0.000005])
+
+        if axis ==0:
+            for i in range(self.Z_INTERPOLATED.shape[1]):
+                self.Z_INTERPOLATED[:,i] -= zfit
+        elif axis == 1:
+            for i in range(self.Z_INTERPOLATED.shape[0]):
+                self.Z_INTERPOLATED[i,:] -= zfit
+
+        return xm, zfit
 
     def reset_height_to_minimum(self):
         self.Z_INTERPOLATED -= self.Z_INTERPOLATED.min()
@@ -359,16 +430,16 @@ if __name__ == "__main__":
 
     # o1 = FEA_File.process_file("/home/manuel/OASYS1.2/alsu-scripts/ANSYS/s4.txt", n_axis_0=301, n_axis_1=51,
     #              filename_out="/home/manuel/Oasys/s4.h5", invert_axes_names=True,
-    #              detrend=True, reset_height_method=1, do_plot=False)
+    #              detrend=1, reset_height_method=1, do_plot=False)
 
 
-    o1 = FEA_File()
-    o1.set_filename("/home/manuel/OASYS1.2/alsu-scripts/ANSYS/s4.txt")
-    o1.load_multicolumn_file()
-
-    X,Y,Z = o1.get_deformed()
-    # X, Y, Z = o1.get_undeformed()
-    surface_plot( X,Y,Z)
+    # o1 = FEA_File()
+    # o1.set_filename("C:/Users/Manuel/Oasys/dispCOSMIC_M1_H_XOPPY.txt")
+    # o1.load_multicolumn_file()
+    #
+    # X,Y,Z = o1.get_deformed()
+    # # X, Y, Z = o1.get_undeformed()
+    # surface_plot( X,Y,Z)
 
 
 
@@ -382,14 +453,20 @@ if __name__ == "__main__":
     # o1.plot_interpolated()
     # o1.plot_surface_image()
 
+    o1 = FEA_File.process_file("C:/Users/Manuel/Oasys/dispCOSMIC_M1_H_XOPPY.txt", n_axis_0=1001, n_axis_1=101,
+                 filename_out="", invert_axes_names=True,
+                 detrend=1, reset_height_method=2,
+                 replicate_raw_data_flag=3,do_plot=False)
+    o1.plot_surface_image()
+
     # o1 = FEA_File.process_file("73water_side_cooled_notches_best_LH.txt", n_axis_0=1001, n_axis_1=101,
     #              filename_out="/home/manuel/Oasys/water_side_cooled_notches_best_LH.h5", invert_axes_names=True,
-    #              detrend=True, reset_height_method=2,
+    #              detrend=1, reset_height_method=2,
     #              replicate_raw_data_flag=3,do_plot=False)
-
+    #
     # o1 = FEA_File.process_file("73water_side_cooled_notches_best_LV.txt", n_axis_0=1001, n_axis_1=101,
     #              filename_out="/home/manuel/Oasys/water_side_cooled_notches_best_LV.h5", invert_axes_names=True,
-    #              detrend=False, reset_height_method=0,
+    #              detrend=0, reset_height_method=0,
     #              replicate_raw_data_flag=3,do_plot=False)
 
     #
