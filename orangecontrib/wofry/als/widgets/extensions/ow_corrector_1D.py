@@ -8,10 +8,13 @@ from orangewidget.settings import Setting
 
 from oasys.widgets import gui as oasysgui
 from oasys.widgets import congruence
-from oasys.util.oasys_util import EmittingStream
+from oasys.util.oasys_util import TriggerIn, EmittingStream
 
+from orangecontrib.wofry.util.wofry_objects import WofryData
 from orangecontrib.wofry.widgets.gui.ow_wofry_widget import WofryWidget
 from orangecontrib.xoppy.util.python_script import PythonScript  # TODO: change import from wofry!!!
+
+from syned.widget.widget_decorator import WidgetDecorator
 
 from wofry.propagator.wavefront1D.generic_wavefront import GenericWavefront1D
 
@@ -26,17 +29,34 @@ class OWCorrector1D(WofryWidget):
     category = "Wofry Wavefront Propagation"
     keywords = ["data", "file", "load", "read"]
 
-    outputs = [{"name":"GenericWavefront1D",
-                "type":GenericWavefront1D,
-                "doc":"GenericWavefront1D",
-                "id":"GenericWavefront1D"},
+    # outputs = [{"name":"GenericWavefront1D",
+    #             "type":GenericWavefront1D,
+    #             "doc":"GenericWavefront1D",
+    #             "id":"GenericWavefront1D"},
+    #            {"name": "DABAM 1D Profile",
+    #             "type": numpy.ndarray,
+    #             "doc": "numpy.ndarray",
+    #             "id": "numpy.ndarray"},
+    #            ]
+    #
+    # inputs = [("GenericWavefront1D", GenericWavefront1D, "set_input"),]
+
+    outputs = [{"name":"WofryData",
+                "type":WofryData,
+                "doc":"WofryData",
+                "id":"WofryData"},
                {"name": "DABAM 1D Profile",
                 "type": numpy.ndarray,
                 "doc": "numpy.ndarray",
                 "id": "numpy.ndarray"},
-               ]
+               {"name":"Trigger",
+                "type": TriggerIn,
+                "doc":"Feedback signal to start a new beam simulation",
+                "id":"Trigger"}]
 
-    inputs = [("GenericWavefront1D", GenericWavefront1D, "set_input"),]
+    inputs = [("WofryData", WofryData, "set_input"),
+              ("GenericWavefront2D", GenericWavefront1D, "set_input"),
+              WidgetDecorator.syned_input_data()[0]]
 
     correction_method = Setting(1)
     grazing_angle = Setting(1.5e-3)
@@ -49,7 +69,7 @@ class OWCorrector1D(WofryWidget):
 
 
 
-    wavefront1D = None
+    input_data = None
     titles = ["Wavefront (input) 1D Intensity", "Wavefront (input) 1D Phase", "Wavefront (target) 1D Phase", "Correction Profile"]
 
     def __init__(self):
@@ -166,10 +186,15 @@ class OWCorrector1D(WofryWidget):
         self.focus_at = congruence.checkStrictlyPositiveNumber(numpy.abs(self.focus_at), "Distance to waist")
         self.apodization_ratio = congruence.checkStrictlyPositiveNumber(numpy.abs(self.apodization_ratio), "Apodzation radio")
 
+    def receive_syned_data(self):
+        raise Exception(NotImplementedError)
 
-    def set_input(self, wavefront):
-        if not wavefront is None:
-            self.wavefront1D = wavefront
+    def set_input(self, wofry_data):
+        if not wofry_data is None:
+            if isinstance(wofry_data, WofryData):
+                self.input_data = wofry_data
+            else:
+                self.input_data = WofryData(wavefront=wofry_data)
 
             if self.is_automatic_execution:
                 self.propagate_wavefront()
@@ -182,9 +207,9 @@ class OWCorrector1D(WofryWidget):
 
         self.check_fields()
 
-        if self.wavefront1D is None: raise Exception("No Input Wavefront")
+        if self.input_data is None: raise Exception("No Input Wavefront")
 
-        input_wavefront = self.wavefront1D
+        input_wavefront = self.input_data.get_wavefront()
 
         if self.correction_method == 0: # no correction
             output_wavefront = input_wavefront.duplicate()
@@ -206,7 +231,7 @@ class OWCorrector1D(WofryWidget):
 
 
         if self.write_input_wavefront:
-            self.wavefront1D.save_h5_file("wavefront_input.h5",subgroupname="wfr",intensity=True,phase=True,
+            self.input_data.get_wavefront().save_h5_file("wavefront_input.h5",subgroupname="wfr",intensity=True,phase=True,
                                           overwrite=True,verbose=True)
 
         # script
@@ -226,10 +251,13 @@ class OWCorrector1D(WofryWidget):
 
 
         # send data
+        beamline = self.input_data.get_beamline().duplicate() # TODO add element here
         if self.apply_correction_to_wavefront == 0:
-            self.send("GenericWavefront1D", input_wavefront.duplicate())
+            self.send("WofryData", WofryData(beamline=beamline, wavefront=input_wavefront.duplicate()))
         else:
-            self.send("GenericWavefront1D", output_wavefront)
+            self.send("WofryData", WofryData(beamline=beamline, wavefront=output_wavefront))
+        self.send("Trigger", TriggerIn(new_object=True))
+
 
         dabam_profile = numpy.zeros((height.size, 2))
         dabam_profile[:, 0] = abscissas_on_mirror
@@ -349,7 +377,7 @@ plot(output_wavefront.get_abscissas(),output_wavefront.get_intensity())
         pass
 
     def do_plot_wavefront(self, wavefront1D, target_wavefront, abscissas_on_mirror, height, progressBarValue=80):
-        if not self.wavefront1D is None:
+        if not self.input_data is None:
 
             self.progressBarSet(progressBarValue)
 

@@ -18,6 +18,7 @@ import scipy.constants as codata
 
 from orangecontrib.xoppy.util.python_script import PythonScript  # TODO: change import from wofry!!!
 
+from orangecontrib.wofry.util.wofry_objects import WofryData
 from orangecontrib.xoppy.util.python_script import PythonScript  # TODO: change import from wofry!!!
 
 
@@ -32,10 +33,10 @@ class OWGaussianUndulator1D(WofryWidget):
     category = "Wofry Wavefront Propagation"
     keywords = ["data", "file", "load", "read"]
 
-    outputs = [{"name":"GenericWavefront1D",
-                "type":GenericWavefront1D,
-                "doc":"GenericWavefront1D",
-                "id":"GenericWavefront1D"}]
+    outputs = [{"name":"WofryData",
+                "type":WofryData,
+                "doc":"WofryData",
+                "id":"WofryData"}]
 
     units = Setting(0)
     energy = Setting(250.0)
@@ -227,83 +228,90 @@ class OWGaussianUndulator1D(WofryWidget):
 
     def generate(self):
 
-        self.progressBarInit()
-
-        self.wofry_output.setText("")
-
-        sys.stdout = EmittingStream(textWritten=self.writeStdOut)
-
-        self.check_fields()
-
-        if self.units == 0:
-            wavelength = codata.h * codata.c / codata.e / self.energy
-        else:
-            wavelength = self.wavelength
-
-
-        if self.initialize_from == 0:
-            x_min = self.range_from
-            x_max = self.range_to
-            number_of_points = self.number_of_points
-        elif self.initialize_from == 1:
-            number_of_points = self.number_of_points
-            x_min = self.steps_start
-            x_max = x_min + (number_of_points - 1) * self.steps_step
-
-        elif self.initialize_from == 2:
-            sigma_r = 2.740 / 4 / numpy.pi * numpy.sqrt(wavelength * self.undulator_length)
-            x_min=-0.5 * self.sigma_times * sigma_r
-            x_max=+0.5 * self.sigma_times * sigma_r
-            number_of_points = self.number_of_points
-
-        self.wavefront1D = self.calculate_wavefront1D(wavelength=wavelength,
-                                                    wavefront_position=self.wavefront_position,
-                                                    undulator_length=self.undulator_length,
-                                                    undulator_distance=self.undulator_distance,
-                                                    x_min = x_min,
-                                                    x_max = x_max,
-                                                    number_of_points = number_of_points,
-                                                    add_random_phase=self.add_random_phase,
-                                                    )
-        #
-        # script
-        #
-
-        dict_parameters = {"wavelength": wavelength,
-                           "wavefront_position": self.wavefront_position,
-                           "undulator_length": self.undulator_length,
-                           "undulator_distance": self.undulator_distance,
-                           "x_min": x_min,
-                           "x_max": x_max,
-                           "number_of_points": number_of_points,
-                           "add_random_phase": self.add_random_phase,
-                           }
-        script_template = self.script_template()
-
-        # write python script
-        self.wofry_script.set_code(script_template.format_map(dict_parameters))
-
-
-        #
-        # plots
-        #
-
         try:
-            current_index = self.tabs.currentIndex()
-        except:
-            current_index = None
-        self.initializeTabs()
-        self.plot_results()
-        if current_index is not None:
+            self.progressBarInit()
+
+            self.wofry_output.setText("")
+
+            sys.stdout = EmittingStream(textWritten=self.writeStdOut)
+
+            self.check_fields()
+
+            if self.units == 0:
+                wavelength = codata.h * codata.c / codata.e / self.energy
+            else:
+                wavelength = self.wavelength
+
+
+            if self.initialize_from == 0:
+                x_min = self.range_from
+                x_max = self.range_to
+                number_of_points = self.number_of_points
+            elif self.initialize_from == 1:
+                number_of_points = self.number_of_points
+                x_min = self.steps_start
+                x_max = x_min + (number_of_points - 1) * self.steps_step
+
+            elif self.initialize_from == 2:
+                sigma_r = 2.740 / 4 / numpy.pi * numpy.sqrt(wavelength * self.undulator_length)
+                x_min=-0.5 * self.sigma_times * sigma_r
+                x_max=+0.5 * self.sigma_times * sigma_r
+                number_of_points = self.number_of_points
+
+            self.wavefront1D = self.calculate_wavefront1D(wavelength=wavelength,
+                                                        wavefront_position=self.wavefront_position,
+                                                        undulator_length=self.undulator_length,
+                                                        undulator_distance=self.undulator_distance,
+                                                        x_min = x_min,
+                                                        x_max = x_max,
+                                                        number_of_points = number_of_points,
+                                                        add_random_phase=self.add_random_phase,
+                                                        )
+            #
+            # script
+            #
+
+            dict_parameters = {"wavelength": wavelength,
+                               "wavefront_position": self.wavefront_position,
+                               "undulator_length": self.undulator_length,
+                               "undulator_distance": self.undulator_distance,
+                               "x_min": x_min,
+                               "x_max": x_max,
+                               "number_of_points": number_of_points,
+                               "add_random_phase": self.add_random_phase,
+                               }
+            script_template = self.script_template()
+
+            # write python script
+            self.wofry_script.set_code(script_template.format_map(dict_parameters))
+
+
+            #
+            # plots
+            #
+
             try:
-                self.tabs.setCurrentIndex(current_index)
+                current_index = self.tabs.currentIndex()
             except:
-                pass
+                current_index = None
+            self.initializeTabs()
+            self.plot_results()
+            if current_index is not None:
+                try:
+                    self.tabs.setCurrentIndex(current_index)
+                except:
+                    pass
 
+            self.send("WofryData", WofryData(wavefront=self.wavefront1D))
 
-        self.send("GenericWavefront1D", self.wavefront1D)
+            self.progressBarFinished()
+        except Exception as exception:
+            QMessageBox.critical(self, "Error", str(exception), QMessageBox.Ok)
 
-        self.progressBarFinished()
+            if self.IS_DEVELOP: raise exception
+
+            self.progressBarFinished()
+
 
 
     def calculate_wavefront1D(self,wavelength=1e-10,

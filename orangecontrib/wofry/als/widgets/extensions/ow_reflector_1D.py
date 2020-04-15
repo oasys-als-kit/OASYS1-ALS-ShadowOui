@@ -11,8 +11,11 @@ from orangewidget.settings import Setting
 
 from oasys.widgets import gui as oasysgui
 from oasys.widgets import congruence
-from oasys.util.oasys_util import EmittingStream, TTYGrabber
+from oasys.util.oasys_util import TriggerIn, EmittingStream
 
+from syned.widget.widget_decorator import WidgetDecorator
+
+from orangecontrib.wofry.util.wofry_objects import WofryData
 from orangecontrib.wofry.widgets.gui.ow_wofry_widget import WofryWidget
 from orangecontrib.xoppy.util.python_script import PythonScript  # TODO: change import from wofry!!!
 
@@ -30,13 +33,19 @@ class OWReflector1D(WofryWidget):
     category = "Wofry Wavefront Propagation"
     keywords = ["data", "file", "load", "read"]
 
-    outputs = [{"name":"GenericWavefront1D",
-                "type":GenericWavefront1D,
-                "doc":"GenericWavefront1D",
-                "id":"GenericWavefront1D"}]
+    outputs = [{"name":"WofryData",
+                "type":WofryData,
+                "doc":"WofryData",
+                "id":"WofryData"},
+               {"name":"Trigger",
+                "type": TriggerIn,
+                "doc":"Feedback signal to start a new beam simulation",
+                "id":"Trigger"}]
 
-    inputs = [("GenericWavefront1D", GenericWavefront1D, "set_input"),
-              ("DABAM 1D Profile", numpy.ndarray, "receive_dabam_profile")]
+    inputs = [("WofryData", WofryData, "set_input"),
+              ("GenericWavefront2D", GenericWavefront1D, "set_input"),
+              WidgetDecorator.syned_input_data()[0]]
+
 
     grazing_angle = Setting(1.5e-3)
     shape = Setting(1)
@@ -48,7 +57,7 @@ class OWReflector1D(WofryWidget):
     write_input_wavefront = Setting(0)
 
 
-    wavefront1D = None
+    input_data = None
     titles = ["Wavefront 1D Intensity", "Wavefront 1D Phase","Wavefront Real(Amplitude)","Wavefront Imag(Amplitude)","O.E. Profile"]
 
     def __init__(self):
@@ -162,13 +171,19 @@ class OWReflector1D(WofryWidget):
         self.radius = congruence.checkNumber(self.radius, "Radius")
         self.error_file = congruence.checkFileName(self.error_file)
 
+    def receive_syned_data(self):
+        raise Exception(NotImplementedError)
 
-    def set_input(self, wavefront):
-        if not wavefront is None:
-            self.wavefront1D = wavefront
+    def set_input(self, wofry_data):
+        if not wofry_data is None:
+            if isinstance(wofry_data, WofryData):
+                self.input_data = wofry_data
+            else:
+                self.input_data = WofryData(wavefront=wofry_data)
 
             if self.is_automatic_execution:
                 self.propagate_wavefront()
+
 
     def receive_dabam_profile(self, dabam_profile):
         if not dabam_profile is None:
@@ -200,26 +215,31 @@ class OWReflector1D(WofryWidget):
 
         self.check_fields()
 
-        if self.wavefront1D is None: raise Exception("No Input Wavefront")
+        if self.input_data is None: raise Exception("No Input Wavefront")
 
-        output_wavefront, abscissas_on_mirror, height = self.calculate_output_wavefront_after_reflector1D(self.wavefront1D,
+        if self.error_flag == 0:
+            error_file = ""
+        else:
+            error_file = self.error_file
+
+        output_wavefront, abscissas_on_mirror, height = self.calculate_output_wavefront_after_reflector1D(self.input_data.get_wavefront(),
                                                                        shape=self.shape,
                                                                        radius=self.radius,
                                                                        grazing_angle=self.grazing_angle,
                                                                        error_flag=self.error_flag,
-                                                                       error_file=self.error_file,
+                                                                       error_file=error_file,
                                                                        error_edge_management=self.error_edge_management,
                                                                        write_profile=self.write_profile)
 
         if self.write_input_wavefront:
-            self.wavefront1D.save_h5_file("wavefront_input.h5",subgroupname="wfr",intensity=True,phase=True,overwrite=True,verbose=True)
+            self.input_data.get_wavefront().save_h5_file("wavefront_input.h5",subgroupname="wfr",intensity=True,phase=True,overwrite=True,verbose=True)
 
         # script
         dict_parameters = {"grazing_angle": self.grazing_angle,
                            "shape": self.shape,
                            "radius": self.radius,
                            "error_flag":self.error_flag,
-                           "error_file":self.error_file,
+                           "error_file":error_file,
                            "error_edge_management": self.error_edge_management,
                            "write_profile":self.write_profile}
 
@@ -229,7 +249,10 @@ class OWReflector1D(WofryWidget):
 
         self.do_plot_wavefront(output_wavefront, abscissas_on_mirror, height)
 
-        self.send("GenericWavefront1D", output_wavefront)
+        beamline = self.input_data.get_beamline().duplicate()
+        # self.send("GenericWavefront1D", output_wavefront)
+        self.send("WofryData", WofryData(beamline=beamline, wavefront=output_wavefront))
+        self.send("Trigger", TriggerIn(new_object=True))
 
     @classmethod
     def calculate_output_wavefront_after_reflector1D(cls,input_wavefront,shape=1,radius=10000.0,grazing_angle=1.5e-3,
@@ -377,7 +400,7 @@ plot(output_wavefront.get_abscissas(),output_wavefront.get_intensity())
         pass
 
     def do_plot_wavefront(self, wavefront1D, abscissas_on_mirror, height, progressBarValue=80):
-        if not self.wavefront1D is None:
+        if not self.input_data is None:
 
             self.progressBarSet(progressBarValue)
 

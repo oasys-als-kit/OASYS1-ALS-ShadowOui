@@ -11,10 +11,13 @@ from orangewidget.settings import Setting
 
 from oasys.widgets import gui as oasysgui
 from oasys.widgets import congruence
-from oasys.util.oasys_util import EmittingStream, TTYGrabber
+from oasys.util.oasys_util import TriggerIn, EmittingStream
 
+from orangecontrib.wofry.util.wofry_objects import WofryData
 from orangecontrib.wofry.widgets.gui.ow_wofry_widget import WofryWidget
 from orangecontrib.xoppy.util.python_script import PythonScript  # TODO: change import from wofry!!!
+
+from syned.widget.widget_decorator import WidgetDecorator
 
 from wofry.propagator.wavefront1D.generic_wavefront import GenericWavefront1D
 
@@ -45,21 +48,34 @@ class OWGrating1D(WofryWidget):
     category = "Wofry Wavefront Propagation"
     keywords = ["data", "file", "load", "read", "grazing"]
 
-    outputs = [{"name":"GenericWavefront1D",
-                "type":GenericWavefront1D,
-                "doc":"GenericWavefront1D",
-                "id":"GenericWavefront1D"}]
+    # outputs = [{"name":"GenericWavefront1D",
+    #             "type":GenericWavefront1D,
+    #             "doc":"GenericWavefront1D",
+    #             "id":"GenericWavefront1D"}]
+    #
+    # inputs = [("GenericWavefront1D", GenericWavefront1D, "set_input"),
+    #           ("DABAM 1D Profile", numpy.ndarray, "receive_dabam_profile")]
 
-    inputs = [("GenericWavefront1D", GenericWavefront1D, "set_input"),
-              ("DABAM 1D Profile", numpy.ndarray, "receive_dabam_profile")]
+    outputs = [{"name":"WofryData",
+                "type":WofryData,
+                "doc":"WofryData",
+                "id":"WofryData"},
+               {"name":"Trigger",
+                "type": TriggerIn,
+                "doc":"Feedback signal to start a new beam simulation",
+                "id":"Trigger"}]
 
+    inputs = [("WofryData", WofryData, "set_input"),
+              ("GenericWavefront2D", GenericWavefront1D, "set_input"),
+              ("DABAM 1D Profile", numpy.ndarray, "receive_dabam_profile"),
+              WidgetDecorator.syned_input_data()[0]]
 
     # Grating
     angle_in_deg = Setting(87.239145)
     angle_out_deg = Setting(85.829039)
 
 
-    grating_flag = Setting(0) # 0 = calculated, 1=from file
+    grating_flag = Setting(0) # 0-3 = calculated, 4=from file
 
 
     # radius = Setting(1000.0)  # TODO: delete?
@@ -85,7 +101,7 @@ class OWGrating1D(WofryWidget):
 
     write_input_wavefront = Setting(0)
 
-    wavefront1D = None
+    input_data = None
     titles = ["Wavefront 1D Intensity", "Wavefront 1D Phase","Wavefront Real(Amplitude)","Wavefront Imag(Amplitude)","O.E. Profile"]
 
     def __init__(self):
@@ -242,10 +258,15 @@ class OWGrating1D(WofryWidget):
         # self.radius = congruence.checkNumber(self.radius, "Radius")
         self.grating_file = congruence.checkFileName(self.grating_file)
 
+    def receive_syned_data(self):
+        raise Exception(NotImplementedError)
 
-    def set_input(self, wavefront):
-        if not wavefront is None:
-            self.wavefront1D = wavefront
+    def set_input(self, wofry_data):
+        if not wofry_data is None:
+            if isinstance(wofry_data, WofryData):
+                self.input_data = wofry_data
+            else:
+                self.input_data = WofryData(wavefront=wofry_data)
 
             if self.is_automatic_execution:
                 self.propagate_wavefront()
@@ -280,10 +301,15 @@ class OWGrating1D(WofryWidget):
 
         self.check_fields()
 
-        if self.wavefront1D is None: raise Exception("No Input Wavefront")
+        if self.input_data is None: raise Exception("No Input Wavefront")
+
+        if self.grating_flag == 4:
+            grating_file = self.grating_file
+        else:
+            grating_file = ""
 
         output_wavefront, abscissas_on_mirror, height = self.calculate_output_wavefront_after_grating1D(
-            self.wavefront1D,
+            self.input_data.get_wavefront(),
             angle_in=self.angle_in_deg,
             angle_out=self.angle_out_deg,
             grating_flag=self.grating_flag,
@@ -293,14 +319,14 @@ class OWGrating1D(WofryWidget):
             g_1=self.g_1,
             g_2=self.g_2,
             g_3=self.g_3,
-            grating_file=self.grating_file,
+            grating_file=grating_file,
             p_distance=self.p_distance,
             q_distance=self.q_distance,
             zoom_factor=self.zoom_factor,
             write_profile=self.write_profile)
 
         if self.write_input_wavefront:
-            self.wavefront1D.save_h5_file("wavefront_input.h5",subgroupname="wfr",intensity=True,phase=True,overwrite=True,verbose=True)
+            self.input_data.get_wavefront().save_h5_file("wavefront_input.h5",subgroupname="wfr",intensity=True,phase=True,overwrite=True,verbose=True)
 
         # script
 
@@ -330,7 +356,7 @@ class OWGrating1D(WofryWidget):
                             "g_1": self.g_1,
                             "g_2": self.g_2,
                             "g_3": self.g_3,
-                            "grating_file": "'"+self.grating_file+"'",
+                            "grating_file": "'"+grating_file+"'",
                             "p_distance": self.p_distance,
                             "q_distance": self.q_distance,
                             "zoom_factor": self.zoom_factor,
@@ -342,8 +368,9 @@ class OWGrating1D(WofryWidget):
 
         self.do_plot_wavefront(output_wavefront, abscissas_on_mirror, height)
 
-        self.send("GenericWavefront1D", output_wavefront)
-
+        beamline = self.input_data.get_beamline().duplicate() # TODO add element here
+        self.send("WofryData", WofryData(beamline=beamline, wavefront=output_wavefront))
+        self.send("Trigger", TriggerIn(new_object=True))
 
     @classmethod
     def propagator1D_offaxis(cls, input_wavefront, x2_oe, y2_oe, p, q, theta_grazing_in, theta_grazing_out=None,
@@ -633,7 +660,7 @@ plot(output_wavefront.get_abscissas(),output_wavefront.get_intensity())
         pass
 
     def do_plot_wavefront(self, wavefront1D, abscissas_on_mirror, height, progressBarValue=80):
-        if not self.wavefront1D is None:
+        if not self.input_data is None:
 
             self.progressBarSet(progressBarValue)
 
