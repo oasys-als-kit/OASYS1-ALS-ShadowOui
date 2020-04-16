@@ -112,7 +112,8 @@ class OWALSDiaboloid(OWWidget):
         gui.comboBox(out_calc, self, "configuration", label="Focusing configuration", labelWidth=300,
                      items=["Point-to-segment K", "Segment-to-point K",
                             "Point-to-segment V", "Segment-to-point V",
-                            "Toroid point-to-segment","Toroid segment-to-point"],
+                            "Toroid point-to-segment","Toroid segment-to-point",
+                            "Parabolic-Cone point-to-segment V","Parabolic-Cone segment-to-point V"],
                      sendSelectedValue=False, orientation="horizontal")
 
         # source_diaboloid = Setting(18.8)
@@ -126,13 +127,14 @@ class OWALSDiaboloid(OWWidget):
                            labelWidth=300, valueType=float, orientation="horizontal")
 
         # detrend = Setting(1)
-        gui.comboBox(out_calc, self, "detrend", label="detrend", labelWidth=300,
+        box1 = gui.widgetBox(out_calc)
+        gui.comboBox(box1, self, "detrend", label="detrend", labelWidth=300,
                      items=["No", "Yes (theta*y) [default]", "Yes (fit)"], sendSelectedValue=False, orientation="horizontal")
+        self.show_at("self.configuration < 6", box1)
 
         # detrend_toroid = Setting(0)
         gui.comboBox(out_calc, self, "detrend_toroid", label="detrend toroid", labelWidth=300,
                      items=["No [default]", "Yes",], sendSelectedValue=False, orientation="horizontal")
-
         #
         # --------------- MESH
         #
@@ -225,6 +227,7 @@ class OWALSDiaboloid(OWWidget):
                 pass
         self.tabs.setCurrentIndex(0)
 
+
     def check_fields(self):
         self.nx = congruence.checkStrictlyPositiveNumber(self.nx, "Points X")
         self.ny = congruence.checkStrictlyPositiveNumber(self.ny, "Points Y")
@@ -282,14 +285,22 @@ class OWALSDiaboloid(OWWidget):
             Z = toroid(configuration=self.configuration,
                        p=p, q=q, theta=theta, x=x, y=y, filename_h5=filename_h5)
             mirror_txt = "Toroid"
+        elif self.configuration == 6:  #
+            Z, X, Y = valeriy_parabolic_cone_point_to_segment(p=p, q=q, theta=theta, x=x, y=y,
+                                                     filename_h5=filename_h5)
+            mirror_txt = "Parabolic-Cone"
+        elif self.configuration == 7:  #
+            Z, X, Y = valeriy_parabolic_cone_segment_to_point(p=p, q=q, theta=theta, x=x, y=y,
+                                                     filename_h5=filename_h5)
+            mirror_txt = "Parabolic-Cone"
         else:
             raise Exception("Not implemented")
 
         if self.detrend_toroid:
-            if self.configuration in [0,2,4]:
+            if self.configuration in [0,2,4,6]:
                 Ztor = toroid(configuration=4, p=p, q=q, theta=theta, x=x, y=y, filename_h5=filename_h5)
                 Z -= Ztor
-            elif self.configuration in [1,3,5]:
+            elif self.configuration in [1,3,5,7]:
                 Ztor = toroid(configuration=5, p=p, q=q, theta=theta, x=x, y=y, filename_h5=filename_h5)
                 Z -= Ztor
             mirror_txt += " (toroid removed)"
@@ -448,7 +459,7 @@ def valeriy_diaboloid_point_to_segment(
     s = numpy.sin(2 * theta)
 
     Z = p * s - numpy.sqrt( \
-        4 * p ** 2 * s ** 4 - \
+        4 * p ** 2 * (numpy.sin(theta)) ** 4 - \
         2 * (p * c + q) * (Y + p * c) + \
         2 * (p + q) * (p * c + q - numpy.sqrt(X ** 2 + (q - Y) ** 2)) \
         )
@@ -529,6 +540,51 @@ def toroid(configuration=4,
         print("HDF5 file %s written to disk." % filename_h5)
 
     return Z
+
+def valeriy_parabolic_cone_point_to_segment(
+        p=29.3,
+        q=19.53,
+        theta=4.5e-3,
+        x=numpy.linspace(-0.01, 0.01, 101),
+        y=numpy.linspace(-0.1, 0.1, 1001),
+        filename_h5=""):
+    X = numpy.outer(x, numpy.ones_like(y))
+    Y = numpy.outer(numpy.ones_like(x), y)
+
+    c = numpy.cos(theta)
+    s = numpy.sin(theta)
+    c2 = numpy.cos(2 * theta)
+    s2 = numpy.sin(2 * theta)
+    pq = p + q
+
+    Z = Y * s / c - 2  * s / c**2 * numpy.sqrt(Y * p * c + p**2) + 2 * p * s / c**2 \
+        - numpy.sqrt( \
+        (p * q * c * s2 / pq + s2 * (q - 2 * p * c**2 ) / 2 / pq * Y)**2 - X**2) + \
+        p * q * c * s2 / pq + s2 * (q - 2 * p * c**2) / 2 / pq * Y
+
+
+    print(Z.shape, Z.min(), Z.max())
+
+
+    if filename_h5 != "":
+        write_surface_file(Z.T, x, y, filename_h5, overwrite=True)
+        print("HDF5 file %s written to disk." % filename_h5)
+
+    return Z, X, Y
+
+def valeriy_parabolic_cone_segment_to_point(
+        p=29.3,
+        q=19.53,
+        theta=4.5e-3,
+        x=numpy.linspace(-0.01, 0.01, 101),
+        y=numpy.linspace(-0.1, 0.1, 1001),
+        filename_h5=""):
+    Z, X, Y = valeriy_parabolic_cone_point_to_segment(p=q, q=p, theta=theta, x=x, y=y,
+                                              filename_h5=filename_h5)
+    for i in range(x.size):
+        Z[i,:] = numpy.flip(Z[i,:])
+
+    return Z, X, Y
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
