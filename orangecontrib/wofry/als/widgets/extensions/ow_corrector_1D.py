@@ -29,18 +29,6 @@ class OWCorrector1D(WofryWidget):
     category = "Wofry Wavefront Propagation"
     keywords = ["data", "file", "load", "read"]
 
-    # outputs = [{"name":"GenericWavefront1D",
-    #             "type":GenericWavefront1D,
-    #             "doc":"GenericWavefront1D",
-    #             "id":"GenericWavefront1D"},
-    #            {"name": "DABAM 1D Profile",
-    #             "type": numpy.ndarray,
-    #             "doc": "numpy.ndarray",
-    #             "id": "numpy.ndarray"},
-    #            ]
-    #
-    # inputs = [("GenericWavefront1D", GenericWavefront1D, "set_input"),]
-
     outputs = [{"name":"WofryData",
                 "type":WofryData,
                 "doc":"WofryData",
@@ -55,7 +43,7 @@ class OWCorrector1D(WofryWidget):
                 "id":"Trigger"}]
 
     inputs = [("WofryData", WofryData, "set_input"),
-              ("GenericWavefront2D", GenericWavefront1D, "set_input"),
+              ("GenericWavefront1D", GenericWavefront1D, "set_input"),
               WidgetDecorator.syned_input_data()[0]]
 
     correction_method = Setting(1)

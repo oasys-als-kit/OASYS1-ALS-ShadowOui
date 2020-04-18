@@ -43,7 +43,8 @@ class OWReflector1D(WofryWidget):
                 "id":"Trigger"}]
 
     inputs = [("WofryData", WofryData, "set_input"),
-              ("GenericWavefront2D", GenericWavefront1D, "set_input"),
+              ("GenericWavefront1D", GenericWavefront1D, "set_input"),
+              ("DABAM 1D Profile", numpy.ndarray, "receive_dabam_profile"),
               WidgetDecorator.syned_input_data()[0]]
 
 

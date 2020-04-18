@@ -6,6 +6,8 @@ recursive-include orangecontrib/xoppy/als/widgets *.png *.svg *.ico *.jpg *.bmp
 recursive-include orangecontrib/syned/als/widgets *.png *.svg *.ico *.jpg *.bmp
 recursive-include orangecontrib/wofry/als/widgets *.png *.svg *.ico *.jpg *.bmp
 
+recursive-include orangecontrib/wofry/als/util/data *
+
 recursive-include orangecontrib/xoppy/als/util/bin/darwin *
 recursive-include orangecontrib/xoppy/als/util/bin/linux *
 recursive-include orangecontrib/xoppy/als/util/bin/windows *
