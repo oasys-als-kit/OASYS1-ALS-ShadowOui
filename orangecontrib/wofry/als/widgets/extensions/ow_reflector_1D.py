@@ -11,7 +11,7 @@ from orangewidget.settings import Setting
 
 from oasys.widgets import gui as oasysgui
 from oasys.widgets import congruence
-from oasys.util.oasys_util import TriggerIn, EmittingStream
+from oasys.util.oasys_util import TriggerIn, TriggerOut, EmittingStream
 
 from syned.widget.widget_decorator import WidgetDecorator
 
@@ -45,6 +45,7 @@ class OWReflector1D(WofryWidget):
     inputs = [("WofryData", WofryData, "set_input"),
               ("GenericWavefront1D", GenericWavefront1D, "set_input"),
               ("DABAM 1D Profile", numpy.ndarray, "receive_dabam_profile"),
+              ("Trigger", TriggerOut, "receive_trigger_signal"),
               WidgetDecorator.syned_input_data()[0]]
 
 
@@ -181,6 +182,44 @@ class OWReflector1D(WofryWidget):
         self.grazing_angle = congruence.checkStrictlyPositiveNumber(self.grazing_angle, "Grazing angle")
         self.radius = congruence.checkNumber(self.radius, "Radius")
         self.error_file = congruence.checkFileName(self.error_file)
+
+    def receive_trigger_signal(self, trigger):
+        # self.wofry_output.setText("")
+        # sys.stdout = EmittingStream(textWritten=self.writeStdOut)
+        # print(">>>>>>>>> in receive_trigger_signal: ",trigger)
+        # try:
+        #     print(dir(trigger))
+        #     print(trigger._TriggerOut__additional_parameters)
+        # except:
+        #     pass
+        # if trigger is not None:
+        #     self.propagate_wavefront()
+
+        if trigger and trigger.new_object == True:
+            if trigger.has_additional_parameter("variable_name"):
+                variable_name = trigger.get_additional_parameter("variable_name").strip()
+                variable_display_name = trigger.get_additional_parameter("variable_display_name").strip()
+                variable_value = trigger.get_additional_parameter("variable_value")
+                variable_um = trigger.get_additional_parameter("variable_um")
+
+                if "," in variable_name:
+                    variable_names = variable_name.split(",")
+
+                    for variable_name in variable_names:
+                        setattr(self, variable_name.strip(), variable_value)
+                else:
+                    setattr(self, variable_name, variable_value)
+
+                self.propagate_wavefront()
+
+        # if trigger is not None:
+        #     print(trigger.has_additional_parameter("radius"))
+        #     print(trigger._TriggerOut__additional_parameters)
+        #     self.radius = 50000.0
+        #     self.propagate_wavefront()
+        #     # self.send("Trigger", TriggerIn(new_object=True))
+        # else:
+        #     raise Exception("Trigger is None")
 
     def receive_syned_data(self):
         raise Exception(NotImplementedError)
@@ -502,8 +541,11 @@ if __name__ == '__main__':
     ow.set_input(create_wavefront())
 
     ow.receive_dabam_profile(numpy.array([[-1.50,0],[1.50,0]]))
-    ow.propagate_wavefront()
 
+    ow.propagate_wavefront()
+    # print(">>>>0")
+    # ow.receive_trigger_signal(TriggerOut())
+    # print(">>>>1")
     ow.show()
     app.exec_()
     ow.saveSettings()
