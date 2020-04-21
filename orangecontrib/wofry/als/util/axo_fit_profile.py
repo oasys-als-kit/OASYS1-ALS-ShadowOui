@@ -39,11 +39,11 @@ def calculate_orthonormal_basis(file_influence_functions="",
         numpy.savetxt(file_orthonormal_functions , b_array)
         print("File written to disk %s " % file_orthonormal_functions)
 
-def fit_profile(filein, fileout="",
-                   file_influence_functions="",
-                   file_orthonormal_functions="",
-                   calculate=False,
-                   mask=None):
+def axo_fit_profile(filein, fileout="",
+                    file_influence_functions="",
+                    file_orthonormal_functions="",
+                    calculate=False,
+                    mask=None):
 
     from srxraylib.plot.gol import plot, plot_table
 
@@ -100,11 +100,11 @@ if __name__ == "__main__":
     filein = "C:/Users/Manuel/OASYS1.2/ML_Optics/oasys_scripts/correction.dat"
     fileout = ""
 
-    v, abscissas, u, y = fit_profile(filein,
-                       fileout=fileout,
-                       file_influence_functions=file_influence_functions,
-                       file_orthonormal_functions=file_orthonormal_functions,
-                       calculate=False)
+    v, abscissas, u, y = axo_fit_profile(filein,
+                                         fileout=fileout,
+                                         file_influence_functions=file_influence_functions,
+                                         file_orthonormal_functions=file_orthonormal_functions,
+                                         calculate=False)
 
     print("Coefficients of the orthonormal basis: ")
     v_labels = []

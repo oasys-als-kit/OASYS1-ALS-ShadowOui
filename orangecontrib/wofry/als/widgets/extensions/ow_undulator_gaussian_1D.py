@@ -24,9 +24,9 @@ from orangecontrib.xoppy.util.python_script import PythonScript  # TODO: change 
 
 class OWGaussianUndulator1D(WofryWidget):
 
-    name = "Wofry Undulator Gaussian 1D"
+    name = "Undulator Gaussian 1D"
     id = "UndulatorGaussian1D"
-    description = "Undulator Gaussian 1D"
+    description = "ALS Undulator Gaussian 1D"
     icon = "icons/ugaussian.png"
     priority = 1
 

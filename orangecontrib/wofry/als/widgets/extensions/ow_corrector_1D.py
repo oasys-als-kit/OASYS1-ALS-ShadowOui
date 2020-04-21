@@ -20,9 +20,9 @@ from wofry.propagator.wavefront1D.generic_wavefront import GenericWavefront1D
 
 class OWCorrector1D(WofryWidget):
 
-    name = "Wofry Corrector (reflector) 1D"
+    name = "Corrector (reflector) 1D"
     id = "WofryCorrectorByReflection1D"
-    description = "Wofry Corrector (reflector) 1D"
+    description = "ALS Corrector (reflector) 1D"
     icon = "icons/eyeglasses.png"
     priority = 5
 
@@ -53,6 +53,7 @@ class OWCorrector1D(WofryWidget):
     apodization_ratio = Setting(0.1)
     apply_correction_to_wavefront = Setting(0)
     write_correction_profile = Setting(0)
+    file_correction_profile = Setting("correction_profile1D.dat")
     write_input_wavefront = Setting(0)
 
 
@@ -128,7 +129,19 @@ class OWCorrector1D(WofryWidget):
                      sendSelectedValue=False, orientation="horizontal")
 
         gui.comboBox(self.box_corrector_1, self, "write_correction_profile", label="Correction profile to file", labelWidth=350,
-                     items=["No","Yes [correction_profile1D.dat]"], sendSelectedValue=False, orientation="horizontal")
+                     items=["No","Yes"], sendSelectedValue=False, orientation="horizontal",
+                     callback=self.set_visible)
+
+
+        #
+        self.box_file_out = oasysgui.widgetBox(self.box_corrector_1, "", addSpace=False, orientation="vertical")
+        oasysgui.lineEdit(self.box_file_out, self, "file_correction_profile", "Correction profile file",
+                            labelWidth=200, valueType=str, orientation="horizontal")
+        # self.show_at("self.write_correction_profile == 1", self.box_file_out)
+
+        #
+
+
 
         gui.comboBox(self.box_corrector_1, self, "write_input_wavefront", label="Input wf to file (for script)", labelWidth=350,
                      items=["No","Yes [wavefront_input.h5]"], sendSelectedValue=False, orientation="horizontal")
@@ -150,6 +163,7 @@ class OWCorrector1D(WofryWidget):
             else:
                 self.apodization_ratio_id.setVisible(False)
 
+        self.box_file_out.setVisible(self.write_correction_profile == 1)
 
     def initializeTabs(self):
         size = len(self.tab)
@@ -199,6 +213,11 @@ class OWCorrector1D(WofryWidget):
 
         input_wavefront = self.input_data.get_wavefront()
 
+        if self.write_correction_profile == 0:
+            file_correction_profile = ""
+        else:
+            file_correction_profile = self.file_correction_profile
+
         if self.correction_method == 0: # no correction
             output_wavefront = input_wavefront.duplicate()
             target_wavefront = input_wavefront.duplicate()
@@ -211,7 +230,7 @@ class OWCorrector1D(WofryWidget):
                     focus_at=self.focus_at,
                     apodization=self.apodization,
                     apodization_ratio=self.apodization_ratio,
-                    write_correction_profile=self.write_correction_profile)
+                    file_correction_profile=file_correction_profile)
 
 
         self.do_plot_wavefront(output_wavefront, target_wavefront, abscissas_on_mirror, height)
@@ -228,17 +247,19 @@ class OWCorrector1D(WofryWidget):
                            "focus_at":self.focus_at,
                            "apodization": self.apodization,
                            "apodization_ratio":self.apodization_ratio,
-                           "write_correction_profile":self.write_correction_profile}
-
-        print("\nInputs:")
-        for key in dict_parameters.keys():
-            print("%s = %f"%(key,dict_parameters[key]))
+                           "file_correction_profile":file_correction_profile}
 
         script_template = self.script_template_output_wavefront_after_correction1D()
         self.wofry_script.set_code(script_template.format_map(dict_parameters))
 
 
         # send data
+        dabam_profile = numpy.zeros((height.size, 2))
+        dabam_profile[:, 0] = abscissas_on_mirror
+        dabam_profile[:, 1] = height
+        self.send("DABAM 1D Profile", dabam_profile)
+
+
         beamline = self.input_data.get_beamline().duplicate() # TODO add element here
         if self.apply_correction_to_wavefront == 0:
             self.send("WofryData", WofryData(beamline=beamline, wavefront=input_wavefront.duplicate()))
@@ -247,17 +268,14 @@ class OWCorrector1D(WofryWidget):
         self.send("Trigger", TriggerIn(new_object=True))
 
 
-        dabam_profile = numpy.zeros((height.size, 2))
-        dabam_profile[:, 0] = abscissas_on_mirror
-        dabam_profile[:, 1] = height
-        self.send("DABAM 1D Profile", dabam_profile)
+
 
 
 
 
     @classmethod
     def calculate_output_wavefront_after_corrector1D(cls, input_wavefront,grazing_angle=1.5e-3, focus_at=10.0,
-                                                     apodization=0, apodization_ratio=0.1, write_correction_profile=0):
+                                                     apodization=0, apodization_ratio=0.1, file_correction_profile=""):
 
         output_wavefront = input_wavefront.duplicate()
         target_wavefront = input_wavefront.duplicate()
@@ -291,12 +309,12 @@ class OWCorrector1D(WofryWidget):
         output_wavefront.add_phase_shift(phi)
 
         # output files
-        if write_correction_profile:
-            f = open("correction_profile1D.dat","w")
+        if file_correction_profile != "":
+            f = open(file_correction_profile,"w")
             for i in range(height.size):
                 f.write("%g %g\n"%(abscissas_on_mirror[i],height[i]))
             f.close()
-            print("File correction_profile1D.dat written to disk.")
+            print("File written to disk: %s " % file_correction_profile)
 
         return output_wavefront, target_wavefront, abscissas_on_mirror, height
 
@@ -306,7 +324,7 @@ class OWCorrector1D(WofryWidget):
 """
 
 
-def calculate_output_wavefront_after_corrector1D(input_wavefront,grazing_angle=1.5e-3, focus_at=10.0, apodization=0, apodization_ratio=0.1, write_correction_profile=0):
+def calculate_output_wavefront_after_corrector1D(input_wavefront,grazing_angle=1.5e-3, focus_at=10.0, apodization=0, apodization_ratio=0.1, file_correction_profile=""):
     import numpy
     from scipy import interpolate
     output_wavefront = input_wavefront.duplicate()
@@ -341,12 +359,12 @@ def calculate_output_wavefront_after_corrector1D(input_wavefront,grazing_angle=1
     output_wavefront.add_phase_shift(phi)
 
     # output files
-    if write_correction_profile:
-        f = open("correction_profile1D.dat","w")
+    if file_correction_profile != "":
+        f = open(file_correction_profile,"w")
         for i in range(height.size):
             f.write("%g %g\\n"%(abscissas_on_mirror[i],height[i]))
         f.close()
-        print("File correction_profile1D.dat written to disk.")
+        print("File written to disk: %s" % file_correction_profile)
             
     return output_wavefront, target_wavefront, abscissas_on_mirror, height
 
@@ -355,7 +373,7 @@ def calculate_output_wavefront_after_corrector1D(input_wavefront,grazing_angle=1
 #
 from wofry.propagator.wavefront1D.generic_wavefront import GenericWavefront1D
 input_wavefront = GenericWavefront1D.load_h5_file("wavefront_input.h5","wfr")
-output_wavefront, target_wavefront, abscissas_on_mirror, height = calculate_output_wavefront_after_corrector1D(input_wavefront,grazing_angle={grazing_angle}, focus_at={focus_at}, apodization={apodization}, apodization_ratio={apodization_ratio}, write_correction_profile={write_correction_profile})
+output_wavefront, target_wavefront, abscissas_on_mirror, height = calculate_output_wavefront_after_corrector1D(input_wavefront,grazing_angle={grazing_angle}, focus_at={focus_at}, apodization={apodization}, apodization_ratio={apodization_ratio}, file_correction_profile="{file_correction_profile}")
 
 from srxraylib.plot.gol import plot
 plot(output_wavefront.get_abscissas(),output_wavefront.get_intensity())

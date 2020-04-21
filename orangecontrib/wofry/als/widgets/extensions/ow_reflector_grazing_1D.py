@@ -41,9 +41,9 @@ def goFromToSequential(field1, x1, y1, x2, y2, wavelength=1e-10, normalize_inten
 
 class OWReflectorGrazing1D(WofryWidget):
 
-    name = "Wofry Grazing Reflector 1D"
+    name = "Grazing Reflector 1D"
     id = "WofryReflectorGrazing1D"
-    description = "Wofry Grazing Reflector 1D"
+    description = "ALS Grazing Reflector 1D"
     icon = "icons/reflector_grazing1D.png"
     priority = 4
 

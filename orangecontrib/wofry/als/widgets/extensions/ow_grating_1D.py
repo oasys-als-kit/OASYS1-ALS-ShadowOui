@@ -39,9 +39,9 @@ def goFromToSequential(field1, x1, y1, x2, y2, wavelength=1e-10, normalize_inten
 
 class OWGrating1D(WofryWidget):
 
-    name = "Wofry Grating 1D"
+    name = "Grating 1D"
     id = "WofryGrating1D"
-    description = "Wofry Grating 1D"
+    description = "ALS Grating 1D"
     icon = "icons/grating1D.png"
     priority = 4
 

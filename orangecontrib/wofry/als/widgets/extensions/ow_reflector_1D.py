@@ -24,9 +24,9 @@ from wofry.propagator.wavefront1D.generic_wavefront import GenericWavefront1D
 
 class OWReflector1D(WofryWidget):
 
-    name = "Wofry Reflector 1D"
+    name = "Ideal Reflector 1D"
     id = "WofryReflector1D"
-    description = "Wofry Reflector 1D"
+    description = "ALS Ideal Reflector 1D"
     icon = "icons/reflector1D.png"
     priority = 3
 
@@ -54,7 +54,8 @@ class OWReflector1D(WofryWidget):
     error_flag = Setting(0)
     error_file = Setting("<none>")
     error_edge_management = Setting(0)
-    write_profile = Setting(0)
+    write_profile_flag = Setting(0)
+    write_profile = Setting("profile1D.dat")
     write_input_wavefront = Setting(0)
 
 
@@ -132,8 +133,16 @@ class OWReflector1D(WofryWidget):
                      callback=self.set_visible,
                      sendSelectedValue=False, orientation="horizontal")
 
-        gui.comboBox(box_reflector, self, "write_profile", label="Dump profile to file",
-                     items=["No","Yes [reflector_profile1D.dat]"], sendSelectedValue=False, orientation="horizontal")
+        gui.comboBox(box_reflector, self, "write_profile_flag", label="Dump profile to file",
+                     items=["No","Yes"], sendSelectedValue=False, orientation="horizontal",
+                     callback=self.set_visible)
+
+        #
+        self.box_file_out = gui.widgetBox(box_reflector, "", addSpace=False, orientation="vertical")
+        oasysgui.lineEdit(self.box_file_out, self, "write_profile", "File name",
+                            labelWidth=200, valueType=str, orientation="horizontal")
+
+
 
         gui.comboBox(box_reflector, self, "write_input_wavefront", label="Input wf to file (for script)",
                      items=["No","Yes [wavefront_input.h5]"], sendSelectedValue=False, orientation="horizontal")
@@ -145,6 +154,7 @@ class OWReflector1D(WofryWidget):
     def set_visible(self):
         self.error_profile.setVisible(self.error_flag)
         self.box_radius_id.setVisible(self.shape)
+        self.box_file_out.setVisible(self.write_profile_flag == 1)
 
     def set_error_file(self):
         self.error_file_id.setText(oasysgui.selectFileFromDialog(self, self.error_file, "Open file with profile error"))
@@ -176,6 +186,7 @@ class OWReflector1D(WofryWidget):
         raise Exception(NotImplementedError)
 
     def set_input(self, wofry_data):
+
         if not wofry_data is None:
             if isinstance(wofry_data, WofryData):
                 self.input_data = wofry_data
@@ -184,6 +195,9 @@ class OWReflector1D(WofryWidget):
 
             if self.is_automatic_execution:
                 self.propagate_wavefront()
+        else:
+            self.input_data = None
+
 
 
     def receive_dabam_profile(self, dabam_profile):
@@ -202,6 +216,9 @@ class OWReflector1D(WofryWidget):
                 self.error_flag = 1
                 self.error_file = file_name
                 self.set_visible()
+
+                # if self.is_automatic_execution:
+                #     self.propagate_wavefront()
 
             except Exception as exception:
                 QMessageBox.critical(self, "Error", exception.args[0], QMessageBox.Ok)
@@ -223,6 +240,10 @@ class OWReflector1D(WofryWidget):
         else:
             error_file = self.error_file
 
+        if self.write_profile_flag == 0:
+            write_profile = ""
+        else:
+            write_profile = self.write_profile
         output_wavefront, abscissas_on_mirror, height = self.calculate_output_wavefront_after_reflector1D(self.input_data.get_wavefront(),
                                                                        shape=self.shape,
                                                                        radius=self.radius,
@@ -230,7 +251,7 @@ class OWReflector1D(WofryWidget):
                                                                        error_flag=self.error_flag,
                                                                        error_file=error_file,
                                                                        error_edge_management=self.error_edge_management,
-                                                                       write_profile=self.write_profile)
+                                                                       write_profile=write_profile)
 
         if self.write_input_wavefront:
             self.input_data.get_wavefront().save_h5_file("wavefront_input.h5",subgroupname="wfr",intensity=True,phase=True,overwrite=True,verbose=True)
@@ -242,7 +263,7 @@ class OWReflector1D(WofryWidget):
                            "error_flag":self.error_flag,
                            "error_file":error_file,
                            "error_edge_management": self.error_edge_management,
-                           "write_profile":self.write_profile}
+                           "write_profile":write_profile}
 
         script_template = self.script_template_output_wavefront_from_radius()
         self.wofry_script.set_code(script_template.format_map(dict_parameters))
@@ -257,7 +278,7 @@ class OWReflector1D(WofryWidget):
 
     @classmethod
     def calculate_output_wavefront_after_reflector1D(cls,input_wavefront,shape=1,radius=10000.0,grazing_angle=1.5e-3,
-                                               error_flag=0, error_file="", error_edge_management=0, write_profile=0):
+                                               error_flag=0, error_file="", error_edge_management=0, write_profile=""):
 
         output_wavefront = input_wavefront.duplicate()
         abscissas = output_wavefront.get_abscissas()
@@ -307,12 +328,12 @@ class OWReflector1D(WofryWidget):
                     print("\nWavefront clipped to projected limits of profile deformation")
 
         # output files
-        if write_profile:
-            f = open("reflector_profile1D.dat","w")
+        if write_profile != "":
+            f = open(write_profile,"w")
             for i in range(height.size):
                 f.write("%g %g\n"%(abscissas_on_mirror[i],height[i]))
             f.close()
-            print("File reflector_profile1D.dat written to disk.")
+            print("File %s written to disk." % write_profile)
 
 
         return output_wavefront, abscissas_on_mirror, height
@@ -322,7 +343,7 @@ class OWReflector1D(WofryWidget):
         return \
 """
 
-def calculate_output_wavefront_after_reflector1D(input_wavefront,shape=1,radius=10000.0,grazing_angle=1.5e-3,error_flag=0, error_file="", error_edge_management=0, write_profile=0):
+def calculate_output_wavefront_after_reflector1D(input_wavefront,shape=1,radius=10000.0,grazing_angle=1.5e-3,error_flag=0, error_file="", error_edge_management=0, write_profile=""):
     import numpy
     from scipy import interpolate
     
@@ -375,12 +396,12 @@ def calculate_output_wavefront_after_reflector1D(input_wavefront,shape=1,radius=
 
 
     # output files
-    if write_profile:
-        f = open("reflector_profile1D.dat","w")
+    if write_profile != "":
+        f = open(write_profile,"w")
         for i in range(height.size):
             f.write("%g %g\\n"%(abscissas_on_mirror[i],height[i]))
         f.close()
-        print("File reflector_profile1D.dat written to disk.")
+        print("File %s written to disk." % write_profile)
 
 
     return output_wavefront, abscissas_on_mirror, height

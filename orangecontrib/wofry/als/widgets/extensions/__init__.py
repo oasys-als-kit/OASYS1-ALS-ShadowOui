@@ -3,10 +3,10 @@
 
 NAME = "Extensions"
 
-DESCRIPTION = "Widgets with ALS Extensions for Wofry."
+DESCRIPTION = "Wofry ALS Extension"
 
-BACKGROUND = "#fffeb3"
+BACKGROUND = "#E6E6E6"
 
-ICON = "icons/extensions.png"
+ICON = "icons/lbl.png"
 
 PRIORITY = 15
