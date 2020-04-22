@@ -24,7 +24,11 @@ from PyQt5.QtGui import QFont, QPalette, QColor
 from PyQt5.QtWidgets import QMessageBox
 from orangewidget.settings import Setting
 
-from oasys.util.oasys_util import TriggerIn, TriggerOut
+from oasys.util.oasys_util import TriggerIn, TriggerOut, EmittingStream
+
+
+from oasys.util.oasys_util import get_fwhm
+
 
 
 class OWstepper1D(WofryWidget):
@@ -78,10 +82,12 @@ class OWstepper1D(WofryWidget):
     accumulated_data = None
     keep_result = Setting(0)
     phase_unwrap = Setting(0)
-    titles = ["Wavefront 1D Intensity", "Wavefront 1D Phase","Wavefront Real(Amplitude)","Wavefront Imag(Amplitude)"]
+    titles = ["Wavefront 1D Intensity", "Wavefront 1D Phase",
+              "Wavefront Real(Amplitude)","Wavefront Imag(Amplitude)",
+              "Scanned peak", "Scanned FWHM"]
 
     def __init__(self):
-        super().__init__(is_automatic=False, show_view_options=False)
+        super().__init__(is_automatic=False, show_view_options=True)  #<<<<<<<<<<<<<<<<<<<
 
 
         #
@@ -284,6 +290,13 @@ class OWstepper1D(WofryWidget):
             self.tab.append(gui.createTabPage(self.tabs, self.titles[3]))
             self.plot_canvas.append(None)
 
+        # scanned peak
+        self.tab.append(gui.createTabPage(self.tabs, self.titles[4]))
+        self.plot_canvas.append(None)
+        # scanned FWHM
+        self.tab.append(gui.createTabPage(self.tabs, self.titles[5]))
+        self.plot_canvas.append(None)
+
         for tab in self.tab:
             tab.setFixedHeight(self.IMAGE_HEIGHT)
             tab.setFixedWidth(self.IMAGE_WIDTH)
@@ -300,7 +313,15 @@ class OWstepper1D(WofryWidget):
                 self.accumulated_data = {}
                 self.accumulated_data["counter"] = 1
                 self.accumulated_data["intensity"] = self.wofry_data.get_wavefront().get_intensity()
-                self.accumulated_data["intensities"] = [self.wofry_data.get_wavefront().get_intensity()]
+
+                intensities = []
+                intensities.append( self.wofry_data.get_wavefront().get_intensity() )
+                self.accumulated_data["intensities"] = intensities
+
+                current_variable_values = []
+                current_variable_values.append(self.current_variable_value)
+                self.accumulated_data["current_variable_values"] = current_variable_values
+
                 self.accumulated_data["complex_amplitude"] = self.wofry_data.get_wavefront().get_complex_amplitude()
 
                 self.accumulated_data["x"] = self.wofry_data.get_wavefront().get_abscissas()
@@ -308,10 +329,15 @@ class OWstepper1D(WofryWidget):
             else:
                 self.accumulated_data["counter"] += 1
                 self.accumulated_data["intensity"] += self.wofry_data.get_wavefront().get_intensity()
-                try:
-                    self.accumulated_data["intensities"] = (self.accumulated_data["intensities"]).append(self.wofry_data.get_wavefront().get_intensity())
-                except:
-                    print(">>>>>>> problems accumulating intensities...")
+
+                intensities = self.accumulated_data["intensities"]
+                intensities.append( self.wofry_data.get_wavefront().get_intensity() )
+                self.accumulated_data["intensities"] = intensities
+
+                current_variable_values = self.accumulated_data["current_variable_values"]
+                current_variable_values.append(self.current_variable_value)
+                self.accumulated_data["current_variable_values"] = current_variable_values
+
                 self.accumulated_data["complex_amplitude"] += self.wofry_data.get_wavefront().get_complex_amplitude()
 
 
@@ -321,16 +347,19 @@ class OWstepper1D(WofryWidget):
 
     def refresh(self):
         self.progressBarInit()
-
+        self.wofry_output.setText("")
+        sys.stdout = EmittingStream(textWritten=self.writeStdOut)
         try:
             if self.wofry_data is not None:
-                current_index = self.tabs.currentIndex()
-                self.initializeTabs()
-                self.plot_results()
-                self.tabs.setCurrentIndex(current_index)
+                if self.view_type != 0:
+                    current_index = self.tabs.currentIndex()
+                    self.initializeTabs()
+                    self.plot_results()
+                    self.tabs.setCurrentIndex(current_index)
         except Exception as exception:
             QMessageBox.critical(self, "Error", str(exception), QMessageBox.Ok)
 
+        self.progressBarFinished()
 
     def do_plot_results(self, progressBarValue):
         if self.accumulated_data is None:
@@ -341,59 +370,133 @@ class OWstepper1D(WofryWidget):
 
 
             if self.keep_result < 2:
+                print(">>>> plotiing intensity")
                 self.plot_data1D(x=1e6*self.accumulated_data["x"],
                                  y=self.accumulated_data["intensity"],
-                                 progressBarValue=progressBarValue + 10,
+                                 progressBarValue=progressBarValue + 5,
                                  tabs_canvas_index=0,
                                  plot_canvas_index=0,
                                  title=self.titles[0],
+                                 calculate_fwhm=True,
                                  xtitle="Spatial Coordinate [$\mu$m]",
                                  ytitle="Intensity")
             elif self.keep_result == 2:
+                print(">>>> plotiing intensity from accumulated fields")
                 self.plot_data1D(x=1e6*self.accumulated_data["x"],
                                  y=numpy.abs(self.accumulated_data["complex_amplitude"])**2,
-                                 progressBarValue=progressBarValue + 10,
+                                 progressBarValue=progressBarValue + 5,
                                  tabs_canvas_index=0,
                                  plot_canvas_index=0,
                                  title=self.titles[0],
+                                 calculate_fwhm=True,
                                  xtitle="Spatial Coordinate [$\mu$m]",
                                  ytitle="Intensity")
             else:
                 raise ValueError("Non recognised flag: keep_results")
 
             if ((self.keep_result == 0) or (self.keep_result == 2)):
+                print(">>>> plotiing phase")
                 phase = numpy.angle(self.accumulated_data['complex_amplitude'])
                 if self.phase_unwrap:
                     phase = numpy.unwrap(phase)
                 self.plot_data1D(x=1e6*self.accumulated_data['x'],
                                  y=phase,
-                                 progressBarValue=progressBarValue + 10,
+                                 progressBarValue=progressBarValue + 5,
                                  tabs_canvas_index=1,
                                  plot_canvas_index=1,
                                  title=self.titles[1],
+                                 calculate_fwhm=False,
                                  xtitle="Spatial Coordinate [$\mu$m]",
                                  ytitle="Phase (rad)")
 
+                print(">>>> plotiing real")
                 self.plot_data1D(x=1e6*self.accumulated_data['x'],
                                  y=numpy.real(self.accumulated_data['complex_amplitude']),
-                                 progressBarValue=progressBarValue + 10,
+                                 progressBarValue=progressBarValue + 5,
                                  tabs_canvas_index=2,
                                  plot_canvas_index=2,
                                  title=self.titles[2],
+                                 calculate_fwhm=False,
                                  xtitle="Spatial Coordinate [$\mu$m]",
                                  ytitle="Real(Amplitude)")
 
+                print(">>>> plotiing imag")
                 self.plot_data1D(x=1e6*self.accumulated_data['x'],
                                  y=numpy.imag(self.accumulated_data['complex_amplitude']),
-                                 progressBarValue=progressBarValue + 10,
+                                 progressBarValue=progressBarValue + 5,
                                  tabs_canvas_index=3,
                                  plot_canvas_index=3,
                                  title=self.titles[3],
+                                 calculate_fwhm=False,
                                  xtitle="Spatial Coordinate [$\mu$m]",
                                  ytitle="Imag(Amplitude)")
+            #
+            #
+            # scan plots
+
+            try:
+                nruns = len(self.accumulated_data['intensities'])
+                print(">>>>> nruns: ", nruns)
+
+                # try:
+                #     x = numpy.array(self.accumulated_data["current_variable_values"]) # numpy.arange(nruns)
+                # except:
+                if nruns == 1:
+                    x = numpy.arange(nruns)
+                else:
+                    x = numpy.array(self.accumulated_data["current_variable_values"])
+
+                peak = numpy.zeros(nruns)
+                fwhm = numpy.zeros(nruns)
+                for i in range(nruns):
+                    peak[i] = numpy.max(self.accumulated_data['intensities'][i])
+                    print(">>>> i peak ", i, peak[i])
+                    print(self.accumulated_data['x'].shape, (self.accumulated_data['intensities'][i]).shape)
+                    from srxraylib.plot.gol import plot
+                    # plot(self.accumulated_data['x'] , self.accumulated_data['intensities'][i])
+                    try:
+                        fwhm[i], tmp, tmp = get_fwhm(self.accumulated_data['intensities'][i], self.accumulated_data['x'] )
+                        print("fwhm: ", i, fwhm[i])
+                    except:
+                        fwhm[i] = 0.0
+                        print("bad fwhm: ",i,fwhm[i])
+            except:
+                x = numpy.array([-2,-1])
+                peak = numpy.array([-1, -1])
+                fwhm = numpy.array([-1, -1])
+
+            print(">>> plotting peak")
+            self.plot_data1D(x=x,
+                             y=peak,
+                             progressBarValue=progressBarValue + 5,
+                             tabs_canvas_index=4,
+                             plot_canvas_index=4,
+                             calculate_fwhm=False,
+                             title="%s nruns: %s" % (self.titles[4] , self.accumulated_data["counter"]),
+                             xtitle="%s [%s]" % (self.variable_display_name, self.variable_um),
+                             ytitle="Peak Intensity")
+            print(">>> plotting fwhm")
+            self.plot_data1D(x=x,
+                             y=1e6*fwhm,
+                             progressBarValue=progressBarValue + 5,
+                             tabs_canvas_index=5,
+                             plot_canvas_index=5,
+                             calculate_fwhm=False,
+                             title="%s nruns: %s" % (self.titles[5] , len(self.accumulated_data["intensities"])),
+                             xtitle="%s [%s]" % (self.variable_display_name, self.variable_um),
+                             ytitle="FWHM [um]")
+
+            print(">>>>> current value: ",self.current_variable_value)
+            print(">>>>> current valueSS: ", self.accumulated_data["current_variable_values"])
+            print(">>>>> list of values: ",self.list_of_values)
+            print(">>>>> current new object: ",self.current_new_object)
+            print(">>>>> self.variable_name = ", self.variable_name)
+            print(">>>>> self.variable_display_name = ",self.variable_display_name)
+            print(">>>>> self.current_variable_value = ",self.current_variable_value)
+            print(">>>>> self.variable_um = ",self.variable_um)
 
 
-            self.progressBarFinished()
+
 
     def reset_accumumation(self):
 
