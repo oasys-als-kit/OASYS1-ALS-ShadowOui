@@ -80,10 +80,10 @@ class OWstepper1D(WofryWidget):
     #
     wofry_data = None
     accumulated_data = None
-    keep_result = Setting(0)
-    phase_unwrap = Setting(0)
-    titles = ["Wavefront 1D Intensity", "Wavefront 1D Phase",
-              "Wavefront Real(Amplitude)","Wavefront Imag(Amplitude)",
+    # keep_result = Setting(0)
+    # phase_unwrap = Setting(0)
+    titles = ["Wavefront 1D Intensity (current/last run)",
+              # "Wavefront 1D Phase", "Wavefront Real(Amplitude)","Wavefront Imag(Amplitude)",
               "Scanned peak", "Scanned FWHM"]
 
     def __init__(self):
@@ -162,7 +162,7 @@ class OWstepper1D(WofryWidget):
         self.re_start_button.setFixedHeight(35)
         self.re_start_button.setEnabled(False)
 
-        left_box_1 = oasysgui.widgetBox(self.tab_trig, "Loop Management", addSpace=True, orientation="vertical", width=385, height=320)
+        left_box_1 = oasysgui.widgetBox(self.tab_trig, "Loop Management", addSpace=True, orientation="vertical", width=385, height=450) # 320
 
         oasysgui.lineEdit(left_box_1, self, "variable_name", "Variable Name", labelWidth=100, valueType=str, orientation="horizontal")
         oasysgui.lineEdit(left_box_1, self, "variable_display_name", "Variable Display Name", labelWidth=100, valueType=str, orientation="horizontal")
@@ -233,11 +233,8 @@ class OWstepper1D(WofryWidget):
         #=====================================================================================
         # Wavefront
         #=====================================================================================
-
-        self.tab_sou = oasysgui.createTabPage(tabs_setting, "Wavefront Viewer Settings")
-
-
-        button_box = oasysgui.widgetBox(self.tab_sou, "", addSpace=False, orientation="horizontal")
+        button_box = oasysgui.widgetBox(self.tab_trig, "Plots", addSpace=True, orientation="horizontal") #, width=385, height=120)
+        gui.separator(button_box)
         button = gui.button(button_box, self, "Refresh", callback=self.refresh)
         font = QFont(button.font())
         font.setBold(True)
@@ -247,23 +244,38 @@ class OWstepper1D(WofryWidget):
         button.setPalette(palette) # assign new palette
         button.setFixedHeight(45)
 
+        gui.separator(button_box)
 
-        incremental_box = oasysgui.widgetBox(self.tab_sou, "Incremental Result", addSpace=True, orientation="horizontal", height=80)
+        button = gui.button(button_box, self, "Clear", callback=self.reset_accumumation)
+        font = QFont(button.font())
+        font.setBold(True)
+        button.setFont(font)
+        palette = QPalette(button.palette()) # make a copy of the palette
+        palette.setColor(QPalette.ButtonText, QColor('Dark Blue'))
+        button.setPalette(palette) # assign new palette
+        button.setFixedHeight(45)
 
-        gui.comboBox(incremental_box, self, "keep_result",
-                    label="Keep results", addSpace=False,
-                    items=['No','Accumulate intensity','Accumulate electric field'],
-                    valueType=int, orientation="horizontal", callback=self.refresh)
-        # gui.checkBox(incremental_box, self, "keep_result", "Keep Result")
-        gui.button(incremental_box, self, "Clear", callback=self.reset_accumumation)
 
-        amplitude_and_phase_box = oasysgui.widgetBox(self.tab_sou, "Amplitude and phase settings",
-                                                     addSpace=True, orientation="horizontal", height=80)
 
-        gui.comboBox(amplitude_and_phase_box, self, "phase_unwrap",
-                    label="Phase unwrap ", addSpace=False,
-                    items=['No','Yes'],
-                    valueType=int, orientation="horizontal", callback=self.refresh)
+
+
+
+        # incremental_box = oasysgui.widgetBox(self.tab_trig, "Incremental Result", addSpace=True, orientation="horizontal", height=80)
+
+        # gui.comboBox(incremental_box, self, "keep_result",
+        #             label="Keep results", addSpace=False,
+        #             items=['No','Accumulate intensity','Accumulate electric field'],
+        #             valueType=int, orientation="horizontal", callback=self.refresh)
+        # # gui.checkBox(incremental_box, self, "keep_result", "Keep Result")
+
+        #
+        # amplitude_and_phase_box = oasysgui.widgetBox(self.tab_sou, "Amplitude and phase settings",
+        #                                              addSpace=True, orientation="horizontal", height=80)
+        #
+        # gui.comboBox(amplitude_and_phase_box, self, "phase_unwrap",
+        #             label="Phase unwrap ", addSpace=False,
+        #             items=['No','Yes'],
+        #             valueType=int, orientation="horizontal", callback=self.refresh)
 
     def initializeTabs(self):
         size = len(self.tab)
@@ -279,22 +291,22 @@ class OWstepper1D(WofryWidget):
         # intensity
         self.tab.append(gui.createTabPage(self.tabs, self.titles[0]))
         self.plot_canvas.append(None)
-        # phase
-        if self.keep_result != 1:
-            self.tab.append(gui.createTabPage(self.tabs, self.titles[1]))
-            self.plot_canvas.append(None)
-            # real
-            self.tab.append(gui.createTabPage(self.tabs, self.titles[2]))
-            self.plot_canvas.append(None)
-            # imag
-            self.tab.append(gui.createTabPage(self.tabs, self.titles[3]))
-            self.plot_canvas.append(None)
+        # # phase
+        # if self.keep_result != 1:
+        #     self.tab.append(gui.createTabPage(self.tabs, self.titles[1]))
+        #     self.plot_canvas.append(None)
+        #     # real
+        #     self.tab.append(gui.createTabPage(self.tabs, self.titles[2]))
+        #     self.plot_canvas.append(None)
+        #     # imag
+        #     self.tab.append(gui.createTabPage(self.tabs, self.titles[3]))
+        #     self.plot_canvas.append(None)
 
         # scanned peak
-        self.tab.append(gui.createTabPage(self.tabs, self.titles[4]))
+        self.tab.append(gui.createTabPage(self.tabs, self.titles[1]))
         self.plot_canvas.append(None)
         # scanned FWHM
-        self.tab.append(gui.createTabPage(self.tabs, self.titles[5]))
+        self.tab.append(gui.createTabPage(self.tabs, self.titles[2]))
         self.plot_canvas.append(None)
 
         for tab in self.tab:
@@ -306,8 +318,8 @@ class OWstepper1D(WofryWidget):
         if not wofry_data is None:
             self.wofry_data = wofry_data
 
-            if self.keep_result ==0:
-                self.accumulated_data = None
+            # if self.keep_result ==0:
+            #     self.accumulated_data = None
 
             if self.accumulated_data is None:
                 self.accumulated_data = {}
@@ -328,7 +340,7 @@ class OWstepper1D(WofryWidget):
 
             else:
                 self.accumulated_data["counter"] += 1
-                self.accumulated_data["intensity"] += self.wofry_data.get_wavefront().get_intensity()
+                self.accumulated_data["intensity"] = self.wofry_data.get_wavefront().get_intensity()
 
                 intensities = self.accumulated_data["intensities"]
                 intensities.append( self.wofry_data.get_wavefront().get_intensity() )
@@ -351,6 +363,9 @@ class OWstepper1D(WofryWidget):
         sys.stdout = EmittingStream(textWritten=self.writeStdOut)
         try:
             if self.wofry_data is not None:
+                if self.current_variable_value is not None:
+                    print(">>>>> Running %s (%s) = " % (self.variable_name, self.variable_display_name), self.current_variable_value)
+
                 if self.view_type != 0:
                     current_index = self.tabs.currentIndex()
                     self.initializeTabs()
@@ -369,7 +384,7 @@ class OWstepper1D(WofryWidget):
             self.progressBarSet(progressBarValue)
 
 
-            if self.keep_result < 2:
+            if True: #self.keep_result < 2:
                 print(">>>> plotiing intensity")
                 self.plot_data1D(x=1e6*self.accumulated_data["x"],
                                  y=self.accumulated_data["intensity"],
@@ -380,67 +395,11 @@ class OWstepper1D(WofryWidget):
                                  calculate_fwhm=True,
                                  xtitle="Spatial Coordinate [$\mu$m]",
                                  ytitle="Intensity")
-            elif self.keep_result == 2:
-                print(">>>> plotiing intensity from accumulated fields")
-                self.plot_data1D(x=1e6*self.accumulated_data["x"],
-                                 y=numpy.abs(self.accumulated_data["complex_amplitude"])**2,
-                                 progressBarValue=progressBarValue + 5,
-                                 tabs_canvas_index=0,
-                                 plot_canvas_index=0,
-                                 title=self.titles[0],
-                                 calculate_fwhm=True,
-                                 xtitle="Spatial Coordinate [$\mu$m]",
-                                 ytitle="Intensity")
-            else:
-                raise ValueError("Non recognised flag: keep_results")
-
-            if ((self.keep_result == 0) or (self.keep_result == 2)):
-                print(">>>> plotiing phase")
-                phase = numpy.angle(self.accumulated_data['complex_amplitude'])
-                if self.phase_unwrap:
-                    phase = numpy.unwrap(phase)
-                self.plot_data1D(x=1e6*self.accumulated_data['x'],
-                                 y=phase,
-                                 progressBarValue=progressBarValue + 5,
-                                 tabs_canvas_index=1,
-                                 plot_canvas_index=1,
-                                 title=self.titles[1],
-                                 calculate_fwhm=False,
-                                 xtitle="Spatial Coordinate [$\mu$m]",
-                                 ytitle="Phase (rad)")
-
-                print(">>>> plotiing real")
-                self.plot_data1D(x=1e6*self.accumulated_data['x'],
-                                 y=numpy.real(self.accumulated_data['complex_amplitude']),
-                                 progressBarValue=progressBarValue + 5,
-                                 tabs_canvas_index=2,
-                                 plot_canvas_index=2,
-                                 title=self.titles[2],
-                                 calculate_fwhm=False,
-                                 xtitle="Spatial Coordinate [$\mu$m]",
-                                 ytitle="Real(Amplitude)")
-
-                print(">>>> plotiing imag")
-                self.plot_data1D(x=1e6*self.accumulated_data['x'],
-                                 y=numpy.imag(self.accumulated_data['complex_amplitude']),
-                                 progressBarValue=progressBarValue + 5,
-                                 tabs_canvas_index=3,
-                                 plot_canvas_index=3,
-                                 title=self.titles[3],
-                                 calculate_fwhm=False,
-                                 xtitle="Spatial Coordinate [$\mu$m]",
-                                 ytitle="Imag(Amplitude)")
-            #
-            #
-            # scan plots
 
             try:
                 nruns = len(self.accumulated_data['intensities'])
                 print(">>>>> nruns: ", nruns)
 
-                # try:
-                #     x = numpy.array(self.accumulated_data["current_variable_values"]) # numpy.arange(nruns)
-                # except:
                 if nruns == 1:
                     x = numpy.arange(nruns)
                 else:
@@ -469,20 +428,20 @@ class OWstepper1D(WofryWidget):
             self.plot_data1D(x=x,
                              y=peak,
                              progressBarValue=progressBarValue + 5,
-                             tabs_canvas_index=4,
-                             plot_canvas_index=4,
+                             tabs_canvas_index=1,
+                             plot_canvas_index=1,
                              calculate_fwhm=False,
-                             title="%s nruns: %s" % (self.titles[4] , self.accumulated_data["counter"]),
+                             title="%s nruns: %s" % (self.titles[1] , self.accumulated_data["counter"]),
                              xtitle="%s [%s]" % (self.variable_display_name, self.variable_um),
                              ytitle="Peak Intensity")
             print(">>> plotting fwhm")
             self.plot_data1D(x=x,
                              y=1e6*fwhm,
                              progressBarValue=progressBarValue + 5,
-                             tabs_canvas_index=5,
-                             plot_canvas_index=5,
+                             tabs_canvas_index=2,
+                             plot_canvas_index=2,
                              calculate_fwhm=False,
-                             title="%s nruns: %s" % (self.titles[5] , len(self.accumulated_data["intensities"])),
+                             title="%s nruns: %s" % (self.titles[2] , len(self.accumulated_data["intensities"])),
                              xtitle="%s [%s]" % (self.variable_display_name, self.variable_um),
                              ytitle="FWHM [um]")
 
