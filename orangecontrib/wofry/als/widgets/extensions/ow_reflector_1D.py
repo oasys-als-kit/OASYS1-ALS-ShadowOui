@@ -52,6 +52,8 @@ class OWReflector1D(WofryWidget):
     grazing_angle = Setting(1.5e-3)
     shape = Setting(1)
     radius = Setting(1000.0)
+    wavy_ripples = Setting(1.0)
+    wavy_amplitude = Setting(1e-9)
     error_flag = Setting(0)
     error_file = Setting("<none>")
     error_edge_management = Setting(0)
@@ -103,18 +105,30 @@ class OWReflector1D(WofryWidget):
 
         box_reflector = oasysgui.widgetBox(self.tab_sou, "Reflector", addSpace=False, orientation="vertical")
 
-        oasysgui.lineEdit(box_reflector, self, "grazing_angle", "Grazing angle [rad]",
+        tmp = oasysgui.lineEdit(box_reflector, self, "grazing_angle", "Grazing angle [rad]",
                           labelWidth=300, valueType=float, orientation="horizontal")
+        tmp.setToolTip("grazing_angle")
 
 
 
         gui.comboBox(box_reflector, self, "shape", label="Reflector shape", labelWidth=350,
-                     items=["Flat","Curved"], sendSelectedValue=False, orientation="horizontal",callback=self.set_visible)
+                     items=["Flat","Curved","Wavy (cos)","Wavy (sin)"],
+                     sendSelectedValue=False, orientation="horizontal",callback=self.set_visible)
 
 
         self.box_radius_id = oasysgui.widgetBox(box_reflector, "", addSpace=True, orientation="horizontal")
-        oasysgui.lineEdit(self.box_radius_id, self, "radius", "Radius of curvature [m] (R<0 if convex)",
+        tmp = oasysgui.lineEdit(self.box_radius_id, self, "radius", "Radius of curvature [m] (R<0 if convex)",
                           labelWidth=300, valueType=float, orientation="horizontal")
+        tmp.setToolTip("radius")
+
+        self.box_wavy_id = oasysgui.widgetBox(box_reflector, "", addSpace=True, orientation="vertical")
+        tmp = oasysgui.lineEdit(self.box_wavy_id, self, "wavy_ripples", "Number of ripples",
+                          labelWidth=300, valueType=float, orientation="horizontal")
+        tmp.setToolTip("wavy_ripples")
+
+        tmp = oasysgui.lineEdit(self.box_wavy_id, self, "wavy_amplitude", "Amplitude [m]",
+                          labelWidth=300, valueType=float, orientation="horizontal")
+        tmp.setToolTip("wavy_amplitude")
 
 
         gui.comboBox(box_reflector, self, "error_flag", label="Add profile deformation",
@@ -128,6 +142,7 @@ class OWReflector1D(WofryWidget):
         self.error_file_id = oasysgui.lineEdit(file_box_id, self, "error_file", "Error file X[m] Y[m]",
                                                     labelWidth=100, valueType=str, orientation="horizontal")
         gui.button(file_box_id, self, "...", callback=self.set_error_file)
+        self.error_file_id.setToolTip("error_file")
 
         gui.comboBox(self.error_profile, self, "error_edge_management", label="Manage edges",
                      items=["Extrapolate deformation profile","Crop beam to deformation profile dimension"],
@@ -154,7 +169,8 @@ class OWReflector1D(WofryWidget):
 
     def set_visible(self):
         self.error_profile.setVisible(self.error_flag)
-        self.box_radius_id.setVisible(self.shape)
+        self.box_radius_id.setVisible(self.shape == 1)
+        self.box_wavy_id.setVisible(self.shape in [2,3])
         self.box_file_out.setVisible(self.write_profile_flag == 1)
 
     def set_error_file(self):
@@ -181,6 +197,8 @@ class OWReflector1D(WofryWidget):
     def check_fields(self):
         self.grazing_angle = congruence.checkStrictlyPositiveNumber(self.grazing_angle, "Grazing angle")
         self.radius = congruence.checkNumber(self.radius, "Radius")
+        self.wavy_amplitude = congruence.checkNumber(self.wavy_amplitude, "Amplitude")
+        self.wavy_ripples = congruence.checkNumber(self.wavy_ripples, "Number of ripples")
         self.error_file = congruence.checkFileName(self.error_file)
 
     def receive_trigger_signal(self, trigger):
@@ -211,15 +229,6 @@ class OWReflector1D(WofryWidget):
                     setattr(self, variable_name, variable_value)
 
                 self.propagate_wavefront()
-
-        # if trigger is not None:
-        #     print(trigger.has_additional_parameter("radius"))
-        #     print(trigger._TriggerOut__additional_parameters)
-        #     self.radius = 50000.0
-        #     self.propagate_wavefront()
-        #     # self.send("Trigger", TriggerIn(new_object=True))
-        # else:
-        #     raise Exception("Trigger is None")
 
     def receive_syned_data(self):
         raise Exception(NotImplementedError)
@@ -286,12 +295,15 @@ class OWReflector1D(WofryWidget):
         output_wavefront, abscissas_on_mirror, height = self.calculate_output_wavefront_after_reflector1D(self.input_data.get_wavefront(),
                                                                        shape=self.shape,
                                                                        radius=self.radius,
+                                                                       wavy_amplitude=self.wavy_amplitude,
+                                                                       wavy_ripples=self.wavy_ripples,
                                                                        grazing_angle=self.grazing_angle,
                                                                        error_flag=self.error_flag,
                                                                        error_file=error_file,
                                                                        error_edge_management=self.error_edge_management,
                                                                        write_profile=write_profile)
 
+        self.progressBarSet(50)
         if self.write_input_wavefront:
             self.input_data.get_wavefront().save_h5_file("wavefront_input.h5",subgroupname="wfr",intensity=True,phase=True,overwrite=True,verbose=True)
 
@@ -299,6 +311,8 @@ class OWReflector1D(WofryWidget):
         dict_parameters = {"grazing_angle": self.grazing_angle,
                            "shape": self.shape,
                            "radius": self.radius,
+                           "wavy_aplitude": self.wavy_amplitude,
+                           "wavy_ripples": self.wavy_ripples,
                            "error_flag":self.error_flag,
                            "error_file":error_file,
                            "error_edge_management": self.error_edge_management,
@@ -307,17 +321,21 @@ class OWReflector1D(WofryWidget):
         script_template = self.script_template_output_wavefront_from_radius()
         self.wofry_script.set_code(script_template.format_map(dict_parameters))
 
-
-        self.do_plot_wavefront(output_wavefront, abscissas_on_mirror, height)
+        if self.view_type > 0:
+            self.do_plot_wavefront(output_wavefront, abscissas_on_mirror, height)
 
         beamline = self.input_data.get_beamline().duplicate()
         # self.send("GenericWavefront1D", output_wavefront)
+
+        self.progressBarFinished()
+
         self.send("WofryData", WofryData(beamline=beamline, wavefront=output_wavefront))
         self.send("Trigger", TriggerIn(new_object=True))
 
     @classmethod
-    def calculate_output_wavefront_after_reflector1D(cls,input_wavefront,shape=1,radius=10000.0,grazing_angle=1.5e-3,
-                                               error_flag=0, error_file="", error_edge_management=0, write_profile=""):
+    def calculate_output_wavefront_after_reflector1D(cls,input_wavefront,shape=1,radius=10000.0,
+                        wavy_amplitude=1e-9,wavy_ripples=1.0,
+                        grazing_angle=1.5e-3,error_flag=0, error_file="", error_edge_management=0, write_profile=""):
 
         output_wavefront = input_wavefront.duplicate()
         abscissas = output_wavefront.get_abscissas()
@@ -330,6 +348,19 @@ class OWReflector1D(WofryWidget):
                 height = radius - numpy.sqrt(radius ** 2 - abscissas_on_mirror ** 2)
             else:
                 height = radius + numpy.sqrt(radius ** 2 - abscissas_on_mirror ** 2)
+        elif shape > 1:
+            if wavy_ripples == 0.0:
+                height = numpy.zeros_like(abscissas_on_mirror)
+            else:
+                period = (abscissas_on_mirror[-1] - abscissas_on_mirror[0]) / wavy_ripples
+                if shape == 2:
+                    y = numpy.cos(2 * numpy.pi * abscissas_on_mirror / period)
+                elif shape == 3:
+                    y = numpy.sin(2 * numpy.pi * abscissas_on_mirror / period)
+                y -= y.min()
+                y /= y.max()
+                y *= wavy_amplitude
+                height = y
         else:
             raise Exception("Wrong shape")
 
@@ -382,7 +413,7 @@ class OWReflector1D(WofryWidget):
         return \
 """
 
-def calculate_output_wavefront_after_reflector1D(input_wavefront,shape=1,radius=10000.0,grazing_angle=1.5e-3,error_flag=0, error_file="", error_edge_management=0, write_profile=""):
+def calculate_output_wavefront_after_reflector1D(input_wavefront,shape=1,radius=10000.0,wavy_amplitude=1e-9,wavy_ripples=1.0,grazing_angle=1.5e-3,error_flag=0, error_file="", error_edge_management=0, write_profile=""):
     import numpy
     from scipy import interpolate
     
@@ -397,6 +428,19 @@ def calculate_output_wavefront_after_reflector1D(input_wavefront,shape=1,radius=
             height = radius - numpy.sqrt(radius ** 2 - abscissas_on_mirror ** 2)
         else:
             height = radius + numpy.sqrt(radius ** 2 - abscissas_on_mirror ** 2)
+    elif shape > 1:
+        if wavy_ripples == 0.0:
+            height = numpy.zeros_like(abscissas_on_mirror)
+        else:
+            period = (abscissas_on_mirror[-1] - abscissas_on_mirror[0]) / wavy_ripples
+            if shape == 2:
+                y = numpy.cos(2 * numpy.pi * abscissas_on_mirror / period)
+            elif shape == 3:
+                y = numpy.sin(2 * numpy.pi * abscissas_on_mirror / period)
+            y -= y.min()
+            y /= y.max()
+            y *= wavy_amplitude    
+            height = y
     else:
         raise Exception("Wrong shape")
 
@@ -463,9 +507,6 @@ plot(output_wavefront.get_abscissas(),output_wavefront.get_intensity())
     def do_plot_wavefront(self, wavefront1D, abscissas_on_mirror, height, progressBarValue=80):
         if not self.input_data is None:
 
-            self.progressBarSet(progressBarValue)
-
-
             self.plot_data1D(x=1e6*wavefront1D.get_abscissas(),
                              y=wavefront1D.get_intensity(),
                              progressBarValue=progressBarValue,
@@ -518,7 +559,7 @@ plot(output_wavefront.get_abscissas(),output_wavefront.get_intensity())
 
             self.plot_canvas[0].resetZoom()
 
-            self.progressBarFinished()
+
 
 if __name__ == '__main__':
 

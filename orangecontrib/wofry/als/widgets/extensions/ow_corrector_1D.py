@@ -18,6 +18,11 @@ from syned.widget.widget_decorator import WidgetDecorator
 
 from wofry.propagator.wavefront1D.generic_wavefront import GenericWavefront1D
 
+from orangecontrib.wofry.als.util.axo_fit_profile import axo_fit_profile
+import os
+import orangecanvas.resources as resources
+from scipy import interpolate
+
 class OWCorrector1D(WofryWidget):
 
     name = "Corrector (reflector) 1D"
@@ -117,8 +122,9 @@ class OWCorrector1D(WofryWidget):
         oasysgui.lineEdit(self.box_corrector_1, self, "focus_at", "Distance to waist [m]",
                           labelWidth=300, valueType=float, orientation="horizontal")
 
-        gui.comboBox(self.box_corrector_1, self, "apodization", label="Apodize correction profile", labelWidth=350,
-                     items=["No","Yes (with intensity)","Yes (with Gaussian)"],
+        gui.comboBox(self.box_corrector_1, self, "apodization", label="Modify correction profile", labelWidth=350,
+                     items=["No","Apodization with intensity","Apodization with Gaussian",
+                            "JTEC-AXO fit (extrapolated)","JTEC-AXO fit (cropped)"],
                      sendSelectedValue=False, orientation="horizontal",callback=self.set_visible)
         self.apodization_ratio_id = oasysgui.widgetBox(self.box_corrector_1, "", addSpace=False, orientation="horizontal")
         oasysgui.lineEdit(self.apodization_ratio_id, self, "apodization_ratio", "Apodization sigma/window ratio",
@@ -131,7 +137,6 @@ class OWCorrector1D(WofryWidget):
         gui.comboBox(self.box_corrector_1, self, "write_correction_profile", label="Correction profile to file", labelWidth=350,
                      items=["No","Yes"], sendSelectedValue=False, orientation="horizontal",
                      callback=self.set_visible)
-
 
         #
         self.box_file_out = oasysgui.widgetBox(self.box_corrector_1, "", addSpace=False, orientation="vertical")
@@ -232,8 +237,9 @@ class OWCorrector1D(WofryWidget):
                     apodization_ratio=self.apodization_ratio,
                     file_correction_profile=file_correction_profile)
 
-
-        self.do_plot_wavefront(output_wavefront, target_wavefront, abscissas_on_mirror, height)
+        self.progressBarSet(50)
+        if self.view_type > 0:
+            self.do_plot_wavefront(output_wavefront, target_wavefront, abscissas_on_mirror, height)
 
 
 
@@ -252,6 +258,7 @@ class OWCorrector1D(WofryWidget):
         script_template = self.script_template_output_wavefront_after_correction1D()
         self.wofry_script.set_code(script_template.format_map(dict_parameters))
 
+        self.progressBarFinished()
 
         # send data
         dabam_profile = numpy.zeros((height.size, 2))
@@ -303,7 +310,37 @@ class OWCorrector1D(WofryWidget):
             apodization /= apodization.max()
             height *= apodization
             height -= height[0]
+        elif apodization >= 3: # JTEC AXOs
 
+            f = open("tmp_profile.dat","w")
+            for i in range(height.size):
+                f.write("%g %g\n"%(abscissas_on_mirror[i],height[i]))
+            f.close()
+            print("Ideal correction profile written to file: tmp_profile.dat" )
+
+            file_influence = os.path.join(resources.package_dirname("orangecontrib.wofry.als.util"), "data",
+                                                  "aps_axo_influence_functions2019.dat")
+            file_orthonormal = os.path.join(resources.package_dirname("orangecontrib.wofry.als.util"), "data",
+                                                    "aps_axo_orthonormal_functions2019.dat")
+
+            coeffs, abscissas, interpolated, fitted = axo_fit_profile("tmp_profile.dat",
+                                                                      fileout="",
+                                                                      file_influence_functions=file_influence,
+                                                                      file_orthonormal_functions=file_orthonormal,
+                                                                      calculate=False)
+
+            # plot(abscissas_on_mirror, height,
+            #      1e-3 * abscissas, fitted, legend=["Ideal","Fitted"])
+
+            if apodization == 3:
+                f = interpolate.interp1d(1e-3 * abscissas, fitted, fill_value="extrapolate")
+            elif apodization == 4:
+                f = interpolate.interp1d(1e-3 * abscissas, fitted, fill_value=(0,0),bounds_error=False)
+                output_wavefront.clip(1e-3 * abscissas[0] * numpy.sin(grazing_angle), 1e-3 * abscissas[-1] * numpy.sin(grazing_angle))
+
+            height = f(abscissas_on_mirror)
+            # plot(abscissas_on_mirror, height,
+            #      1e-3 * abscissas, fitted, legend=["Extrapolated or Cropped","Fitted"])
         # calculate phase shift from new profile
         phi = -2 * output_wavefront.get_wavenumber() * height * numpy.sin(grazing_angle)
         output_wavefront.add_phase_shift(phi)
@@ -311,8 +348,12 @@ class OWCorrector1D(WofryWidget):
         # output files
         if file_correction_profile != "":
             f = open(file_correction_profile,"w")
-            for i in range(height.size):
-                f.write("%g %g\n"%(abscissas_on_mirror[i],height[i]))
+            if apodization <= 2:
+                for i in range(height.size):
+                    f.write("%g %g\n"%(abscissas_on_mirror[i],height[i]))
+            else:
+                for i in range(fitted.size):
+                    f.write("%g %g\n" % (1e-3 * abscissas[i], fitted[i]))
             f.close()
             print("File written to disk: %s " % file_correction_profile)
 
@@ -353,7 +394,41 @@ def calculate_output_wavefront_after_corrector1D(input_wavefront,grazing_angle=1
         apodization /= apodization.max()
         height *= apodization
         height -= height[0]
+    elif apodization >= 3: # JTEC AXOs
+        from orangecontrib.wofry.als.util.axo_fit_profile import axo_fit_profile
+        import os
+        import orangecanvas.resources as resources
+        from scipy import interpolate
+        
+        f = open("tmp_profile.dat","w")
+        for i in range(height.size):
+            f.write("%g %g\\n"%(abscissas_on_mirror[i],height[i]))
+        f.close()
+        print("Ideal correction profile written to file: tmp_profile.dat" )
 
+        file_influence = os.path.join(resources.package_dirname("orangecontrib.wofry.als.util"), "data",
+                                              "aps_axo_influence_functions2019.dat")
+        file_orthonormal = os.path.join(resources.package_dirname("orangecontrib.wofry.als.util"), "data",
+                                                "aps_axo_orthonormal_functions2019.dat")
+
+        coeffs, abscissas, interpolated, fitted = axo_fit_profile("tmp_profile.dat",
+                                                                  fileout="",
+                                                                  file_influence_functions=file_influence,
+                                                                  file_orthonormal_functions=file_orthonormal,
+                                                                  calculate=False)
+
+        # plot(abscissas_on_mirror, height,
+        #      1e-3 * abscissas, fitted, legend=["Ideal","Fitted"])
+
+        if apodization == 3:
+            f = interpolate.interp1d(1e-3 * abscissas, fitted, fill_value="extrapolate")
+        elif apodization == 4:
+            f = interpolate.interp1d(1e-3 * abscissas, fitted, fill_value=(0,0),bounds_error=False)
+            output_wavefront.clip(1e-3 * abscissas[0] * numpy.sin(grazing_angle), 1e-3 * abscissas[-1] * numpy.sin(grazing_angle))
+
+        height = f(abscissas_on_mirror)
+        # plot(abscissas_on_mirror, height,
+        #      1e-3 * abscissas, fitted, legend=["Extrapolated or Cropped","Fitted"])
     # calculate phase shift from new profile
     phi = -2 * output_wavefront.get_wavenumber() * height * numpy.sin(grazing_angle)
     output_wavefront.add_phase_shift(phi)
@@ -361,13 +436,16 @@ def calculate_output_wavefront_after_corrector1D(input_wavefront,grazing_angle=1
     # output files
     if file_correction_profile != "":
         f = open(file_correction_profile,"w")
-        for i in range(height.size):
-            f.write("%g %g\\n"%(abscissas_on_mirror[i],height[i]))
+        if apodization <= 2:
+            for i in range(height.size):
+                f.write("%g %g\\n"%(abscissas_on_mirror[i],height[i]))
+        else:
+            for i in range(fitted.size):
+                f.write("%g %g\\n" % (1e-3 * abscissas[i], fitted[i]))
         f.close()
-        print("File written to disk: %s" % file_correction_profile)
-            
-    return output_wavefront, target_wavefront, abscissas_on_mirror, height
+        print("File written to disk: %s " % file_correction_profile)
 
+    return output_wavefront, target_wavefront, abscissas_on_mirror, height
 #
 # main
 #
@@ -430,7 +508,7 @@ plot(output_wavefront.get_abscissas(),output_wavefront.get_intensity())
 
             self.plot_canvas[0].resetZoom()
 
-            self.progressBarFinished()
+
 
 if __name__ == '__main__':
 

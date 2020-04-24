@@ -284,10 +284,12 @@ class OWReflectorGrazing1D(WofryWidget):
         script_template = self.script_template_output_wavefront()
         self.wofry_script.set_code(script_template.format_map(dict_parameters))
 
+        if self.view_type > 1:
+            self.do_plot_wavefront(output_wavefront, abscissas_on_mirror, height)
 
-        self.do_plot_wavefront(output_wavefront, abscissas_on_mirror, height)
+        self.progressBarFinished()
 
-        # self.send("GenericWavefront1D", output_wavefront)
+        # send
         beamline = self.input_data.get_beamline().duplicate() # TODO add element here
         self.send("WofryData", WofryData(beamline=beamline, wavefront=output_wavefront))
         self.send("Trigger", TriggerIn(new_object=True))
@@ -578,7 +580,6 @@ plot(output_wavefront.get_abscissas(),output_wavefront.get_intensity())
 
             self.plot_canvas[0].resetZoom()
 
-            self.progressBarFinished()
 
 if __name__ == '__main__':
 

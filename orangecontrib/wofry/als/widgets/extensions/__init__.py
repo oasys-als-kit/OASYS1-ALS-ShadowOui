@@ -7,6 +7,6 @@ DESCRIPTION = "Wofry ALS Extension"
 
 BACKGROUND = "#E6E6E6"
 
-ICON = "icons/lbl.png"
+ICON = "icons/lbl-red.png"
 
 PRIORITY = 15

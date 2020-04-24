@@ -238,74 +238,75 @@ class OWJtecAxo1D(WofryWidget):
 
         self.progressBarSet(80)
 
-        #
-        # plots
-        #
-        print("\n\nPlotting file with input profile: %s" % self.file_profile)
-        try:
-            a = numpy.loadtxt(self.file_profile)
-        except:
-            return
+        if self.view_type > 0:
+            #
+            # plots
+            #
+            print("\n\nPlotting file with input profile: %s" % self.file_profile)
+            try:
+                a = numpy.loadtxt(self.file_profile)
+            except:
+                return
 
-        self.plot_data1D(x=a[:,0],
-                         y=a[:,1],
-                         progressBarValue=30,
-                         tabs_canvas_index=0,
-                         plot_canvas_index=0,
-                         calculate_fwhm=False,
-                         title=self.titles[0],
-                         xtitle="X [m]",
-                         ytitle="Y [m]")
+            self.plot_data1D(x=a[:,0],
+                             y=a[:,1],
+                             progressBarValue=30,
+                             tabs_canvas_index=0,
+                             plot_canvas_index=0,
+                             calculate_fwhm=False,
+                             title=self.titles[0],
+                             xtitle="X [m]",
+                             ytitle="Y [m]")
 
-        self.plot_data1D(x=abscissas*1e-3,
-                         y=y,
-                         progressBarValue=30,
-                         tabs_canvas_index=1,
-                         plot_canvas_index=0,
-                         calculate_fwhm=False,
-                         title=self.titles[0],
-                         xtitle="X [m]",
-                         ytitle="Y [m]")
+            self.plot_data1D(x=abscissas*1e-3,
+                             y=y,
+                             progressBarValue=30,
+                             tabs_canvas_index=1,
+                             plot_canvas_index=0,
+                             calculate_fwhm=False,
+                             title=self.titles[0],
+                             xtitle="X [m]",
+                             ytitle="Y [m]")
 
-        self.plot_data1D(x=abscissas*1e-3,
-                         y=y,
-                         progressBarValue=30,
-                         tabs_canvas_index=2,
-                         plot_canvas_index=0,
-                         calculate_fwhm=False,
-                         title="Fitted profile",
-                         xtitle="X [m]",
-                         ytitle="Y [m]",
-                         color='green')
+            self.plot_data1D(x=abscissas*1e-3,
+                             y=y,
+                             progressBarValue=30,
+                             tabs_canvas_index=2,
+                             plot_canvas_index=0,
+                             calculate_fwhm=False,
+                             title="Fitted profile",
+                             xtitle="X [m]",
+                             ytitle="Y [m]",
+                             color='green')
 
 
-        self.plot_canvas[0].addCurve(a[:,0], a[:,1],
-                                         "Input profile",
-                                         xlabel="X [m]", ylabel="Y [m]",
-                                         symbol='', color='red')
+            self.plot_canvas[0].addCurve(a[:,0], a[:,1],
+                                             "Input profile",
+                                             xlabel="X [m]", ylabel="Y [m]",
+                                             symbol='', color='red')
 
-        # self.plot_canvas[0].setActiveCurve("Click on curve to highlight it")
-        self.plot_canvas[0].getLegendsDockWidget().setFixedHeight(150)
-        self.plot_canvas[0].getLegendsDockWidget().setVisible(True)
+            # self.plot_canvas[0].setActiveCurve("Click on curve to highlight it")
+            self.plot_canvas[0].getLegendsDockWidget().setFixedHeight(150)
+            self.plot_canvas[0].getLegendsDockWidget().setVisible(True)
 
-        # plot coeffs
-        print(self.plot_canvas)
-        self.tab[3].layout().removeItem(self.tab[3].layout().itemAt(1))
-        self.tab[3].layout().removeItem(self.tab[3].layout().itemAt(0))
+            # plot coeffs
+            print(self.plot_canvas)
+            self.tab[3].layout().removeItem(self.tab[3].layout().itemAt(1))
+            self.tab[3].layout().removeItem(self.tab[3].layout().itemAt(0))
 
-        f = plt.figure()
+            f = plt.figure()
 
-        y_pos = numpy.arange(v.size)
-        plt.bar(y_pos, v, align='center', alpha=0.5)
-        plt.xticks(y_pos, v_labels)
-        plt.xlabel('Coefficient')
-        plt.title('Coefficients')
+            y_pos = numpy.arange(v.size)
+            plt.bar(y_pos, v, align='center', alpha=0.5)
+            plt.xticks(y_pos, v_labels)
+            plt.xlabel('Coefficient')
+            plt.title('Coefficients')
 
-        figure_canvas = FigureCanvasQTAgg(f)
-        toolbar = NavigationToolbar(figure_canvas, self)
+            figure_canvas = FigureCanvasQTAgg(f)
+            toolbar = NavigationToolbar(figure_canvas, self)
 
-        self.tab[3].layout().addWidget(toolbar)
-        self.tab[3].layout().addWidget(figure_canvas)
+            self.tab[3].layout().addWidget(toolbar)
+            self.tab[3].layout().addWidget(figure_canvas)
 
         self.progressBarFinished()
         #

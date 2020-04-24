@@ -57,7 +57,7 @@ class OWGaussianUndulator1D(WofryWidget):
     titles = ["Wavefront 1D Intensity", "Wavefront 1D Phase","Wavefront Real(Amplitude)","Wavefront Imag(Amplitude)"]
 
     def __init__(self):
-        super().__init__(is_automatic=False, show_view_options=False)
+        super().__init__(is_automatic=False, show_view_options=True)
 
         #
         # add script tab to tabs panel
@@ -294,17 +294,21 @@ class OWGaussianUndulator1D(WofryWidget):
                 current_index = self.tabs.currentIndex()
             except:
                 current_index = None
-            self.initializeTabs()
-            self.plot_results()
-            if current_index is not None:
-                try:
-                    self.tabs.setCurrentIndex(current_index)
-                except:
-                    pass
+
+            if self.view_type > 0:
+                self.initializeTabs()
+                self.plot_results()
+                if current_index is not None:
+                    try:
+                        self.tabs.setCurrentIndex(current_index)
+                    except:
+                        pass
+
+            self.progressBarFinished()
 
             self.send("WofryData", WofryData(wavefront=self.wavefront1D))
 
-            self.progressBarFinished()
+
         except Exception as exception:
             QMessageBox.critical(self, "Error", str(exception), QMessageBox.Ok)
 
