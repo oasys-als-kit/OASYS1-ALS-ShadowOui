@@ -7,7 +7,7 @@ import subprocess
 
 NAME = 'OASYS1-ALS-ShadowOui'
 
-VERSION = '0.0.42'
+VERSION = '0.0.43'
 ISRELEASED = False
 
 DESCRIPTION = 'WIDGETS DEVELOPED FOR ALS TO EXTEND OASYS FUNCTIONALITIES'
@@ -66,8 +66,7 @@ PACKAGES = find_packages(
                          exclude = ('*.tests', '*.tests.*', 'tests.*', 'tests'),
                          )
 
-PACKAGE_DATA = {"orangecontrib.shadow.als.widgets.sources":["icons/*.png", "icons/*.jpg"],
-                "orangecontrib.shadow.als.widgets.utility":["icons/*.png", "icons/*.jpg",],
+PACKAGE_DATA = {"orangecontrib.shadow.als.widgets.utility":["icons/*.png", "icons/*.jpg",],
                 "orangecontrib.xoppy.als.widgets.srcalc":["icons/*.png", "icons/*.jpg",],
                 "orangecontrib.syned.als.widgets.tools":["icons/*.png", "icons/*.jpg",],
                 "orangecontrib.wofry.als.widgets.extensions":["icons/*.png", "icons/*.jpg",],
@@ -81,13 +80,17 @@ NAMESPACE_PACAKGES = ["orangecontrib",
                       ]
 
 ENTRY_POINTS = {
-    'oasys.addons' : ("ALS ShadowOui = orangecontrib.shadow.als","ALS XOPPY = orangecontrib.xoppy.als" ),
+    'oasys.addons' : (
+        "Shadow ALS Extension = orangecontrib.shadow.als",
+        "XOPPY ALS Extension = orangecontrib.xoppy.als",
+        "Wofry ALS Extension = orangecontrib.wofry.als",
+        "Syned ALS Extension = orangecontrib.syned.als",
+    ),
     'oasys.widgets' : (
-        "Shadow ALS Sources = orangecontrib.shadow.als.widgets.sources",
-        "Shadow ALS Utility = orangecontrib.shadow.als.widgets.utility",
-        "XOPPY ALS SRCALC = orangecontrib.xoppy.als.widgets.srcalc",
-        "Syned ALS Tools = orangecontrib.syned.als.widgets.tools",
-        "Wofry ALS Extensions = orangecontrib.wofry.als.widgets.extensions",
+        "Shadow ALS Extension = orangecontrib.shadow.als.widgets.extension",
+        "XOPPY ALS Extension = orangecontrib.xoppy.als.widgets.extension",
+        "Syned ALS Extension = orangecontrib.syned.als.widgets.extension",
+        "Wofry ALS Extension = orangecontrib.wofry.als.widgets.extension",
     ),
 }
 

@@ -1,9 +1,9 @@
 
 # Category description for the widget registry
 
-NAME = "Extensions"
+NAME = "Wofry ALS Extension"
 
-DESCRIPTION = "Wofry ALS Extension"
+DESCRIPTION = "Widgets for Wofry ALS Extension"
 
 BACKGROUND = "#E6E6E6"
 

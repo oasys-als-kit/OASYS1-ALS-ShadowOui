@@ -37,7 +37,7 @@ class ALSUndulator(GenericElement):
     name = "ALS Undulator"
     description = "Shadow Source: ALS Undulator"
     icon = "icons/undulator.png"
-    priority = 1
+    priority = 0.5
     maintainer = "Luca Rebuffi"
     maintainer_email = "luca.rebuffi(@at@)elettra.eu"
     category = "Sources"
