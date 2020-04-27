@@ -7,7 +7,7 @@ import subprocess
 
 NAME = 'OASYS1-ALS-ShadowOui'
 
-VERSION = '0.0.44'
+VERSION = '0.0.45'
 ISRELEASED = False
 
 DESCRIPTION = 'WIDGETS DEVELOPED FOR ALS TO EXTEND OASYS FUNCTIONALITIES'
@@ -87,10 +87,10 @@ ENTRY_POINTS = {
         "Syned ALS Extension = orangecontrib.syned.als",
     ),
     'oasys.widgets' : (
-        "Shadow ALS Extension = orangecontrib.shadow.als.widgets.extension",
-        "XOPPY ALS Extension = orangecontrib.xoppy.als.widgets.extension",
-        "Syned ALS Extension = orangecontrib.syned.als.widgets.extension",
-        "Wofry ALS Extension = orangecontrib.wofry.als.widgets.extension",
+        "Shadow ALS Extension = orangecontrib.shadow.als.widgets.utility",
+        "XOPPY ALS Extension = orangecontrib.xoppy.als.widgets.srcalc",
+        "Syned ALS Extension = orangecontrib.syned.als.widgets.tools",
+        "Wofry ALS Extension = orangecontrib.wofry.als.widgets.extensions",
     ),
 }
 
