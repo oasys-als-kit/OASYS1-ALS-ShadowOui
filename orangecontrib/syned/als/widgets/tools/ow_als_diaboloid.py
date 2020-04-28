@@ -73,7 +73,7 @@ class OWALSDiaboloid(OWWidget):
     #
 
     tab=[]
-    usage_path = os.path.join(resources.package_dirname("orangecontrib.syned"), "als", "widgets", "tools", "misc", "diaboloid_usage.png")
+    usage_path = os.path.join(resources.package_dirname("orangecontrib.syned.als.widgets.tools") , "misc", "diaboloid_usage.png")
 
     def __init__(self):
         super().__init__()
@@ -587,11 +587,17 @@ def valeriy_parabolic_cone_segment_to_point(
     return Z, X, Y
 
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    w = OWALSDiaboloid()
-    w.show()
-    app.exec()
-    w.saveSettings()
+    # app = QApplication(sys.argv)
+    # w = OWALSDiaboloid()
+    # w.show()
+    # app.exec()
+    # w.saveSettings()
 
     # Z = toroid_point_to_segment()
     # print(Z.shape)
+    import orangecanvas.resources as resources
+    import os
+    # usage_path = os.path.join(resources.package_dirname("orangecontrib.syned"), "als", "widgets", "tools", "misc", "diaboloid_usage.png")
+
+    usage_path = os.path.join(resources.package_dirname("orangecontrib.syned.als.widgets.tools") , "misc", "diaboloid_usage.png")
+    print(">>>>", usage_path)

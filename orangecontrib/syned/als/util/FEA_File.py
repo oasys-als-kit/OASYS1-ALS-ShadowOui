@@ -109,9 +109,7 @@ class FEA_File():
         self.filename = filename
 
     def load_multicolumn_file(self,skiprows=0,factorX=1.0,factorY=1.0,factorZ=1.0):
-        a = numpy.loadtxt(self.filename,skiprows=skiprows )
-
-        node = numpy.round(a, 10)
+        node = numpy.loadtxt(self.filename,skiprows=skiprows, dtype=numpy.float64 )
 
         # Coordinates
 
@@ -253,11 +251,11 @@ class FEA_File():
         self.P = numpy.array([X_INTERPOLATED.flatten(), Y_INTERPOLATED.flatten() ]).transpose()
 
         if remove_nan ==2:
-            self.Z_INTERPOLATED = interpolate.griddata(self.triPi, self.Zdeformed(), self.P, method = "cubic", fill_value=0.0 ).reshape([nx,ny])
+            self.Z_INTERPOLATED = interpolate.griddata(self.triPi, self.Zdeformed(), self.P, rescale=True, method = "cubic", fill_value=0.0 ).reshape([nx,ny])
         elif remove_nan ==1:
-            self.Z_INTERPOLATED = interpolate.griddata(self.triPi, self.Zdeformed(), self.P, method = "cubic", fill_value=self.Zdeformed().min() ).reshape([nx,ny])
+            self.Z_INTERPOLATED = interpolate.griddata(self.triPi, self.Zdeformed(), self.P, rescale=True, method = "cubic", fill_value=self.Zdeformed().min() ).reshape([nx,ny])
         elif remove_nan == 0:
-            self.Z_INTERPOLATED = interpolate.griddata(self.triPi, self.Zdeformed(), self.P, method="cubic").reshape([nx, ny])
+            self.Z_INTERPOLATED = interpolate.griddata(self.triPi, self.Zdeformed(), self.P, rescale=True, method="cubic").reshape([nx, ny])
 
 
     def plot_interpolated(self, show=True):
@@ -453,11 +451,32 @@ if __name__ == "__main__":
     # o1.plot_interpolated()
     # o1.plot_surface_image()
 
-    o1 = FEA_File.process_file("C:/Users/Manuel/Oasys/dispCOSMIC_M1_H_XOPPY.txt", n_axis_0=1001, n_axis_1=101,
+    o1 = FEA_File.process_file("C:/Users/Manuel/Oasys/TENDER DCM Performance/disp2000.txt", n_axis_0=801, n_axis_1=801,
                  filename_out="", invert_axes_names=True,
                  detrend=1, reset_height_method=2,
                  replicate_raw_data_flag=3,do_plot=False)
     o1.plot_surface_image()
+    # # plot(o1.x_interpolated, o1.Z_INTERPOLATED[:,o1.y_interpolated.size//2]) #, o1.y_interpolated
+    # x0, y0, z0 = o1.get_undeformed()
+    # x, y, z = o1.get_deformed()
+    # X = []
+    # Z = []
+    # numpy.set_printoptions(precision=17)
+    #
+    # for i in range(x.size):
+    #     if numpy.abs(y[i]) ==0:
+    #         X.append(x[i])
+    #         Z.append(z[i])
+    #         if numpy.abs(x[i]) < 50e-6:
+    #             print("line %d x:%g z: %g %g " % (i, x[i], z0[i], z[i]))
+    # X = numpy.array(X)
+    # Z = numpy.array(Z)
+    # plot(X, Z,
+    #      o1.x_interpolated, o1.Z_INTERPOLATED[:,o1.y_interpolated.size//2],marker=['.','.'],
+    #      linestyle=["",""],legend=["raw","interpolated"],xrange=[-250e-6,1550e-6])
+
+
+
 
     # o1 = FEA_File.process_file("73water_side_cooled_notches_best_LH.txt", n_axis_0=1001, n_axis_1=101,
     #              filename_out="/home/manuel/Oasys/water_side_cooled_notches_best_LH.h5", invert_axes_names=True,

@@ -71,12 +71,12 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
     file_factor_z = Setting(1.0)
 
     file_in_skiprows = Setting(0)
-    replicate_raw_data_flag = Setting(0)  # 0=None, 1=axis0, 2=axis1, 3=both axis
+    replicate_raw_data_flag = Setting(3)  # 0=None, 1=axis0, 2=axis1, 3=both axis
     # raw_render_option = Setting(2)
 
     file_out = Setting("/home/manuel/OASYS1.2/alsu-scripts/ANSYS/s4.h5") # copied from file_in and changed extension to h5
-    n_axis_0 = Setting(301)
-    n_axis_1 = Setting(51)
+    n_axis_0 = Setting(401) #301)
+    n_axis_1 = Setting(401) #51)
     invert_axes_names = Setting(1)
     detrended = Setting(1)
     detrended_fit_range = Setting(1.0)
@@ -87,8 +87,7 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
 
     fea_file_object = FEA_File()
 
-
-    usage_path = os.path.join(resources.package_dirname("orangecontrib.syned"), "als", "widgets", "tools", "misc", "finite_element_usage.png")
+    usage_path = os.path.join(resources.package_dirname("orangecontrib.syned.als.widgets.tools") , "misc", "finite_element_usage.png")
 
     def __init__(self, show_automatic_box=False):
         # super().__init__(show_automatic_box=show_automatic_box)
@@ -417,7 +416,6 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
         self.rawdata_id.layout().removeItem(self.rawdata_id.layout().itemAt(1))
         self.rawdata_id.layout().removeItem(self.rawdata_id.layout().itemAt(0))
 
-
         xs, ys, zs = self.fea_file_object.get_deformed()
 
         xs *= 1e3
@@ -569,7 +567,7 @@ if __name__ == "__main__":
     a = QApplication(sys.argv)
     ow = ALSFiniteElementReader()
 
-    ow.set_input_file("C:/Users/Manuel/Oasys/dispCOSMIC_M1_H_XOPPY.txt")
+    ow.set_input_file("C:/Users/Manuel/Oasys/TENDER DCM Performance/disp2000.txt")
 
     ow.show()
     a.exec_()
