@@ -9,6 +9,9 @@ from PyQt5 import QtGui, QtWidgets
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import QRect, Qt
 
+from PyQt5.QtWidgets import QLabel, QSizePolicy
+from PyQt5.QtGui import QPixmap
+
 from orangewidget import gui
 from orangewidget.settings import Setting
 
@@ -23,6 +26,7 @@ from matplotlib.figure import Figure
 from oasys.util.oasys_util import EmittingStream
 
 from orangecontrib.syned.als.util.FEA_File import FEA_File
+import orangecanvas.resources as resources
 from silx.gui.plot import Plot2D
 
 
@@ -83,6 +87,9 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
 
     fea_file_object = FEA_File()
 
+
+    usage_path = os.path.join(resources.package_dirname("orangecontrib.syned"), "als", "widgets", "tools", "misc", "finite_element_usage.png")
+
     def __init__(self, show_automatic_box=False):
         # super().__init__(show_automatic_box=show_automatic_box)
         super().__init__()
@@ -97,6 +104,17 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
         self.setMaximumWidth(self.geometry().width())
 
         #
+        # tabs input panel
+        #
+        tabs_setting = oasysgui.tabWidget(self.controlArea)
+        tabs_setting.setFixedHeight(self.TABS_AREA_HEIGHT)
+        tabs_setting.setFixedWidth(self.CONTROL_AREA_WIDTH-5)
+
+
+        tab_calc = oasysgui.createTabPage(tabs_setting, "Calculate")
+        tab_out = oasysgui.createTabPage(tabs_setting, "Output")
+        tab_usa = oasysgui.createTabPage(tabs_setting, "Use of the Widget")
+        #
         # tabs for results
         #
         self.tabs_setting = oasysgui.tabWidget(self.mainArea)
@@ -110,13 +128,13 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
         # parameters panel
         #
 
-        gui.button(self.controlArea, self, "Calculate Interpolated File", callback=self.calculate, height=45)
+        gui.button(tab_calc, self, "Calculate Interpolated File", callback=self.calculate, height=45)
 
-        gui.separator(self.controlArea, height=20)
+        # gui.separator(tab_calc, height=20)
 
         #
         #
-        data_file_box = oasysgui.widgetBox(self.controlArea, "Data file", addSpace=True,
+        data_file_box = oasysgui.widgetBox(tab_calc, "Data file", addSpace=True,
                                          orientation="vertical",)
 
 
@@ -126,11 +144,20 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
         gui.button(figure_box, self, "...", callback=self.selectFile)
 
 
-        gui.comboBox(data_file_box, self, "file_in_type", label="File content", labelWidth=220,
+        data_file_box2 = oasysgui.widgetBox(data_file_box, "", addSpace=True, orientation="horizontal",)
+
+        gui.comboBox(data_file_box2, self, "file_in_type", label="File content", labelWidth=220,
                      items=["X Y Z DX DY DZ",],
                      sendSelectedValue=False, orientation="horizontal")
 
-        data_file_expansion_box = oasysgui.widgetBox(data_file_box, "Expansion factor", addSpace=True, orientation="horizontal")
+
+        oasysgui.lineEdit(data_file_box2, self, "file_in_skiprows", "Skip rows:", labelWidth=300, valueType=int,
+                          orientation="horizontal")
+
+
+
+        data_file_expansion_box = oasysgui.widgetBox(data_file_box, "Expansion factor", addSpace=True,
+                                                     orientation="horizontal")
         oasysgui.lineEdit(data_file_expansion_box, self, "file_factor_x", "X:", labelWidth=10,
                           valueType=float, orientation="horizontal")
         oasysgui.lineEdit(data_file_expansion_box, self, "file_factor_y", "Y:", labelWidth=10,
@@ -139,18 +166,14 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
                           valueType=float, orientation="horizontal")
 
 
-        oasysgui.lineEdit(data_file_box, self, "file_in_skiprows", "Skip rows:", labelWidth=260, valueType=int,
-                          orientation="horizontal")
-
-
         gui.comboBox(data_file_box, self, "replicate_raw_data_flag", label="Replicate raw data", labelWidth=220,
                      items=["No","Along axis 0","Along axis 1","Along axes 0 and 1"],
                      sendSelectedValue=False, orientation="horizontal")
 
         #
         #
-        interpolation_box = oasysgui.widgetBox(self.controlArea, "Interpolation", addSpace=True,
-                                         orientation="vertical",)
+        interpolation_box = oasysgui.widgetBox(tab_calc, "Interpolation", addSpace=True,
+                                         orientation="vertical")
 
 
         oasysgui.lineEdit(interpolation_box, self, "n_axis_0", "Number of interpolated pixels (axis 0))",
@@ -182,14 +205,12 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
                      items=["No", "To height minimum", "To center"],
                      sendSelectedValue=False, orientation="horizontal")
 
-        tmp = oasysgui.lineEdit(interpolation_box, self, "file_out", "Output file name",
-                          labelWidth=150, valueType=str, orientation="horizontal")
 
-        tmp.setEnabled(False)
 
         #
         #
-        profile1D_box = oasysgui.widgetBox(self.controlArea, "1D profile", addSpace=True,
+
+        profile1D_box = oasysgui.widgetBox(tab_out, "1D profile", addSpace=True,
                                          orientation="vertical",)
         gui.comboBox(profile1D_box, self, "extract_profile1D", label="Extract and send 1D profile", labelWidth=220,
                      items=["horizontal", "vertical"],
@@ -198,6 +219,28 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
         oasysgui.lineEdit(profile1D_box, self, "coordinate_profile1D", "At coordinate [m]:", labelWidth=260, valueType=float,
                           orientation="horizontal")
 
+        gui.separator(tab_out, height=20)
+
+        file_info_box = oasysgui.widgetBox(tab_out, "Info", addSpace=True,
+                                         orientation="vertical",)
+
+        tmp = oasysgui.lineEdit(file_info_box, self, "file_out", "Output file name",
+                          labelWidth=150, valueType=str, orientation="horizontal")
+        tmp.setEnabled(False)
+
+        #
+        # usage
+        #
+        tab_usa.setStyleSheet("background-color: white;")
+
+        usage_box = oasysgui.widgetBox(tab_usa, "", addSpace=True, orientation="horizontal")
+
+        label = QLabel("")
+        label.setAlignment(Qt.AlignCenter)
+        label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        label.setPixmap(QPixmap(self.usage_path))
+
+        usage_box.layout().addWidget(label)
 
         self.set_visible()
 

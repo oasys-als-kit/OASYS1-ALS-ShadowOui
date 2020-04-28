@@ -73,7 +73,7 @@ class OWALSDiaboloid(OWWidget):
     #
 
     tab=[]
-    usage_path = os.path.join(resources.package_dirname("orangecontrib.syned"), "als", "widgets", "gui", "misc", "diaboloid_usage.png")
+    usage_path = os.path.join(resources.package_dirname("orangecontrib.syned"), "als", "widgets", "tools", "misc", "diaboloid_usage.png")
 
     def __init__(self):
         super().__init__()
@@ -89,7 +89,7 @@ class OWALSDiaboloid(OWWidget):
 
         gui.separator(self.controlArea)
 
-        button_box = oasysgui.widgetBox(self.controlArea, "", addSpace=False, orientation="horizontal")
+        # button_box = oasysgui.widgetBox(self.controlArea, "", addSpace=False, orientation="horizontal")
 
         tabs_setting = oasysgui.tabWidget(self.controlArea)
         tabs_setting.setFixedHeight(self.TABS_AREA_HEIGHT)
