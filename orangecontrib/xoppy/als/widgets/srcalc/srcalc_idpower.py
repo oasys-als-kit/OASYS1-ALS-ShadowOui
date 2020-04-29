@@ -30,9 +30,11 @@ from orangecontrib.xoppy.als.util.srcalc import  load_srcalc_output_file, ray_tr
 from orangecontrib.xoppy.als.util.srcalc import  compute_power_density_footprint, compute_power_density_image
 from orangecontrib.xoppy.als.util.srcalc import  trapezoidal_rule_2d, trapezoidal_rule_2d_1darrays
 from orangecontrib.xoppy.als.util.srcalc import  write_ansys_files
+
 #
 # TO DO: uncomment import and delete class when moving to xoppy
 #
+from orangecontrib.wofry.util.wofry_util import ImageViewWithFWHM
 
 #
 # TODO: Recompile IDPower with higher dimensions
@@ -103,17 +105,17 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
     SIGMAYP = Setting(4.7e-3)
     NELEMENTS = Setting(1)
 
-    EL0_SHAPE = Setting(2)
+    EL0_SHAPE = Setting(5)
     EL0_P_POSITION = Setting(15.00)  # this is then copied from  SOURCE_SCREEN_DISTANCE
-    EL0_Q_POSITION = Setting(0.0)
-    EL0_P_FOCUS = Setting(10.0)
-    EL0_Q_FOCUS = Setting(10.0)
+    EL0_Q_POSITION = Setting(5.0)
+    EL0_P_FOCUS = Setting(15.0)
+    EL0_Q_FOCUS = Setting(5.0)
     EL0_ANG = Setting(88.75)
     EL0_THICKNESS = Setting(1000)
     EL0_RELATIVE_TO_PREVIOUS = Setting(0)
     EL0_COATING = Setting(9)
 
-    EL1_SHAPE = Setting(5)
+    EL1_SHAPE = Setting(2)
     EL1_P_POSITION = Setting(1.0)
     EL1_Q_POSITION = Setting(16.0)
     EL1_P_FOCUS = Setting(16.0)
@@ -167,7 +169,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
     RAY_TRACING_RUNS = Setting(5)
     RAY_TRACING_SEED = Setting(123456)
 
-
+    PLOT_MODE = Setting(2)
     DO_PLOT_GRID = Setting(0)
     DUMP_SHADOW_FILES = Setting(0)
     DUMP_ANSYS_FILES = Setting(0)
@@ -513,9 +515,23 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
         self.show_at(self.unitFlags()[idx], box1)
 
         #
+        #  Setting page
         #
-        #
-        box = oasysgui.createTabPage(self.controls_tabs, "Settings")
+        box0 = oasysgui.createTabPage(self.controls_tabs, "Settings")
+        box = gui.widgetBox(box0,"Plots")
+
+        #widget index xx
+        idx += 1
+        box1 = gui.widgetBox(box)
+        gui.separator(box1, height=7)
+
+        gui.comboBox(box1, self, "PLOT_MODE",
+                    label=self.unitLabels()[idx], addSpace=False,
+                    items=['Basic image', 'Image and histograms', 'Image [default]'],
+                    valueType=int, orientation="horizontal", labelWidth=350,
+                    callback=self.set_ViewType)
+
+        self.show_at(self.unitFlags()[idx], box1)
 
         #widget index xx
         idx += 1
@@ -524,12 +540,27 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
 
         gui.comboBox(box1, self, "DO_PLOT_GRID",
                     label=self.unitLabels()[idx], addSpace=False,
-                    items=['No', 'Yes (overplotted)', 'Yes (in a new tab)'],
-                    valueType=int, orientation="horizontal", labelWidth=350)
+                    items=['No [default]', 'Yes (overplotted)', 'Yes (in a new tab)'],
+                    valueType=int, orientation="horizontal", labelWidth=350,
+                    callback=self.set_ViewType)
+
+        self.show_at(self.unitFlags()[idx], box1)
+
+        #widget index xx
+        idx += 1
+        box1 = gui.widgetBox(box)
+        gui.separator(box1, height=7)
+
+        gui.comboBox(box1, self, "SHOW_URGENT_PLOTS",
+                     label=self.unitLabels()[idx], addSpace=False,
+                    items=['Only source [default]', 'Source + elements'],
+                    valueType=int, orientation="horizontal", labelWidth=350,)
 
         self.show_at(self.unitFlags()[idx], box1)
 
 
+
+        box = gui.widgetBox(box0,"Files")
         #widget index xx
         idx += 1
         box1 = gui.widgetBox(box)
@@ -537,7 +568,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
 
         gui.comboBox(box1, self, "DUMP_SHADOW_FILES",
                      label=self.unitLabels()[idx], addSpace=False,
-                    items=['No', 'Yes {begin,mirr,star}_srcalc.xx'],
+                    items=['No [default]', 'Yes {begin,mirr,star}_srcalc.xx'],
                     valueType=int, orientation="horizontal", labelWidth=350)
 
         self.show_at(self.unitFlags()[idx], box1)
@@ -549,23 +580,14 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
 
         gui.comboBox(box1, self, "DUMP_ANSYS_FILES",
                      label=self.unitLabels()[idx], addSpace=False,
-                    items=['No', 'Yes (as plotted)', 'Yes (transposed)'],
+                    items=['No [default]', 'Yes (as plotted)', 'Yes (transposed)'],
                     valueType=int, orientation="horizontal", labelWidth=350)
 
         self.show_at(self.unitFlags()[idx], box1)
 
-        #widget index xx
-        idx += 1
-        box1 = gui.widgetBox(box)
-        gui.separator(box1, height=7)
 
-        gui.comboBox(box1, self, "SHOW_URGENT_PLOTS",
-                     label=self.unitLabels()[idx], addSpace=False,
-                    items=['Only source', 'Source + elements'],
-                    valueType=int, orientation="horizontal", labelWidth=350)
 
-        self.show_at(self.unitFlags()[idx], box1)
-
+        box = gui.widgetBox(box0,"Processing")
         # widget index xx
         idx += 1
         box1 = gui.widgetBox(box)
@@ -573,7 +595,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
 
         gui.comboBox(box1, self, "INTERPOLATION_OR_HISTOGRAMMING",
                      label=self.unitLabels()[idx], addSpace=False,
-                     items=['Interpolation', 'Histogramming'],
+                     items=['Interpolation [default]', 'Histogramming'],
                      valueType=int, orientation="horizontal", labelWidth=350)
 
         self.show_at(self.unitFlags()[idx], box1)
@@ -585,7 +607,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
 
         gui.comboBox(box1, self, "INTERPOLATION_METHOD",
                      label=self.unitLabels()[idx], addSpace=False,
-                     items=['nearest', 'linear', 'cubic'],
+                     items=['nearest', 'linear', 'cubic [default]'],
                      valueType=int, orientation="horizontal", labelWidth=350)
 
         self.show_at(self.unitFlags()[idx], box1)
@@ -613,7 +635,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
         self.show_at(self.unitFlags()[idx], box1)
 
 
-
+        box = gui.widgetBox(box0,"Debug")
         #
         # widget index xx
         idx += 1
@@ -689,8 +711,9 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
                 ]
 
          labels = labels + ["Calculate power on images","Number of ray-tracing runs","Random seed (int): ",
-                            "Plot ray-traced grid","Write SHADOW files","Write FEA/ANSYS files",
-                            "Show URGENT plots","Calculation method for images","Interpolation",
+                            "Plot mode","Plot ray-traced grid","Show URGENT plots",
+                            "Write SHADOW files","Write FEA/ANSYS files",
+                            "Calculation method for images","Interpolation",
                             "Ratio pixels axis 0 o.e./source","Ratio pixels axis 1 o.e./source",
                             "Debug mode (do not run URGENT)"]
 
@@ -698,24 +721,39 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
 
 
     def unitFlags(self):
-         return ["True","True","True","True",
+         # labels =  ["Ring energy [GeV]","Ring current [A]","Ky","Kx",
+         #         "Number of Periods","Period Length [m]",
+         #         "Sigma H [mm]", "Sigma Prime H [mrad]", "Sigma V [mm]", "Sigma Prime V [mrad]",
+         #         "Number of harmonics",
+         #         "Source to screen distance [m]","Horizontal acceptance [mm]","Vertical acceptance [mm]",
+         #         "Number of intervals in half H screen","Number of intervals in half V screen","Electron sigmas",
+         #         'Number of optical elements:']
+         return ["True", "True", "True", "True",
                  "True", "True",
                  "True", "True", "True", "True",
                  "True",
                  "True", "True", "True",
                  "True", "True","True",
-                 'True',
+                 'True', #
                  "True", "True", "True", "self.EL0_SHAPE not in (2,8,9)", "self.EL0_SHAPE not in (2,8,9)", "True", "self.EL0_SHAPE in (8,9)", "True", "True",  # shape, p, q, p_foc, q_foc, angle, thickness, orientation, coating
                  "True", "True", "True", "self.EL1_SHAPE not in (2,8,9)", "self.EL1_SHAPE not in (2,8,9)", "True", "self.EL1_SHAPE in (8,9)", "True", "True",  # OE fields
                  "True", "True", "True", "self.EL2_SHAPE not in (2,8,9)", "self.EL2_SHAPE not in (2,8,9)", "True", "self.EL2_SHAPE in (8,9)", "True", "True",  # OE fields
                  "True", "True", "True", "self.EL3_SHAPE not in (2,8,9)", "self.EL3_SHAPE not in (2,8,9)", "True", "self.EL3_SHAPE in (8,9)", "True", "True",  # OE fields
                  "True", "True", "True", "self.EL4_SHAPE not in (2,8,9)", "self.EL4_SHAPE not in (2,8,9)", "True", "self.EL4_SHAPE in (8,9)", "True", "True",  # OE fields
                  "True", "True", "True", "self.EL5_SHAPE not in (2,8,9)", "self.EL5_SHAPE not in (2,8,9)", "True", "self.EL5_SHAPE in (8,9)", "True", "True",  # OE fields
-                 'True','self.RAY_TRACING_IMAGE == 1','self.RAY_TRACING_IMAGE == 1',
-                 'True','True','True',
-                 'True','True','True',
-                 'True','True',
+                 'True', 'self.RAY_TRACING_IMAGE == 1', 'self.RAY_TRACING_IMAGE == 1',
+                 'True', 'True', 'True',
+                 'True', 'True',
+                 'True', 'True',
+                 'True', 'True',
                  'True']
+
+    # labels = labels + ["Calculate power on images", "Number of ray-tracing runs", "Random seed (int): ",
+    #                    "Plot mode", "Plot ray-traced grid", "Show URGENT plots",
+    #                    "Write SHADOW files", "Write FEA/ANSYS files",
+    #                    "Calculation method for images", "Interpolation",
+    #                    "Ratio pixels axis 0 o.e./source", "Ratio pixels axis 1 o.e./source",
+    #                    "Debug mode (do not run URGENT)"]
 
     def get_help_name(self):
         return 'srcalc-idpower'
@@ -845,13 +883,14 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
                 self.id_KY.setEnabled(False)
 
     def do_xoppy_calculation(self):
+        print(">>>>>>>>>>>>>>>>>>>>>>>>> do_xoppy_calculation")
         return self.xoppy_calc_srcalc()
 
     def extract_data_from_xoppy_output(self, calculation_output):
         return calculation_output
 
     def plot_results(self, calculated_data, progressBarValue=80):
-
+        print(">>>>>>>>>>>>>>>>>>>>>>>>> plot_results")
         if not self.view_type == 0:
             if calculated_data is None:
                 raise Exception("Empty Data")
@@ -880,10 +919,10 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
                         y = numpy.arange(calculated_data["Y"].size)
 
                     index += 1
-                    z = calculated_data["Zlist"][oe_n]
+                    z = (calculated_data["Zlist"][oe_n]).copy()
                     z /= (calculated_data["X"][1] - calculated_data["X"][0]) * \
                          (calculated_data["Y"][1] - calculated_data["Y"][0])
-                    self.plot_data2D(z, x, y,  index, 0,
+                    self.plot_data2D(z, x, y,  index, 0, mode=self.PLOT_MODE,
                                      xtitle=xtitle, ytitle=ytitle, title=title)
 
                 #
@@ -935,7 +974,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
                     totPower2 =   trapezoidal_rule_2d(data2D)
                     title = 'Power density [W/mm2] absorbed at element %d Integrated Power: %6.1f W' % (oe_n, totPower2)
                     self.plot_data2D(data2D.T / (stepx * stepy) , V[0,:], H[:,0],
-                                     index, 0,
+                                     index, 0, mode=self.PLOT_MODE,
                                      overplot=overplot_data_footprint,
                                      ytitle='Y (shadow col 2) [mm] (%d pixels)' % (H.shape[0]),
                                      xtitle='X (shadow col 1) [mm] (%d pixels)' % (H.shape[1]),
@@ -959,7 +998,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
                         totPower2 = trapezoidal_rule_2d(data2D)
                         title = 'Power density [W/mm2] transmitted after element %d Integrated Power: %6.1f W' % (oe_n, totPower2)
                         self.plot_data2D(data2D / (stepx * stepy), H[:,0], V[0,:],
-                                         index, 0,
+                                         index, 0, mode=self.PLOT_MODE,
                                          overplot=overplot_data_image,
                                          xtitle='X (shadow col 1) [mm] (%d pixels)' % (H.shape[0]),
                                          ytitle='Z (shadow col 3) [mm] (%d pixels)' % (H.shape[1]),
@@ -1106,6 +1145,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
 
 
     def xoppy_calc_srcalc(self):
+        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>> xoppy_calc_srcalc")
         # odd way to clean output window
         view_type_old = self.view_type
         self.view_type = 0
@@ -1223,6 +1263,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
                             store_footprint=True,
                             store_image=False,
                             accumulate_results=False,
+                            run_index=None,
                             )
         out_dictionary = compute_power_density_footprint(out_dictionary,
                                     interpolation_method=self.INTERPOLATION_METHOD,
@@ -1254,7 +1295,8 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
                                 dump_shadow_files=self.DUMP_SHADOW_FILES,
                                 store_footprint=False,
                                 store_image=True,
-                                accumulate_results=True
+                                accumulate_results=True,
+                                run_index=i,
                                 )
 
             #
@@ -1293,65 +1335,70 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
         self.tab[tabs_canvas_index].layout().addWidget(self.plot_canvas[plot_canvas_index])
 
     def plot_data2D(self, data2D, dataX, dataY, tabs_canvas_index, plot_canvas_index,
-                    title="", xtitle="", ytitle="", mode=2,
-                    overplot = None):
+                    title="", xtitle="", ytitle="", mode=1, overplot = None):
 
         for i in range(1+self.tab[tabs_canvas_index].layout().count()):
             self.tab[tabs_canvas_index].layout().removeItem(self.tab[tabs_canvas_index].layout().itemAt(i))
 
+        origin = (dataX[0],dataY[0])
+        scale = (dataX[1]-dataX[0],dataY[1]-dataY[0])
+
+
+        colormap = {"name":"temperature", "normalization":"linear", "autoscale":True, "vmin":0, "vmax":0, "colors":256}
+
+
         if mode == 0:
-            figure = FigureCanvas(gol.plot_image(data2D,
+            data_to_plot = data2D
+            from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+            from srxraylib.plot.gol import plot_image
+            f = plot_image(data_to_plot,
                                                  dataX,
                                                  dataY,
                                                  xtitle=xtitle,
                                                  ytitle=ytitle,
                                                  title=title,
                                                  show=False,
-                                                 aspect='auto'))
-
-
+                                                 aspect='auto')
+            figure = FigureCanvas(f[0])
             self.plot_canvas[plot_canvas_index] = figure
-        else:
-
-            origin = (dataX[0],dataY[0])
-            scale = (dataX[1]-dataX[0],dataY[1]-dataY[0])
-
+        elif mode == 1:
+            data_to_plot = data2D
+            self.plot_canvas[plot_canvas_index] = ImageViewWithFWHM()  # Plot2D()
+            self.plot_canvas[plot_canvas_index].plot_2D(data_to_plot,
+                                dataX, dataY, factor1=1e0, factor2=1e0,
+                                title=title, xtitle=xtitle, ytitle=ytitle, xum="[mm]", yum="[mm]",
+                                colormap=colormap)
+            self.tab[tabs_canvas_index].layout().addWidget(self.plot_canvas[plot_canvas_index])
+        elif mode == 2:
             data_to_plot = data2D.T
+            self.plot_canvas[plot_canvas_index] = Plot2D()
+            self.plot_canvas[plot_canvas_index].resetZoom()
+            self.plot_canvas[plot_canvas_index].setXAxisAutoScale(True)
+            self.plot_canvas[plot_canvas_index].setYAxisAutoScale(True)
+            self.plot_canvas[plot_canvas_index].setGraphGrid(False)
+            self.plot_canvas[plot_canvas_index].setKeepDataAspectRatio(True)
+            self.plot_canvas[plot_canvas_index].yAxisInvertedAction.setVisible(False)
 
-            colormap = {"name":"temperature", "normalization":"linear", "autoscale":True, "vmin":0, "vmax":0, "colors":256}
+            self.plot_canvas[plot_canvas_index].setXAxisLogarithmic(False)
+            self.plot_canvas[plot_canvas_index].setYAxisLogarithmic(False)
+            #silx 0.4.0
+            self.plot_canvas[plot_canvas_index].getMaskAction().setVisible(False)
+            self.plot_canvas[plot_canvas_index].getRoiAction().setVisible(False)
+            self.plot_canvas[plot_canvas_index].getColormapAction().setVisible(True)
+            self.plot_canvas[plot_canvas_index].setKeepDataAspectRatio(False)
+            self.plot_canvas[plot_canvas_index].addImage(numpy.array(data_to_plot),
+                                                         legend="zio billy",
+                                                         scale=scale,
+                                                         origin=origin,
+                                                         colormap=colormap,
+                                                         replace=True)
+            self.plot_canvas[plot_canvas_index].setActiveImage("zio billy")
 
-
-            if mode == 1:
-                pass
-            elif mode == 2:
-                self.plot_canvas[plot_canvas_index] = Plot2D()
-                self.plot_canvas[plot_canvas_index].resetZoom()
-                self.plot_canvas[plot_canvas_index].setXAxisAutoScale(True)
-                self.plot_canvas[plot_canvas_index].setYAxisAutoScale(True)
-                self.plot_canvas[plot_canvas_index].setGraphGrid(False)
-                self.plot_canvas[plot_canvas_index].setKeepDataAspectRatio(True)
-                self.plot_canvas[plot_canvas_index].yAxisInvertedAction.setVisible(False)
-
-                self.plot_canvas[plot_canvas_index].setXAxisLogarithmic(False)
-                self.plot_canvas[plot_canvas_index].setYAxisLogarithmic(False)
-                #silx 0.4.0
-                self.plot_canvas[plot_canvas_index].getMaskAction().setVisible(False)
-                self.plot_canvas[plot_canvas_index].getRoiAction().setVisible(False)
-                self.plot_canvas[plot_canvas_index].getColormapAction().setVisible(True)
-                self.plot_canvas[plot_canvas_index].setKeepDataAspectRatio(False)
-                self.plot_canvas[plot_canvas_index].addImage(numpy.array(data_to_plot),
-                                                             legend="zio billy",
-                                                             scale=scale,
-                                                             origin=origin,
-                                                             colormap=colormap,
-                                                             replace=True)
-                self.plot_canvas[plot_canvas_index].setActiveImage("zio billy")
-
-                if overplot is not None:
-                    self.plot_canvas[plot_canvas_index].addScatter(overplot[1],overplot[0],overplot[1]*0+data_to_plot.max()*2,
-                                                                 legend="tio pepe",
-                                                                 colormap={"name":"gray", "normalization":"linear", "autoscale":True, "vmin":0, "vmax":0, "colors":256},
-                                                                 symbol='.')
+            if overplot is not None:
+                self.plot_canvas[plot_canvas_index].addScatter(overplot[1],overplot[0],overplot[1]*0+data_to_plot.max()*2,
+                                                             legend="tio pepe",
+                                                             colormap={"name":"gray", "normalization":"linear", "autoscale":True, "vmin":0, "vmax":0, "colors":256},
+                                                             symbol='.')
 
             self.plot_canvas[plot_canvas_index].setGraphXLabel(xtitle)
             self.plot_canvas[plot_canvas_index].setGraphYLabel(ytitle)
@@ -1454,7 +1501,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
         for i in range(self.NELEMENTS):
             oe += 1
             p = P[i]
-            q = Q[1]
+            q = Q[i]
             shape_index = SHAPE_INDEX[i]
 
             final_screen_to_source = final_screen_to_source + p + q
@@ -1545,7 +1592,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
 
         txt = "Polarization at the source: %s" % (SP[source_pol])
 
-        RR = ['Left', 'Right', 'Up', 'Down']
+        RR = ['Left (90)', 'Right (270)', 'Up (0)', 'Down (180)']
         RELATIVE_TO_PREVIOUS = [
             RR[EL0_RELATIVE_TO_PREVIOUS],
             RR[EL1_RELATIVE_TO_PREVIOUS],
@@ -1614,7 +1661,16 @@ if __name__ == "__main__":
 
     app = QApplication(sys.argv)
     w = OWsrcalc_idpower()
-    w.DEBUG_RUN_URGENT = 0
+    w.DEBUG_RUN_URGENT = 1
+    w.DUMP_SHADOW_FILES = 1
     w.show()
     app.exec()
     w.saveSettings()
+
+
+    # import Shadow
+    # beam = Shadow.Beam()
+    # beam.load("star_srcalc_000.01")
+    # x, z, w = beam.getshcol([1,3,23])
+    # for i in range(5):
+    #     print(x[i], z[i], w[i])

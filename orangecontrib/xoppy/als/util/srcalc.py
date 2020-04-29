@@ -1,5 +1,6 @@
 #*********************************************************************************************************
 #*********************************************************************************************************
+#*********************************************************************************************************
 #
 # auxiliar functions for SRCALC
 #
@@ -118,7 +119,9 @@ def ray_tracing(
         accumulate_results=True,
         store_footprint=True,
         store_image=True,
-        verbose=False):
+        verbose=False,
+        run_index=None,
+        undo_shadow_orientation_angle_rotation=False):
     """
 
     :param out_dictionary:
@@ -175,7 +178,12 @@ def ray_tracing(
         beam.set_column(16, 0.0)
         beam.set_column(17, 0.0)
         beam.set_column(18, 0.0)
-        Beam3.initialize_from_shadow4_beam(beam).write('begin_srcalc.dat')
+        if run_index is None:
+            filename = 'begin_srcalc.dat'
+        else:
+            filename = 'begin_srcalc_%03d.dat' % run_index
+        Beam3.initialize_from_shadow4_beam(beam).write(filename)
+        print("File written to disk: %s" % filename)
 
     OE_FOOTPRINT = []
     OE_IMAGE = []
@@ -278,7 +286,12 @@ def ray_tracing(
             newbeam.set_column(16, 0.0)
             newbeam.set_column(17, 0.0)
             newbeam.set_column(18, 0.0)
-            Beam3.initialize_from_shadow4_beam(newbeam).write('mirr_srcalc.%02d'%(oe_index+1))
+            if run_index is None:
+                filename = 'mirr_srcalc.%02d' % (oe_index+1)
+            else:
+                filename = 'mirr_srcalc_%03d.%02d' % (run_index, oe_index+1)
+            Beam3.initialize_from_shadow4_beam(newbeam).write(filename)
+            print("File written to disk: %s" % filename)
 
         tmp = newbeam.get_columns((2, 1, 23))
         tmp[2,:] = (out_dictionary["Zlist"][oe_index+1]).flatten()
@@ -289,6 +302,8 @@ def ray_tracing(
         #
         newbeam.rotate(theta_grazing, axis=1)
         # do not undo alpha rotation: newbeam.rotate(-alpha, axis=2)
+        if undo_shadow_orientation_angle_rotation:
+            newbeam.rotate(-alpha, axis=2)
         newbeam.retrace(q, resetY=True)
 
         if dump_shadow_files:
@@ -298,7 +313,12 @@ def ray_tracing(
             newbeam.set_column(16, 0.0)
             newbeam.set_column(17, 0.0)
             newbeam.set_column(18, 0.0)
-            Beam3.initialize_from_shadow4_beam(newbeam).write('star_srcalc.%02d'%(oe_index+1))
+            if run_index is None:
+                filename = 'star_srcalc.%02d' % (oe_index+1)
+            else:
+                filename = 'star_srcalc_%03d.%02d' % (run_index, oe_index+1)
+            Beam3.initialize_from_shadow4_beam(newbeam).write(filename)
+            print("File written to disk: %s" % filename)
 
         tmp = newbeam.get_columns((1, 3, 23))
         tmp[2,:] = (out_dictionary["Zlist"][oe_index+1]).flatten()
@@ -399,7 +419,7 @@ def interpolate_to_regular_grid(power_density_footprint, XX_FOOTPRINT, YY_FOOTPR
     power_density_footprint = interpolate.griddata(
         (XX_FOOTPRINT_old.flatten(), YY_FOOTPRINT_old.flatten()),
         power_density_footprint.flatten(),
-        (XX_FOOTPRINT, YY_FOOTPRINT), method=method,fill_value=0.0, rescale=True)
+        (XX_FOOTPRINT, YY_FOOTPRINT), method=method, fill_value=0.0, rescale=True)
 
     if renormalize_integrals:
         tmptmp2 = trapezoidal_rule_2d(power_density_footprint)
@@ -488,6 +508,12 @@ def compute_power_density_image(dict1, verbose=True, interpolation_or_histogramm
         image_V = OE_IMAGE[element_index][1, :]
         weights = OE_IMAGE[element_index][2, :]
 
+        f = open("tmp.%02d" % (element_index + 1), 'w')
+        for i in range(image_V.size):
+            f.write("%g  %g  %g\n" % (image_H[i], image_V[i], weights[i]))
+        f.close()
+        print("File tmp.%02d written to disk" % (element_index + 1))
+
         # calculate limits
         image_H_max = numpy.max( (numpy.abs(image_H.min()), numpy.abs(image_H.max())) )
         image_V_max = numpy.max( (numpy.abs(image_V.min()), numpy.abs(image_V.max())) )
@@ -516,10 +542,15 @@ def compute_power_density_image(dict1, verbose=True, interpolation_or_histogramm
             YY_IMAGE = numpy.outer(numpy.ones_like(xx_image), yy_image)
         else:
             nruns = int(image_H.size / (shapeXY[0] * shapeXY[1]))
-            print(">>>>>>>>>>>>>>>>>>>>>>>>> nn", nruns)
             weights_splitted = numpy.split(weights, nruns)
             image_H_splitted = numpy.split(image_H, nruns)
             image_V_splitted = numpy.split(image_V, nruns)
+
+            # f = open("tmpsplitted.%02d" % (element_index + 1), 'w')
+            # for i in range(len(image_V_splitted[0])):
+            #     f.write("%g  %g  %g\n" % (image_H_splitted[0][i], image_V_splitted[0][i], weights_splitted[0][i]))
+            # f.close()
+            # print("File tmpsplitted.%02d written to disk" % (element_index + 1))
 
             power_density_image = numpy.zeros((int(shapeXY[0]*ratio_pixels_0),int(shapeXY[1]*ratio_pixels_1)))
 
@@ -537,7 +568,15 @@ def compute_power_density_image(dict1, verbose=True, interpolation_or_histogramm
                         nx=int(shapeXY[0]*ratio_pixels_0),
                         ny=int(shapeXY[1]*ratio_pixels_1))
 
-                power_density_image += power_density_image_i
+                # from srxraylib.plot.gol import plot_image
+                # plot_image(power_density_image_i, XX_IMAGE[:,0], YY_IMAGE[0,:], title="run index: %d"%i)
+
+                area_factor = image_H_max * image_V_max /\
+                              (numpy.abs(image_H_splitted[i]).max() * \
+                               numpy.abs(image_V_splitted[i]).max())
+                power_density_image += power_density_image_i * area_factor
+
+            # plot_image(power_density_image, XX_IMAGE[:, 0], YY_IMAGE[0, :], title="total")
 
 
         tmptmp2 = trapezoidal_rule_2d(power_density_image)
