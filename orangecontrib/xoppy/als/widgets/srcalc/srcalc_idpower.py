@@ -893,7 +893,17 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
                 self.id_KY.setEnabled(False)
 
     def do_xoppy_calculation(self):
-        return self.xoppy_calc_srcalc()
+        # odd way to clean output window during running
+        view_type_old = self.view_type
+        self.view_type = 0
+        self.set_ViewType()
+
+        out = self.xoppy_calc_srcalc()
+
+        self.view_type = view_type_old
+        self.set_ViewType()
+
+        return out
 
     def extract_data_from_xoppy_output(self, calculation_output):
         return calculation_output
@@ -1172,17 +1182,8 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
 
 
     def xoppy_calc_srcalc(self):
-        # odd way to clean output window
-        # view_type_old = self.view_type
-        # self.view_type = 0
-        # self.set_ViewType()
-        # self.view_type = view_type_old
-        # self.set_ViewType()
-        # self.initializeTabs()
-        #
-        # self.progressBarInit()
-        #
-        # self.progressBarSet(0)
+
+        self.progressBarSet(2)
 
         sys.stdout = EmittingStream(textWritten=self.writeStdOut)
 
@@ -1345,9 +1346,6 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
                                     ratio_pixels_0=self.RATIO_PIXELS_0,
                                     ratio_pixels_1=self.RATIO_PIXELS_1,
                                     flip_pixels_number=flip_pixels_number)
-
-        # self.view_type = view_type_old
-        # self.set_ViewType()
 
         return out_dictionary
 
