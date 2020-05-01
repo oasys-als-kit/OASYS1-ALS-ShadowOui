@@ -174,6 +174,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
     DUMP_SHADOW_FILES = Setting(0)
     DUMP_ANSYS_FILES = Setting(0)
     SHOW_URGENT_PLOTS = Setting(0) # 0 only source, 1 all
+    ORIENTATION_LOGIC = Setting(1) # 0=shadow, 1=Lab
     INTERPOLATION_OR_HISTOGRAMMING = Setting(0)  # 0 interpolation, 1 histogramming
     INTERPOLATION_METHOD = Setting(2) # 0 linear, 1 nearest, 2 cubic
     RATIO_PIXELS_0 = Setting(1.0)
@@ -364,8 +365,8 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
         idx += 1 
         box1 = gui.widgetBox(box) 
         gui.comboBox(box1, self, "NELEMENTS",
-                     label=self.unitLabels()[idx], addSpace=False,
-                    items=['0', '1', '2', '3', '4', '5'],
+                    label=self.unitLabels()[idx], addSpace=False,
+                    items=['0', '1', '2', '3', '4', '5','6'],
                     valueType=int, orientation="horizontal", callback=self.set_NELEMENTS,
                     labelWidth=330)
         self.show_at(self.unitFlags()[idx], box1)
@@ -469,7 +470,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
             box1 = gui.widgetBox(self.tab_el[element_index])
             gui.comboBox(box1, self, "EL%d_RELATIVE_TO_PREVIOUS"%element_index,
                          label=self.unitLabels()[idx], addSpace=False,
-                        items=['Left','Right','Up','Down'],
+                        items=['Left (90)','Right (270)','Up (0)','Down (180)'],
                         valueType=int, orientation="horizontal", callback=self.set_EL_FLAG, labelWidth=250)
             self.show_at(self.unitFlags()[idx], box1)
 
@@ -586,8 +587,20 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
         self.show_at(self.unitFlags()[idx], box1)
 
 
-
         box = gui.widgetBox(box0,"Processing")
+        # widget index xx
+        idx += 1
+        box1 = gui.widgetBox(box)
+        gui.separator(box1, height=7)
+
+        gui.comboBox(box1, self, "ORIENTATION_LOGIC",
+                     label=self.unitLabels()[idx], addSpace=False,
+                     items=['relative to previous o.e. [like SHADOW]',
+                            'relative to lab frame [default]'],
+                     valueType=int, orientation="horizontal", labelWidth=125)
+
+        self.show_at(self.unitFlags()[idx], box1)
+
         # widget index xx
         idx += 1
         box1 = gui.widgetBox(box)
@@ -612,8 +625,6 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
 
         self.show_at(self.unitFlags()[idx], box1)
 
-
-
         self.show_at(self.unitFlags()[idx], box1)
 
         # widget index xx
@@ -633,7 +644,6 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
                           label=self.unitLabels()[idx], addSpace=False,
                           valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
         self.show_at(self.unitFlags()[idx], box1)
-
 
         box = gui.widgetBox(box0,"Debug")
         #
@@ -705,15 +715,15 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
                 'Focus Entrance Arm [m]',
                 'Focus Exit Arm [m]',
                 'Inc. Angle to normal [deg]',
-                'Thickness [??]',
-                'Orientation (relative to previous)',
+                'Thickness [microns]',
+                'Orientation (see Settings tab)',
                 'Coating',
                 ]
 
          labels = labels + ["Calculate power on images","Number of ray-tracing runs","Random seed (int): ",
                             "Plot mode","Plot ray-traced grid","Show URGENT plots",
                             "Write SHADOW files","Write FEA/ANSYS files",
-                            "Calculation method for images","Interpolation",
+                            "O.E. orientation","Calculation method for images","Interpolation",
                             "Ratio pixels axis 0 o.e./source","Ratio pixels axis 1 o.e./source",
                             "Debug mode (do not run URGENT)"]
 
@@ -744,7 +754,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
                  'True', 'self.RAY_TRACING_IMAGE == 1', 'self.RAY_TRACING_IMAGE == 1',
                  'True', 'True', 'True',
                  'True', 'True',
-                 'True', 'True',
+                 'True', 'True', 'True',
                  'True', 'True',
                  'True']
 
@@ -883,14 +893,12 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
                 self.id_KY.setEnabled(False)
 
     def do_xoppy_calculation(self):
-        print(">>>>>>>>>>>>>>>>>>>>>>>>> do_xoppy_calculation")
         return self.xoppy_calc_srcalc()
 
     def extract_data_from_xoppy_output(self, calculation_output):
         return calculation_output
 
-    def plot_results(self, calculated_data, progressBarValue=80):
-        print(">>>>>>>>>>>>>>>>>>>>>>>>> plot_results")
+    def plot_results(self, calculated_data, progressBarValue=70):
         if not self.view_type == 0:
             if calculated_data is None:
                 raise Exception("Empty Data")
@@ -959,9 +967,16 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
                             index += 1
                             dataX = calculated_data["OE_IMAGE"][oe_n-1][0, :]
                             dataY = calculated_data["OE_IMAGE"][oe_n-1][1, :]
+                            if self.ORIENTATION_LOGIC == 0:
+                                xtitle = "X (shadow col 1) [mm]"
+                                ytitle = "Z (shadow col 2) [mm]"
+                            elif self.ORIENTATION_LOGIC == 1:
+                                xtitle = "H [mm]"
+                                ytitle = "V [mm]"
+
                             self.plot_data1D(1e3*dataX, 1e3*dataY, index, 0,
                                              title="image just after oe %d perp to beam"%oe_n,
-                                             xtitle="X (shadow col 1) [mm]", ytitle="Z (shadow col 2) [mm]")
+                                             xtitle=xtitle, ytitle=ytitle)
 
 
                     # mirror power density
@@ -973,19 +988,26 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
                     data2D = (calculated_data["POWER_DENSITY_FOOTPRINT"][oe_n - 1])
                     totPower2 =   trapezoidal_rule_2d(data2D)
                     title = 'Power density [W/mm2] absorbed at element %d Integrated Power: %6.1f W' % (oe_n, totPower2)
-                    self.plot_data2D(data2D.T / (stepx * stepy) , V[0,:], H[:,0],
+                    if self.ORIENTATION_LOGIC == 0:
+                        xtitle = 'X (shadow col 1) [mm] (%d pixels)' % (H.shape[0])
+                        ytitle = 'Y (shadow col 2) [mm] (%d pixels)' % (H.shape[1])
+                    elif self.ORIENTATION_LOGIC == 1:
+                        xtitle = 'Width (perp to beam) [mm] (%d pixels)' % (H.shape[0])
+                        ytitle = 'Length (along the beam) [mm] (%d pixels)' % (H.shape[1])
+
+                    self.plot_data2D(data2D / (stepx * stepy) , H[:,0], V[0,:],
                                      index, 0, mode=self.PLOT_MODE,
                                      overplot=overplot_data_footprint,
-                                     ytitle='Y (shadow col 2) [mm] (%d pixels)' % (H.shape[0]),
-                                     xtitle='X (shadow col 1) [mm] (%d pixels)' % (H.shape[1]),
+                                     xtitle=xtitle,
+                                     ytitle=ytitle,
                                      title=title)
 
                     if self.DUMP_ANSYS_FILES == 0:
                         pass
                     if self.DUMP_ANSYS_FILES == 1: # as plotted
-                        write_ansys_files(data2D.T / (stepx * stepy), V[0,:], H[:,0], oe_number=oe_n)
+                        write_ansys_files(data2D / (stepx * stepy), H[:,0], V[0,:], oe_number=oe_n)
                     elif self.DUMP_ANSYS_FILES == 2: # transposed
-                        write_ansys_files(data2D / (stepx * stepy), H[:,0], V[0,:],  oe_number=oe_n)
+                        write_ansys_files(data2D.T / (stepx * stepy), V[0,:], H[:,0],  oe_number=oe_n)
 
                     if self.RAY_TRACING_IMAGE:
                         # image power density
@@ -997,11 +1019,18 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
                         stepy = V[0,1] - V[0,0]
                         totPower2 = trapezoidal_rule_2d(data2D)
                         title = 'Power density [W/mm2] transmitted after element %d Integrated Power: %6.1f W' % (oe_n, totPower2)
+                        if self.ORIENTATION_LOGIC == 0:
+                            xtitle = 'X (shadow col 1) [mm] (%d pixels)' % (H.shape[0])
+                            ytitle = 'Z (shadow col 3) [mm] (%d pixels)' % (H.shape[1])
+                        elif self.ORIENTATION_LOGIC == 1:
+                            xtitle = 'H [mm] (%d pixels)' % (H.shape[0])
+                            ytitle = 'V [mm] (%d pixels)' % (H.shape[1])
+
                         self.plot_data2D(data2D / (stepx * stepy), H[:,0], V[0,:],
                                          index, 0, mode=self.PLOT_MODE,
                                          overplot=overplot_data_image,
-                                         xtitle='X (shadow col 1) [mm] (%d pixels)' % (H.shape[0]),
-                                         ytitle='Z (shadow col 3) [mm] (%d pixels)' % (H.shape[1]),
+                                         xtitle=xtitle,
+                                         ytitle=ytitle,
                                          title=title)
 
 
@@ -1026,7 +1055,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
         return titles
 
     def run_urgent(self):
-        polarization_list,polarization_info = self.get_polarization_list()
+        polarization_list, polarization_inversion, polarization_info = self.get_polarization_list()
 
         if self.NUMBER_OF_POINTS_H > 50:
             showCriticalMessage("Max NUMBER_OF_POINTS_H is 50")
@@ -1127,8 +1156,6 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
 
             f.close()
 
-            self.progressBarSet(5)
-
             if platform.system() == "Windows":
                 command = os.path.join(locations.home_bin(),'srcalc')
             else:
@@ -1145,28 +1172,31 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
 
 
     def xoppy_calc_srcalc(self):
-        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>> xoppy_calc_srcalc")
         # odd way to clean output window
-        view_type_old = self.view_type
-        self.view_type = 0
-        self.set_ViewType()
-        self.view_type = view_type_old
-        self.set_ViewType()
-
-        self.progressBarSet(0)
+        # view_type_old = self.view_type
+        # self.view_type = 0
+        # self.set_ViewType()
+        # self.view_type = view_type_old
+        # self.set_ViewType()
+        # self.initializeTabs()
+        #
+        # self.progressBarInit()
+        #
+        # self.progressBarSet(0)
 
         sys.stdout = EmittingStream(textWritten=self.writeStdOut)
 
         grabber = TTYGrabber()
         grabber.start()
         # run fortran code (urgent-based code)
+        # self.progressBarSet(5)
         self.run_urgent()
         grabber.stop()
 
         for row in grabber.ttyData:
             self.writeStdOut(row)
 
-        self.progressBarSet(99)
+        # self.progressBarSet(60)
 
         #
         # display some info
@@ -1181,7 +1211,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
 
         txt3 = self.info_distances()
 
-        polarization_list, polarization_info = self.get_polarization_list() # (TO BE DELETED??)
+        polarization_list, polarization_inversion, polarization_info = self.get_polarization_list() # (TO BE DELETED??)
         self.info_output.setText("\n\n\n#\n# Info from IDPower/Urgent\n#\n" + txt + \
                                  "\n\n\n#\n# Additional Info from undulator source\n#\n" + txt2 + \
                                  "\n\n\n#\n# Additional Info o.e. distances\n#\n\n" + txt3 + \
@@ -1253,6 +1283,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
 
         }
 
+        self.progressBarSet(45)
         # first run for mirror footprint
         out_dictionary = ray_tracing(out_dictionary,
                             SOURCE_SCREEN_DISTANCE=self.SOURCE_SCREEN_DISTANCE,
@@ -1264,19 +1295,24 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
                             store_image=False,
                             accumulate_results=False,
                             run_index=None,
+                            undo_shadow_orientation_angle_rotation=self.ORIENTATION_LOGIC,
                             )
+
+        tmp, flip_pixels_number, tmp = self.get_polarization_list()
+
         out_dictionary = compute_power_density_footprint(out_dictionary,
                                     interpolation_method=self.INTERPOLATION_METHOD,
                                     ratio_pixels_0=self.RATIO_PIXELS_0,
-                                    ratio_pixels_1=self.RATIO_PIXELS_1)
+                                    ratio_pixels_1=self.RATIO_PIXELS_1,
+                                    flip_pixels_number=flip_pixels_number)
 
         if self.RAY_TRACING_IMAGE == 1:
-        #     number_of_runs = 1
-        # else:
-        #     number_of_runs = self.RAY_TRACING_RUNS
-        #
-        # if number_of_runs >= 2:
+
             numpy.random.seed(self.RAY_TRACING_SEED)
+
+            if self.ORIENTATION_LOGIC == 1:
+                flip_pixels_number = [0] * 6
+
             for i in range(self.RAY_TRACING_RUNS):
 
                 depth = (numpy.random.random() - 0.5) * self.NUMBER_OF_PERIODS * self.PERIOD_LENGTH
@@ -1297,6 +1333,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
                                 store_image=True,
                                 accumulate_results=True,
                                 run_index=i,
+                                undo_shadow_orientation_angle_rotation=self.ORIENTATION_LOGIC,
                                 )
 
             #
@@ -1306,7 +1343,11 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
                                     interpolation_or_histogramming=self.INTERPOLATION_OR_HISTOGRAMMING,
                                     interpolation_method=self.INTERPOLATION_METHOD,
                                     ratio_pixels_0=self.RATIO_PIXELS_0,
-                                    ratio_pixels_1=self.RATIO_PIXELS_1,)
+                                    ratio_pixels_1=self.RATIO_PIXELS_1,
+                                    flip_pixels_number=flip_pixels_number)
+
+        # self.view_type = view_type_old
+        # self.set_ViewType()
 
         return out_dictionary
 
@@ -1568,11 +1609,14 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
             """
 
     def get_polarization_list(self):
+        if self.ORIENTATION_LOGIC == 0:
+            return self.get_polarization_list_shadow()
+        else:
+            return self.get_polarization_list_lab()
+
+    def get_polarization_list_shadow(self):
         KY = self.KY
         KX = self.KX
-
-        if (KX != 0 and KY != 0):
-            return ['f'] * 6, str(['f'] * 6)[1:-1]
 
         EL0_RELATIVE_TO_PREVIOUS = self.EL0_RELATIVE_TO_PREVIOUS
         EL1_RELATIVE_TO_PREVIOUS = self.EL1_RELATIVE_TO_PREVIOUS
@@ -1585,13 +1629,18 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
         #
         #
         SP = ['s', 'p']
-        if KX == 0:
-            source_pol = 0  # s
+
+        if KX != 0 and KY != 0:
+            source_pol = 0
+            txt = "Polarization at the source: f"
         else:
-            source_pol = 1  # p
+            if KX == 0:
+                source_pol = 0  # s
+            else:
+                source_pol = 1  # p
+            txt = "Polarization at the source: %s" % (SP[source_pol])
 
-        txt = "Polarization at the source: %s" % (SP[source_pol])
-
+        txt += "\nNumber of optical elements: %d" % self.NELEMENTS
         RR = ['Left (90)', 'Right (270)', 'Up (0)', 'Down (180)']
         RELATIVE_TO_PREVIOUS = [
             RR[EL0_RELATIVE_TO_PREVIOUS],
@@ -1612,8 +1661,8 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
 
         # s=0, p=1
 
-        txt += "\nRELATIVE_TO_PREVIOUS: " + str(RELATIVE_TO_PREVIOUS)[1:-1]
-        txt += "\nFLAG_PERPENDICULAR_TO_PREVIOUS: " + str(FLAG_PERPENDICULAR_TO_PREVIOUS)[1:-1]
+        txt += "\nRELATIVE_TO_PREVIOUS: " + str(RELATIVE_TO_PREVIOUS[0:self.NELEMENTS])[1:-1]
+        txt += "\nFLAG_PERPENDICULAR_TO_PREVIOUS: " + str(FLAG_PERPENDICULAR_TO_PREVIOUS[0:self.NELEMENTS])[1:-1]
 
         NUMBER_OF_INVERSIONS = [0, 0, 0, 0, 0, 0]
         for i in range(6):
@@ -1625,23 +1674,104 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
                     NUMBER_OF_INVERSIONS[i] += 1
                 NUMBER_OF_INVERSIONS[i] += NUMBER_OF_INVERSIONS[i - 1]
 
-        txt += "\nNUMBER_OF_INVERSIONS: " + str(NUMBER_OF_INVERSIONS)[1:-1]
+        txt += "\nNUMBER_OF_INVERSIONS: " + str(NUMBER_OF_INVERSIONS[0:self.NELEMENTS])[1:-1]
 
         NUMBER_OF_INVERSIONS_MODULO_2 = [0, 0, 0, 0, 0, 0]
         for i in range(6):
             NUMBER_OF_INVERSIONS_MODULO_2[i] = numpy.mod(NUMBER_OF_INVERSIONS[i], 2)
 
-        txt += "\nNUMBER_OF_INVERSIONS_MODULO_2: " + str(NUMBER_OF_INVERSIONS_MODULO_2)[1:-1]
+        txt += "\nNUMBER_OF_INVERSIONS_MODULO_2: " + str(NUMBER_OF_INVERSIONS_MODULO_2[0:self.NELEMENTS])[1:-1]
 
         OUTPUT_LIST = []
         for i in range(6):
-            OUTPUT_LIST.append(SP[NUMBER_OF_INVERSIONS_MODULO_2[i]])
+            OUTPUT_LIST.append(SP[numpy.mod(NUMBER_OF_INVERSIONS_MODULO_2[i] + source_pol, 2)])
 
-        txt += "\nOUTPUT_LIST: " + str(OUTPUT_LIST)[1:-1]
+        if (KX != 0 and KY != 0):
+            OUTPUT_LIST = ['f'] * 6
+
+        txt += "\nOUTPUT_LIST: " + str(OUTPUT_LIST[0:self.NELEMENTS])[1:-1]
 
         txt += "\n"
 
-        return OUTPUT_LIST, txt
+        return OUTPUT_LIST, NUMBER_OF_INVERSIONS_MODULO_2, txt
+
+    def get_polarization_list_lab(self):
+        KY = self.KY
+        KX = self.KX
+
+        EL0_RELATIVE_TO_PREVIOUS = self.EL0_RELATIVE_TO_PREVIOUS
+        EL1_RELATIVE_TO_PREVIOUS = self.EL1_RELATIVE_TO_PREVIOUS
+        EL2_RELATIVE_TO_PREVIOUS = self.EL2_RELATIVE_TO_PREVIOUS
+        EL3_RELATIVE_TO_PREVIOUS = self.EL3_RELATIVE_TO_PREVIOUS
+        EL4_RELATIVE_TO_PREVIOUS = self.EL4_RELATIVE_TO_PREVIOUS
+        EL5_RELATIVE_TO_PREVIOUS = self.EL5_RELATIVE_TO_PREVIOUS
+
+        #
+        #
+        #
+        SP = ['s', 'p']
+
+
+        if KX != 0 and KY != 0:
+            source_pol = 0
+            txt = "Polarization at the source: f"
+        else:
+            if KX == 0:
+                source_pol = 0  # s
+            else:
+                source_pol = 1  # p
+            txt = "Polarization at the source: %s" % (SP[source_pol])
+
+        txt += "\nNumber of optical elements: %d" % self.NELEMENTS
+        RR = ['Left (90)', 'Right (270)', 'Up (0)', 'Down (180)']
+        RELATIVE_TO_PREVIOUS = [
+            RR[EL0_RELATIVE_TO_PREVIOUS],
+            RR[EL1_RELATIVE_TO_PREVIOUS],
+            RR[EL2_RELATIVE_TO_PREVIOUS],
+            RR[EL3_RELATIVE_TO_PREVIOUS],
+            RR[EL4_RELATIVE_TO_PREVIOUS],
+            RR[EL5_RELATIVE_TO_PREVIOUS], ]
+
+        # items = ['Left', 'Right', 'Up', 'Down'],
+        FLAG_PERPENDICULAR_TO_PREVIOUS = [
+            EL0_RELATIVE_TO_PREVIOUS < 2,
+            EL1_RELATIVE_TO_PREVIOUS < 2,
+            EL2_RELATIVE_TO_PREVIOUS < 2,
+            EL3_RELATIVE_TO_PREVIOUS < 2,
+            EL4_RELATIVE_TO_PREVIOUS < 2,
+            EL5_RELATIVE_TO_PREVIOUS < 2, ]
+
+        # s=0, p=1
+
+        txt += "\nORIENTATION: " + str(RELATIVE_TO_PREVIOUS[0:self.NELEMENTS])[1:-1]
+        txt += "\nFLAG_PERPENDICULAR: " + str(FLAG_PERPENDICULAR_TO_PREVIOUS[0:self.NELEMENTS])[1:-1]
+
+        NUMBER_OF_INVERSIONS = [
+            int(FLAG_PERPENDICULAR_TO_PREVIOUS[0]),
+            int(FLAG_PERPENDICULAR_TO_PREVIOUS[1]),
+            int(FLAG_PERPENDICULAR_TO_PREVIOUS[2]),
+            int(FLAG_PERPENDICULAR_TO_PREVIOUS[3]),
+            int(FLAG_PERPENDICULAR_TO_PREVIOUS[4]),
+            int(FLAG_PERPENDICULAR_TO_PREVIOUS[5]) ]
+
+        txt += "\nNUMBER_OF_INVERSIONS: " + str(NUMBER_OF_INVERSIONS[0:self.NELEMENTS])[1:-1]
+
+        NUMBER_OF_INVERSIONS_MODULO_2 = NUMBER_OF_INVERSIONS
+
+        txt += "\nNUMBER_OF_INVERSIONS_MODULO_2: " + str(NUMBER_OF_INVERSIONS_MODULO_2[0:self.NELEMENTS])[1:-1]
+
+        OUTPUT_LIST = []
+        for i in range(6):
+            OUTPUT_LIST.append(SP[numpy.mod(NUMBER_OF_INVERSIONS_MODULO_2[i] + source_pol, 2)] )
+
+        if (KX != 0 and KY != 0):
+            OUTPUT_LIST = ['f'] * 6
+
+        txt += "\nOUTPUT_LIST: " + str(OUTPUT_LIST[0:self.NELEMENTS])[1:-1]
+
+        txt += "\n"
+
+        return OUTPUT_LIST, NUMBER_OF_INVERSIONS_MODULO_2, txt
 
     def help1(self):
 
@@ -1662,7 +1792,7 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     w = OWsrcalc_idpower()
     w.DEBUG_RUN_URGENT = 1
-    w.DUMP_SHADOW_FILES = 1
+    # w.DUMP_SHADOW_FILES = 1
     w.show()
     app.exec()
     w.saveSettings()

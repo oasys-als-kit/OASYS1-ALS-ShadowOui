@@ -96,7 +96,6 @@ def load_srcalc_output_file(filename="D_IDPower.TXT",skiprows=5,four_quadrants=T
                     print(">>1>> out_dictionary: from D_IDPower.TXT: ", key, i, out_dictionary[key][i].shape)
             else:
                 print(">>1>> out_dictionary: from D_IDPower.TXT: ", key)
-
     return out_dictionary
 
 
@@ -256,7 +255,6 @@ def ray_tracing(
         #
         # put beam in mirror reference system
         #
-
         newbeam.rotate(alpha, axis=2)
         newbeam.rotate(theta_grazing, axis=1)
         newbeam.translation([0.0, -p * numpy.cos(theta_grazing), p * numpy.sin(theta_grazing)])
@@ -271,7 +269,6 @@ def ray_tracing(
             if verbose:
                 print("\n\nElement %d is TOROIDAL :\n" % (1 + oe_index), toroid.info())
             newbeam = toroid.apply_specular_reflection_on_beam(newbeam)
-
         print("\n     p: %f m" % p)
         print("      q: %f m" % q)
         print("      p (focal): %f m" % oe_parameters["EL%d_P_FOCUS" % oe_index] )
@@ -279,6 +276,7 @@ def ray_tracing(
         print("      alpha: %f rad = %f deg" % (alpha, alpha*180/numpy.pi) )
         print("      theta_grazing: %f rad = %f deg" %  (theta_grazing, theta_grazing*180/numpy.pi) )
         print("      theta_normal: %f rad = %f deg \n" % (numpy.pi/2 - theta_grazing, 90 - theta_grazing * 180 / numpy.pi))
+
         if dump_shadow_files:
             newbeam.set_column(7, (numpy.sqrt(out_dictionary["Zlist"][oe_index] - out_dictionary["Zlist"][oe_index + 1]).flatten()))
             newbeam.set_column(8, 0.0)
@@ -292,11 +290,9 @@ def ray_tracing(
                 filename = 'mirr_srcalc_%03d.%02d' % (run_index, oe_index+1)
             Beam3.initialize_from_shadow4_beam(newbeam).write(filename)
             print("File written to disk: %s" % filename)
-
         tmp = newbeam.get_columns((2, 1, 23))
         tmp[2,:] = (out_dictionary["Zlist"][oe_index+1]).flatten()
         OE_FOOTPRINT.append( tmp )
-
         #
         # put beam in lab frame and compute image
         #
@@ -305,7 +301,6 @@ def ray_tracing(
         if undo_shadow_orientation_angle_rotation:
             newbeam.rotate(-alpha, axis=2)
         newbeam.retrace(q, resetY=True)
-
         if dump_shadow_files:
             newbeam.set_column(7, (numpy.sqrt(out_dictionary["Zlist"][oe_index + 1]).flatten()))
             newbeam.set_column(8, 0.0)
@@ -429,9 +424,12 @@ def interpolate_to_regular_grid(power_density_footprint, XX_FOOTPRINT, YY_FOOTPR
 
     return power_density_footprint, XX_FOOTPRINT, YY_FOOTPRINT
 
-def compute_power_density_footprint(dict1,verbose=True,
+def compute_power_density_footprint(dict1,
+                                    verbose=True,
                                     interpolation_method=0,
-                                    ratio_pixels_0=1.0,ratio_pixels_1=1.0):
+                                    ratio_pixels_0=1.0,
+                                    ratio_pixels_1=1.0,
+                                    flip_pixels_number=[0,0,0,0,0,0]):
 
     shapeXY = (dict1["X"].size, dict1["Y"].size)
 
@@ -450,14 +448,21 @@ def compute_power_density_footprint(dict1,verbose=True,
     POWER_DENSITY_FOOTPRINT_V = []
 
     for element_index in range(number_of_elements_traced):
-        XX_FOOTPRINT = OE_FOOTPRINT[element_index][0, :].reshape(shapeXY)
-        YY_FOOTPRINT = OE_FOOTPRINT[element_index][1, :].reshape(shapeXY)
+        XX_FOOTPRINT = OE_FOOTPRINT[element_index][1, :].reshape(shapeXY)
+        YY_FOOTPRINT = OE_FOOTPRINT[element_index][0, :].reshape(shapeXY)
         power_density_footprint = dict1["Zlist"][element_index] - dict1["Zlist"][element_index+1]
+
+        if flip_pixels_number[element_index]:
+            ny = int(shapeXY[0]*ratio_pixels_0)
+            nx = int(shapeXY[1]*ratio_pixels_1)
+        else:
+            nx = int(shapeXY[0]*ratio_pixels_0)
+            ny = int(shapeXY[1]*ratio_pixels_1)
 
         power_density_footprint, XX_FOOTPRINT, YY_FOOTPRINT = \
             interpolate_to_regular_grid(
             power_density_footprint, XX_FOOTPRINT, YY_FOOTPRINT,
-            nx=int(shapeXY[0]*ratio_pixels_0),ny=int(shapeXY[1]*ratio_pixels_1),
+            nx=nx,ny=ny,
             interpolation_method=interpolation_method)
 
         POWER_DENSITY_FOOTPRINT.append( power_density_footprint )
@@ -477,14 +482,13 @@ def compute_power_density_footprint(dict1,verbose=True,
 
     return dict1
 
-
-def compute_power_density_image(dict1, verbose=True, interpolation_or_histogramming=False,
-                                interpolation_method=0, ratio_pixels_0=1.0, ratio_pixels_1=1.0):
-
-    # x0 = dict1["X"]
-    # y0 = dict1["Y"]
-    # nx0 = x0.size
-    # ny0 = y0.size
+def compute_power_density_image(dict1,
+                                verbose=True,
+                                interpolation_or_histogramming=False,
+                                interpolation_method=0,
+                                ratio_pixels_0=1.0,
+                                ratio_pixels_1=1.0,
+                                flip_pixels_number=[0,0,0,0,0,0]):
 
     shapeXY = (dict1["X"].size, dict1["Y"].size)
 
@@ -518,13 +522,17 @@ def compute_power_density_image(dict1, verbose=True, interpolation_or_histogramm
         image_H_max = numpy.max( (numpy.abs(image_H.min()), numpy.abs(image_H.max())) )
         image_V_max = numpy.max( (numpy.abs(image_V.min()), numpy.abs(image_V.max())) )
 
-        print(">>>>>> limits image oe %d:  H: %f  V: %f:"%(element_index+1,image_H_max,image_V_max))
+        if flip_pixels_number[element_index]:
+            ny = int(shapeXY[0]*ratio_pixels_0)
+            nx = int(shapeXY[1]*ratio_pixels_1)
+        else:
+            nx = int(shapeXY[0]*ratio_pixels_0)
+            ny = int(shapeXY[1]*ratio_pixels_1)
 
         if interpolation_or_histogramming:
             # make histograms for image
-            # plot_scatter(image_H,image_V,title="Element index: %d"%element_index)
             (hh,xx,yy) = numpy.histogram2d(image_H, image_V,
-                            bins=[int(shapeXY[0]*ratio_pixels_0),int(shapeXY[1]*ratio_pixels_1)], #[100,100], #2*nx0,2*ny0],
+                            bins=[nx,ny], #[100,100], #2*nx0,2*ny0],
                             range=[[-image_H_max,image_H_max],[-image_V_max,image_V_max]],
                             normed=False,
                             weights=weights)
@@ -546,13 +554,7 @@ def compute_power_density_image(dict1, verbose=True, interpolation_or_histogramm
             image_H_splitted = numpy.split(image_H, nruns)
             image_V_splitted = numpy.split(image_V, nruns)
 
-            # f = open("tmpsplitted.%02d" % (element_index + 1), 'w')
-            # for i in range(len(image_V_splitted[0])):
-            #     f.write("%g  %g  %g\n" % (image_H_splitted[0][i], image_V_splitted[0][i], weights_splitted[0][i]))
-            # f.close()
-            # print("File tmpsplitted.%02d written to disk" % (element_index + 1))
-
-            power_density_image = numpy.zeros((int(shapeXY[0]*ratio_pixels_0),int(shapeXY[1]*ratio_pixels_1)))
+            power_density_image = numpy.zeros((nx, ny))
 
             for i in range(nruns):
 
@@ -565,27 +567,21 @@ def compute_power_density_image(dict1, verbose=True, interpolation_or_histogramm
                         yrange=[-image_V_max,image_V_max],
                         renormalize_integrals=False,
                         interpolation_method=interpolation_method,
-                        nx=int(shapeXY[0]*ratio_pixels_0),
-                        ny=int(shapeXY[1]*ratio_pixels_1))
-
-                # from srxraylib.plot.gol import plot_image
-                # plot_image(power_density_image_i, XX_IMAGE[:,0], YY_IMAGE[0,:], title="run index: %d"%i)
+                        nx=nx,
+                        ny=ny,
+                    )
 
                 area_factor = image_H_max * image_V_max /\
                               (numpy.abs(image_H_splitted[i]).max() * \
                                numpy.abs(image_V_splitted[i]).max())
                 power_density_image += power_density_image_i * area_factor
 
-            # plot_image(power_density_image, XX_IMAGE[:, 0], YY_IMAGE[0, :], title="total")
-
 
         tmptmp2 = trapezoidal_rule_2d(power_density_image)
         power_density_image *= tmptmp1 / tmptmp2
 
-        print(">> oe %d: integral before histograming %f and after: %f" % (element_index+1,tmptmp1, tmptmp2))
-        print(">> Renormalized to match integral after with integral before histogramming")
-
-
+        print(">> oe %d: integral before interpolation/histograming %f and after: %f" % (element_index+1,tmptmp1, tmptmp2))
+        print(">> Renormalized to match integral after with integral before interpolation/histogramming")
 
         POWER_DENSITY_IMAGE.append(power_density_image)
         POWER_DENSITY_IMAGE_H.append(XX_IMAGE)
@@ -685,8 +681,6 @@ if __name__ == "__main__":
         dict1 = load_srcalc_output_file(filename=path+"D_IDPower.TXT", skiprows=5, do_plot=0)
         dict2 = ray_tracing(dict1)
         dict3 = compute_power_density_footprint(dict2)
-
-
     elif test == 2:
         dict1 = load_srcalc_output_file(filename=path+"D_IDPower.TXT", skiprows=5, do_plot=0)
         dict2 = ray_tracing(dict1)
