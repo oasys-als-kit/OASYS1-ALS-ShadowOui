@@ -337,9 +337,11 @@ class OWReflector1D(WofryWidget):
                         wavy_amplitude=1e-9,wavy_ripples=1.0,
                         grazing_angle=1.5e-3,error_flag=0, error_file="", error_edge_management=0, write_profile=""):
 
-        output_wavefront = input_wavefront.duplicate()
-        abscissas = output_wavefront.get_abscissas()
+
+        abscissas = input_wavefront.get_abscissas().copy()
         abscissas_on_mirror = abscissas / numpy.sin(grazing_angle)
+        output_wavefront = input_wavefront.duplicate()
+
 
         if shape == 0:
             height = numpy.zeros_like(abscissas_on_mirror)
@@ -370,7 +372,7 @@ class OWReflector1D(WofryWidget):
             if error_edge_management == 0:
                 finterpolate = interpolate.interp1d(a[:, 0], a[:, 1], fill_value="extrapolate")  # fill_value=(0,0),bounds_error=False)
             elif error_edge_management == 1:
-                finterpolate = interpolate.interp1d(a[:,0], a[:,1],fill_value=(0,0),bounds_error=False)
+                finterpolate = interpolate.interp1d(a[:, 0], a[:, 1], fill_value=(0,0), bounds_error=False)
             else: # crop
                 raise Exception("Bad value of error_edge_management")
             height_interpolated = finterpolate( abscissas_on_mirror)
@@ -417,9 +419,9 @@ def calculate_output_wavefront_after_reflector1D(input_wavefront,shape=1,radius=
     import numpy
     from scipy import interpolate
     
-    output_wavefront = input_wavefront.duplicate()
-    abscissas = output_wavefront.get_abscissas()
+    abscissas = input_wavefront.get_abscissas().copy()
     abscissas_on_mirror = abscissas / numpy.sin(grazing_angle)
+    output_wavefront = input_wavefront.duplicate()
 
     if shape == 0:
         height = numpy.zeros_like(abscissas_on_mirror)
@@ -571,7 +573,7 @@ if __name__ == '__main__':
         # create input_wavefront
         #
         from wofry.propagator.wavefront1D.generic_wavefront import GenericWavefront1D
-        input_wavefront = GenericWavefront1D.initialize_wavefront_from_range(x_min=-0.00147, x_max=0.00147,
+        input_wavefront = GenericWavefront1D.initialize_wavefront_from_range(x_min=-0.00147*2, x_max=0.00147,
                                                                              number_of_points=1000)
         input_wavefront.set_photon_energy(250)
         input_wavefront.set_spherical_wave(radius=13.73, center=0, complex_amplitude=complex(1, 0))

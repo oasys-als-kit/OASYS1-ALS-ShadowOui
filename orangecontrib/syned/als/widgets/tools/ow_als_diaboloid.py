@@ -369,12 +369,12 @@ def ken_diaboloid_point_to_segment(
     z0 = p * numpy.sin(2 * theta)
     c = p + q
 
-    print("ken_diaboloid_point_to_segment: s: %f, z0: %f, c: %f" % (s, z0, c))
+    # print("ken_diaboloid_point_to_segment: s: %f, z0: %f, c: %f" % (s, z0, c))
 
     Z = - numpy.sqrt(c ** 2 + q ** 2 - s ** 2 - 2 * Y * (s + q) - 2 * c * numpy.sqrt(X ** 2 + (q - Y) ** 2))
 
     Z += z0
-    print(Z.shape, Z.min(), Z.max())
+    # print(Z.shape, Z.min(), Z.max())
 
     if detrend == 0:
         zfit = 0
@@ -415,11 +415,11 @@ def ken_diaboloid_segment_to_point(
     z0 = q * numpy.sin(2 * theta)
     c = p + q
 
-    print("ken_diaboloid_segment_to_point: s: %f, z0: %f, c: %f" % (s, z0, c))
+    # print("ken_diaboloid_segment_to_point: s: %f, z0: %f, c: %f" % (s, z0, c))
 
     Z = z0 - numpy.sqrt(2 * p ** 2 + z0 ** 2 + 2 * p * q + 2 * (p + s) * Y - 2 * c * numpy.sqrt(X ** 2 + (Y + p) ** 2))
 
-    print(Z.shape, Z.min(), Z.max())
+    # print(Z.shape, Z.min(), Z.max())
 
     if detrend == 0:
         zfit = 0
@@ -464,7 +464,7 @@ def valeriy_diaboloid_point_to_segment(
         2 * (p + q) * (p * c + q - numpy.sqrt(X ** 2 + (q - Y) ** 2)) \
         )
 
-    print(Z.shape, Z.min(), Z.max())
+    # print(Z.shape, Z.min(), Z.max())
 
     if detrend == 0:
         zfit = 0
@@ -563,7 +563,7 @@ def valeriy_parabolic_cone_point_to_segment(
         p * q * c * s2 / pq + s2 * (q - 2 * p * c**2) / 2 / pq * Y
 
 
-    print(Z.shape, Z.min(), Z.max())
+    # print(Z.shape, Z.min(), Z.max())
 
 
     if filename_h5 != "":
@@ -587,17 +587,17 @@ def valeriy_parabolic_cone_segment_to_point(
     return Z, X, Y
 
 if __name__ == "__main__":
-    # app = QApplication(sys.argv)
-    # w = OWALSDiaboloid()
-    # w.show()
-    # app.exec()
-    # w.saveSettings()
+    app = QApplication(sys.argv)
+    w = OWALSDiaboloid()
+    w.show()
+    app.exec()
+    w.saveSettings()
 
-    # Z = toroid_point_to_segment()
-    # print(Z.shape)
-    import orangecanvas.resources as resources
-    import os
-    # usage_path = os.path.join(resources.package_dirname("orangecontrib.syned"), "als", "widgets", "tools", "misc", "diaboloid_usage.png")
-
-    usage_path = os.path.join(resources.package_dirname("orangecontrib.syned.als.widgets.tools") , "misc", "diaboloid_usage.png")
-    print(">>>>", usage_path)
+    # # Z = toroid_point_to_segment()
+    # # print(Z.shape)
+    # import orangecanvas.resources as resources
+    # import os
+    # # usage_path = os.path.join(resources.package_dirname("orangecontrib.syned"), "als", "widgets", "tools", "misc", "diaboloid_usage.png")
+    #
+    # usage_path = os.path.join(resources.package_dirname("orangecontrib.syned.als.widgets.tools") , "misc", "diaboloid_usage.png")
+    # print(">>>>", usage_path)

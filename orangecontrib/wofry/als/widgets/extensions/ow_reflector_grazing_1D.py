@@ -74,6 +74,8 @@ class OWReflectorGrazing1D(WofryWidget):
     q_focus = Setting(1.0)
     error_flag = Setting(0)
     error_file = Setting("<none>")
+    mirror_length = Setting(0.2)
+    mirror_points = Setting(500)
     write_profile = Setting(0)
     write_input_wavefront = Setting(0)
 
@@ -147,6 +149,17 @@ class OWReflectorGrazing1D(WofryWidget):
         gui.button(self.file_box_id, self, "...", callback=self.set_error_file)
 
 
+
+        self.mirror_box_id = oasysgui.widgetBox(box_reflector, "", addSpace=True, orientation="vertical")
+        oasysgui.lineEdit(self.mirror_box_id, self, "mirror_length", "Mirror length [m]",
+                          labelWidth=300, valueType=float, orientation="horizontal")
+        oasysgui.lineEdit(self.mirror_box_id, self, "mirror_points", "Points on mirror",
+                          labelWidth=300, valueType=int, orientation="horizontal")
+
+
+
+
+
         gui.comboBox(box_reflector, self, "write_profile", label="Dump profile to file",
                      items=["No","Yes [reflector_profile1D.dat]"], sendSelectedValue=False, orientation="horizontal")
 
@@ -172,6 +185,8 @@ class OWReflectorGrazing1D(WofryWidget):
     def set_visible(self):
         self.file_box_id.setVisible(self.error_flag)
         self.box_focal_id.setVisible(self.shape)
+        self.mirror_box_id.setVisible(self.error_flag == 0)
+
 
     def set_error_file(self):
         self.error_file_id.setText(oasysgui.selectFileFromDialog(self, self.error_file, "Open file with profile error"))
@@ -250,8 +265,12 @@ class OWReflectorGrazing1D(WofryWidget):
 
         if self.error_flag == 0:
             error_file = ""
+            mirror_length = self.mirror_length
+            mirror_points = self.mirror_points
         else:
             error_file = self.error_file
+            mirror_length = 0
+            mirror_points = 0
 
         output_wavefront, abscissas_on_mirror, height = self.calculate_output_wavefront_after_grazing_reflector1D(
                                                                        self.input_data.get_wavefront(),
@@ -264,6 +283,8 @@ class OWReflectorGrazing1D(WofryWidget):
                                                                        zoom_factor=self.zoom_factor,
                                                                        error_flag=self.error_flag,
                                                                        error_file=error_file,
+                                                                       mirror_length=mirror_length,
+                                                                       mirror_points=mirror_points,
                                                                        write_profile=self.write_profile)
 
         if self.write_input_wavefront:
@@ -279,12 +300,14 @@ class OWReflectorGrazing1D(WofryWidget):
                            "q_focus": self.q_focus,
                            "error_flag":self.error_flag,
                            "error_file":error_file,
+                           "mirror_length":mirror_length,
+                           "mirror_points":mirror_points,
                            "write_profile":self.write_profile}
 
         script_template = self.script_template_output_wavefront()
         self.wofry_script.set_code(script_template.format_map(dict_parameters))
 
-        if self.view_type > 1:
+        if self.view_type > 0:
             self.do_plot_wavefront(output_wavefront, abscissas_on_mirror, height)
 
         self.progressBarFinished()
@@ -324,7 +347,7 @@ class OWReflectorGrazing1D(WofryWidget):
         field3 = goFromToSequential(field2, x2_oe, y2_oe, x3_oe, y3_oe,
                                     wavelength=wavelength, normalize_intensities=normalize_intensities)
 
-        output_wavefront = GenericWavefront1D.initialize_wavefront_from_arrays(x3, field3, wavelength=wavelength)
+        output_wavefront = GenericWavefront1D.initialize_wavefront_from_arrays(x3, field3 / numpy.sqrt(zoom_factor), wavelength=wavelength)
 
         return output_wavefront
 
@@ -339,7 +362,11 @@ class OWReflectorGrazing1D(WofryWidget):
                                             p_distance=1.0,
                                             q_distance=1.0,
                                             zoom_factor=1.0,
-                                            error_flag=0, error_file="", write_profile=0):
+                                            error_flag=0,
+                                            error_file="",
+                                            mirror_length=0.1,
+                                            mirror_points=1000,
+                                            write_profile=0):
 
 
 
@@ -347,7 +374,7 @@ class OWReflectorGrazing1D(WofryWidget):
         field1 = input_wavefront.get_complex_amplitude()
 
         if error_flag == 0: # no profile file
-            x2_oe = x1 / numpy.sin(grazing_angle_in)
+            x2_oe = numpy.linspace(-0.5 * mirror_length, 0.5 * mirror_length, mirror_points) # x1 / numpy.sin(grazing_angle_in)
             y2_oe = numpy.zeros_like(x2_oe)
         else:
             a = numpy.loadtxt(error_file)
@@ -443,7 +470,7 @@ def propagator1D_offaxis(input_wavefront, x2_oe, y2_oe, p, q, theta_grazing_in, 
     field3 = goFromToSequential(field2, x2_oe, y2_oe, x3_oe, y3_oe,
                                 wavelength=wavelength, normalize_intensities=normalize_intensities)
 
-    output_wavefront = GenericWavefront1D.initialize_wavefront_from_arrays(x3, field3, wavelength=wavelength)
+    output_wavefront = GenericWavefront1D.initialize_wavefront_from_arrays(x3, field3  / numpy.sqrt(zoom_factor), wavelength=wavelength)
 
     return output_wavefront
 
@@ -453,6 +480,8 @@ def calculate_output_wavefront_after_grazing_reflector1D(input_wavefront,shape=1
                                         grazing_angle_in=1.5e-3,
                                         p_distance=1.0,
                                         q_distance=1.0,
+                                        mirror_length=0.1,
+                                        mirror_points=1000,
                                         zoom_factor=1.0,
                                         error_flag=0, error_file="", write_profile=0):
 
@@ -462,7 +491,7 @@ def calculate_output_wavefront_after_grazing_reflector1D(input_wavefront,shape=1
     field1 = input_wavefront.get_complex_amplitude()
 
     if error_flag == 0: # no profile file
-        x2_oe = x1 / numpy.sin(grazing_angle_in)
+        x2_oe = numpy.linspace(-0.5 * mirror_length, 0.5 * mirror_length, mirror_points)
         y2_oe = numpy.zeros_like(x2_oe)
     else:
         a = numpy.loadtxt(error_file)
