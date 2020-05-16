@@ -397,7 +397,10 @@ class FEA_File():
             write_generic_h5_surface(self.Z_INTERPOLATED,self.x_interpolated,self.y_interpolated,filename=filename)\
 
 
-
+    def gaussian_filter(self,sigma_axis0=10,sigma_axis1=10):
+        from scipy.ndimage import gaussian_filter
+        self.Z_INTERPOLATED = gaussian_filter(self.Z_INTERPOLATED, (sigma_axis0,sigma_axis1),
+                        order=0, output=None, mode='nearest', cval=0.0, truncate=4.0)
 
 def surface_plot(xs,ys,zs):
     fig = plt.figure()

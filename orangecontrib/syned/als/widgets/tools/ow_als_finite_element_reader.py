@@ -71,19 +71,23 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
     file_factor_z = Setting(1.0)
 
     file_in_skiprows = Setting(0)
-    replicate_raw_data_flag = Setting(3)  # 0=None, 1=axis0, 2=axis1, 3=both axis
+    replicate_raw_data_flag = Setting(0)  # 0=None, 1=axis0, 2=axis1, 3=both axis
     # raw_render_option = Setting(2)
 
     file_out = Setting("/home/manuel/OASYS1.2/alsu-scripts/ANSYS/s4.h5") # copied from file_in and changed extension to h5
-    n_axis_0 = Setting(401) #301)
-    n_axis_1 = Setting(401) #51)
-    invert_axes_names = Setting(1)
-    detrended = Setting(1)
+    n_axis_0 = Setting(801) #301)
+    n_axis_1 = Setting(500) #51)
+
+    detrended = Setting(0)
     detrended_fit_range = Setting(1.0)
-    reset_height_method = Setting(0)
-    remove_nan = Setting(2)
+    reset_height_method = Setting(2)
+    remove_nan = Setting(0)
+    invert_axes_names = Setting(1)
     extract_profile1D = Setting(0)
     coordinate_profile1D = Setting(0.0)
+    sigma_flag = Setting(0)
+    sigma_axis0 = Setting(10)
+    sigma_axis1 = Setting(10)
 
     fea_file_object = FEA_File()
 
@@ -170,6 +174,7 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
                      sendSelectedValue=False, orientation="horizontal")
 
         #
+        # interpolation
         #
         interpolation_box = oasysgui.widgetBox(tab_calc, "Interpolation", addSpace=True,
                                          orientation="vertical")
@@ -181,32 +186,61 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
         oasysgui.lineEdit(interpolation_box, self, "n_axis_1", "Number of interpolated pixels in (axis 1))",
                           labelWidth=260, valueType=int, orientation="horizontal")
 
-        gui.comboBox(interpolation_box, self, "invert_axes_names", label="Invert axes", labelWidth=120,
-                     items=['No','Yes'],
-                     sendSelectedValue=False, orientation="horizontal")
-
         gui.comboBox(interpolation_box, self, "remove_nan", label="Remove interp NaN", labelWidth=220,
                      items=["No", "Yes (replace by min height)", "Yes (replace by zero)"],
                      sendSelectedValue=False, orientation="horizontal")
 
-        gui.comboBox(interpolation_box, self, "detrended", label="Detrend profile", labelWidth=220,
+
+
+
+        #
+        # post process
+        #
+        postprocess_box = oasysgui.widgetBox(tab_calc, "PostProcess", addSpace=True,
+                                         orientation="vertical")
+
+
+
+        gui.comboBox(postprocess_box, self, "detrended", label="Detrend profile", labelWidth=220,
                      items=["None", "Straight line (along axis 0)", "Straight line (along axis 1)",
                             "Best circle (along axis 0)", "Best circle (along axis 1)"],
                      sendSelectedValue=False, orientation="horizontal",
                      callback=self.set_visible)
 
-        self.detrended_fit_range_id = oasysgui.widgetBox(interpolation_box, "", addSpace=True,
+        self.detrended_fit_range_id = oasysgui.widgetBox(postprocess_box, "", addSpace=True,
                                          orientation="vertical",)
         oasysgui.lineEdit(self.detrended_fit_range_id, self, "detrended_fit_range", "detrend fit up to [m]",
                           labelWidth=220, valueType=float, orientation="horizontal")
 
-        gui.comboBox(interpolation_box, self, "reset_height_method", label="Reset zero height", labelWidth=220,
+        gui.comboBox(postprocess_box, self, "reset_height_method", label="Reset zero height", labelWidth=220,
                      items=["No", "To height minimum", "To center"],
                      sendSelectedValue=False, orientation="horizontal")
 
 
+        gui.comboBox(postprocess_box, self, "sigma_flag", label="Gaussian filter", labelWidth=220,
+                     items=["None", "Yes"],
+                     sendSelectedValue=False, orientation="horizontal",
+                     callback=self.set_visible)
+
+        self.sigma_id = oasysgui.widgetBox(postprocess_box, "", addSpace=True,
+                                         orientation="vertical",)
+
+
+        oasysgui.lineEdit(self.sigma_id, self, "sigma_axis0", "Gaussian sigma axis 0 [pixels]:", labelWidth=250,
+                          valueType=float, orientation="horizontal")
+
+        oasysgui.lineEdit(self.sigma_id, self, "sigma_axis1", "Gaussian sigma axis 1 [pixels]:", labelWidth=250,
+                          valueType=float, orientation="horizontal")
+
+
+
+
+        gui.comboBox(postprocess_box, self, "invert_axes_names", label="Invert axes", labelWidth=120,
+                     items=['No','Yes'],
+                     sendSelectedValue=False, orientation="horizontal")
 
         #
+        # output tab
         #
 
         profile1D_box = oasysgui.widgetBox(tab_out, "1D profile", addSpace=True,
@@ -248,6 +282,11 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
             self.detrended_fit_range_id.setVisible(False)
         else:
             self.detrended_fit_range_id.setVisible(True)
+
+        if self.sigma_flag == 0:
+            self.sigma_id.setVisible(False)
+        else:
+            self.sigma_id.setVisible(True)
 
     def create_tabs_results(self):
 
@@ -333,6 +372,8 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
         if self.fea_file_object.does_interpolated_have_nan():
             self.fea_file_object.remove_borders_in_interpolated_data()
 
+        if self.sigma_flag == 1:
+            self.fea_file_object.gaussian_filter(sigma_axis0=self.sigma_axis0,sigma_axis1=self.sigma_axis1)
 
         if self.detrended == 0:
             pass
@@ -567,7 +608,7 @@ if __name__ == "__main__":
     a = QApplication(sys.argv)
     ow = ALSFiniteElementReader()
 
-    ow.set_input_file("C:/Users/Manuel/Oasys/TENDER DCM Performance/disp2000.txt")
+    ow.set_input_file("/Users/srio/Oasys/flexon_horiz_all_no_blip.txt")
 
     ow.show()
     a.exec_()
