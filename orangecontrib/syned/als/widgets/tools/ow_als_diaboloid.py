@@ -56,14 +56,14 @@ class OWALSDiaboloid(OWWidget):
     # variable list
     #
 
-    configuration = Setting(0)
-    source_diaboloid = Setting(18.8)
-    diaboloid_image = Setting(26.875 - 18.8)
-    theta = Setting(2) # mrad
+    configuration = Setting(1)
+    source_diaboloid = Setting(19.54)
+    diaboloid_image = Setting(9.77)
+    theta = Setting(4.5) # mrad
     ny = Setting(1001)
     nx = Setting(101)
     semilength_x = Setting(0.015)
-    semilength_y = Setting(0.4)
+    semilength_y = Setting(0.25)
     detrend = Setting(1)
     detrend_toroid = Setting(0)
     filename_h5 = Setting("diaboloid.h5")
@@ -110,10 +110,12 @@ class OWALSDiaboloid(OWWidget):
 
         # configiration = Setting(1)
         gui.comboBox(out_calc, self, "configuration", label="Focusing configuration", labelWidth=300,
-                     items=["Point-to-segment K", "Segment-to-point K",
-                            "Point-to-segment V", "Segment-to-point V",
-                            "Toroid point-to-segment","Toroid segment-to-point",
-                            "Parabolic-Cone point-to-segment V","Parabolic-Cone segment-to-point V"],
+                     items=["Diaboloid: Point-to-segment K", "Diaboloid: Segment-to-point K",
+                            "Diaboloid: Point-to-segment V", "Diaboloid: Segment-to-point V",
+                            "Toroid: point-to-segment","Toroid: segment-to-point",
+                            "Parabolic-Cone: point-to-segment V","Parabolic-Cone: segment-to-point V",
+                            "Parabolic-Cone(linearized): point-to-segment V",
+                            "Parabolic-Cone(linearized): segment-to-point V"],
                      sendSelectedValue=False, orientation="horizontal")
 
         # source_diaboloid = Setting(18.8)
@@ -133,18 +135,18 @@ class OWALSDiaboloid(OWWidget):
         self.show_at("self.configuration < 6", box1)
 
         # detrend_toroid = Setting(0)
-        gui.comboBox(out_calc, self, "detrend_toroid", label="detrend toroid", labelWidth=300,
-                     items=["No [default]", "Yes",], sendSelectedValue=False, orientation="horizontal")
+        gui.comboBox(out_calc, self, "detrend_toroid", label="substract surface", labelWidth=300,
+                     items=["No [default]", "Yes (toroid)", "Yes (diaboloid)"], sendSelectedValue=False, orientation="horizontal")
         #
         # --------------- MESH
         #
         out_calc = oasysgui.widgetBox(tab_calc, "Mesh Parameters", addSpace=True, orientation="vertical")
 
         # ny = Setting(1001)
-        oasysgui.lineEdit(out_calc, self, "ny", "Points in Y",
+        oasysgui.lineEdit(out_calc, self, "ny", "Points in Y (tangential)",
                            labelWidth=300, valueType=int, orientation="horizontal")
         # nx = Setting(101)
-        oasysgui.lineEdit(out_calc, self, "nx", "Points in X",
+        oasysgui.lineEdit(out_calc, self, "nx", "Points in X (sagittal)",
                            labelWidth=300, valueType=int, orientation="horizontal")
         # semilength_y = 0.4
         oasysgui.lineEdit(out_calc, self, "semilength_y", "Half length Y [m]",
@@ -153,12 +155,17 @@ class OWALSDiaboloid(OWWidget):
         oasysgui.lineEdit(out_calc, self, "semilength_x", "Half length X [m]",
                            labelWidth=300, valueType=float, orientation="horizontal")
 
+        gui.separator(out_calc)
+        #
+        # --------------- FILE
+        #
+        out_file = oasysgui.widgetBox(tab_calc, "Output hdf5 file", addSpace=True, orientation="vertical")
 
-        # filename_h5 = Setting("diaboloid.h5")
-        oasysgui.lineEdit(out_calc, self, "filename_h5", "Output filename *.h5",
+        oasysgui.lineEdit(out_file , self, "filename_h5", "Output filename *.h5",
                            labelWidth=150, valueType=str, orientation="horizontal")
 
-        gui.separator(out_calc)
+
+        gui.separator(out_file)
 
         #
         #-------------------- Use
@@ -227,7 +234,6 @@ class OWALSDiaboloid(OWWidget):
                 pass
         self.tabs.setCurrentIndex(0)
 
-
     def check_fields(self):
         self.nx = congruence.checkStrictlyPositiveNumber(self.nx, "Points X")
         self.ny = congruence.checkStrictlyPositiveNumber(self.ny, "Points Y")
@@ -260,50 +266,75 @@ class OWALSDiaboloid(OWWidget):
         q = self.diaboloid_image
         theta = self.theta * 1e-3
         detrend = self.detrend
-        filename_h5 = self.filename_h5
-        print("Inputs: p=%g, q=%g, theta=%g rad, filename=%s: " %
-              (p, q, theta, filename_h5))
+        print("Inputs: p=%g m, q=%g m, theta=%g rad: " % (p, q, theta))
 
         mirror_txt = "Diaboloid"
         if self.configuration == 0: #
-            Z, X, Y = ken_diaboloid_point_to_segment(p=p, q=q, theta=theta, x=x, y=y,
-                                                     detrend=detrend, filename_h5=filename_h5)
+            Z, X, Y = ken_diaboloid_point_to_segment(p=p, q=q, theta=theta, x=x, y=y, detrend=detrend)
         elif self.configuration == 1:  #
-            Z, X, Y = ken_diaboloid_segment_to_point(p=p, q=q, theta=theta, x=x, y=y,
-                                                     detrend=detrend, filename_h5=filename_h5)
+            Z, X, Y = ken_diaboloid_segment_to_point(p=p, q=q, theta=theta, x=x, y=y, detrend=detrend)
         elif self.configuration == 2:  #
-            Z, X, Y = valeriy_diaboloid_point_to_segment(p=p, q=q, theta=theta, x=x, y=y,
-                                                     detrend=detrend, filename_h5=filename_h5)
+            Z, X, Y = valeriy_diaboloid_point_to_segment(p=p, q=q, theta=theta, x=x, y=y, detrend=detrend)
         elif self.configuration == 3:  #
-            Z, X, Y = valeriy_diaboloid_segment_to_point(p=p, q=q, theta=theta, x=x, y=y,
-                                                     detrend=detrend, filename_h5=filename_h5)
+            Z, X, Y = valeriy_diaboloid_segment_to_point(p=p, q=q, theta=theta, x=x, y=y, detrend=detrend)
         elif self.configuration == 4:  # point to segment
-            Z = toroid(configuration=self.configuration,
-                       p=p, q=q, theta=theta, x=x, y=y, filename_h5=filename_h5)
+            Z = toroid_point_to_segment(p=p, q=q, theta=theta, x=x, y=y)
             mirror_txt = "Toroid"
         elif self.configuration == 5:  #
-            Z = toroid(configuration=self.configuration,
-                       p=p, q=q, theta=theta, x=x, y=y, filename_h5=filename_h5)
+            Z = toroid_segment_to_point(p=p, q=q, theta=theta, x=x, y=y)
             mirror_txt = "Toroid"
         elif self.configuration == 6:  #
-            Z, X, Y = valeriy_parabolic_cone_point_to_segment(p=p, q=q, theta=theta, x=x, y=y,
-                                                     filename_h5=filename_h5)
+            Z, X, Y = valeriy_parabolic_cone_point_to_segment(p=p, q=q, theta=theta, x=x, y=y)
             mirror_txt = "Parabolic-Cone"
         elif self.configuration == 7:  #
-            Z, X, Y = valeriy_parabolic_cone_segment_to_point(p=p, q=q, theta=theta, x=x, y=y,
-                                                     filename_h5=filename_h5)
+            Z, X, Y = valeriy_parabolic_cone_segment_to_point(p=p, q=q, theta=theta, x=x, y=y)
             mirror_txt = "Parabolic-Cone"
+        elif self.configuration == 8:  #
+            Z, X, Y = valeriy_parabolic_cone_linearized_point_to_segment(p=p, q=q, theta=theta, x=x, y=y)
+            mirror_txt = "Parabolic-Cone"
+        elif self.configuration == 9:  #
+            Z, X, Y = valeriy_parabolic_cone_linearized_segment_to_point(p=p, q=q, theta=theta, x=x, y=y)
+            mirror_txt = "Parabolic-Cone"
+
         else:
             raise Exception("Not implemented")
 
-        if self.detrend_toroid:
-            if self.configuration in [0,2,4,6]:
-                Ztor = toroid(configuration=4, p=p, q=q, theta=theta, x=x, y=y, filename_h5=filename_h5)
-                Z -= Ztor
-            elif self.configuration in [1,3,5,7]:
-                Ztor = toroid(configuration=5, p=p, q=q, theta=theta, x=x, y=y, filename_h5=filename_h5)
-                Z -= Ztor
+        if self.detrend_toroid == 0:
+            Ztor = 0
+        elif self.detrend_toroid == 1:  # detrend toroid
             mirror_txt += " (toroid removed)"
+            if self.configuration in [0, 2, 4, 6, 8]:  # point to segment
+                Ztor = toroid_point_to_segment(p=p, q=q, theta=theta, x=x, y=y)
+            elif self.configuration in [1, 3, 5, 7, 9]:  # segment-to-point
+                Ztor = toroid_segment_to_point(p=p, q=q, theta=theta, x=x, y=y)
+        elif self.detrend_toroid == 2: # detrend diaboloid
+            mirror_txt += " (diaboloid removed)"
+            if self.configuration == 0:  #
+                Ztor, Xtor, Ytor = ken_diaboloid_point_to_segment(p=p, q=q, theta=theta, x=x, y=y, detrend=detrend)
+            elif self.configuration == 1:  #
+                Ztor, Xtor, Ytor = ken_diaboloid_segment_to_point(p=p, q=q, theta=theta, x=x, y=y, detrend=detrend)
+            elif self.configuration == 2:  #
+                Ztor, Xtor, Ytor = valeriy_diaboloid_point_to_segment(p=p, q=q, theta=theta, x=x, y=y, detrend=detrend)
+            elif self.configuration == 3:  #
+                Ztor, Xtor, Ytor = valeriy_diaboloid_segment_to_point(p=p, q=q, theta=theta, x=x, y=y, detrend=detrend)
+            elif self.configuration == 4:  # point to segment
+                Ztor, Xtor, Ytor = valeriy_diaboloid_point_to_segment(p=p, q=q, theta=theta, x=x, y=y, detrend=detrend)
+            elif self.configuration == 5:  #
+                Ztor, Xtor, Ytor = valeriy_diaboloid_segment_to_point(p=p, q=q, theta=theta, x=x, y=y, detrend=detrend)
+            elif self.configuration == 6:  #
+                Ztor, Xtor, Ytor = valeriy_diaboloid_point_to_segment(p=p, q=q, theta=theta, x=x, y=y, detrend=detrend)
+            elif self.configuration == 7:  #
+                Ztor, Xtor, Ytor = valeriy_diaboloid_segment_to_point(p=p, q=q, theta=theta, x=x, y=y, detrend=detrend)
+            elif self.configuration == 8:  #
+                Ztor, Xtor, Ytor = valeriy_diaboloid_point_to_segment(p=p, q=q, theta=theta, x=x, y=y, detrend=detrend)
+            elif self.configuration == 9:  #
+                Ztor, Xtor, Ytor = valeriy_diaboloid_segment_to_point(p=p, q=q, theta=theta, x=x, y=y, detrend=detrend)
+
+            else:
+                raise Exception("Not implemented")
+
+
+        Z -= Ztor
 
 
         self.plot_data2D(Z, x, y, self.tab[0],
@@ -311,6 +342,11 @@ class OWALSDiaboloid(OWWidget):
                                (mirror_txt, self.source_diaboloid, self.diaboloid_image, self.theta),
                          xtitle="x (sagittal) [m] (%d pixels)" % x.size,
                          ytitle="y (tangential) [m] (%d pixels)" % y.size)
+
+
+        write_surface_file(Z.T, x, y, self.filename_h5, overwrite=True)
+        print("HDF5 file %s written to disk." % self.filename_h5)
+
 
         self.send("Surface Data",
                   OasysSurfaceData(xx=x,
@@ -360,8 +396,7 @@ def ken_diaboloid_point_to_segment(
         theta=4.5e-3,
         x=numpy.linspace(-0.01, 0.01, 101),
         y=numpy.linspace(-0.1, 0.1, 1001),
-        detrend=0,
-        filename_h5=""):
+        detrend=0):
     X = numpy.outer(x, numpy.ones_like(y))
     Y = numpy.outer(numpy.ones_like(x), y)
 
@@ -392,11 +427,6 @@ def ken_diaboloid_point_to_segment(
     for i in range(Z.shape[0]):
         Z[i, :] = Z[i, :] - zfit
 
-
-    if filename_h5 != "":
-        write_surface_file(Z.T, x, y, filename_h5, overwrite=True)
-        print("HDF5 file %s written to disk." % filename_h5)
-
     return Z, X, Y
 
 
@@ -406,42 +436,47 @@ def ken_diaboloid_segment_to_point(
         theta=4.5e-3,
         x=numpy.linspace(-0.01, 0.01, 101),
         y=numpy.linspace(-0.1, 0.1, 1001),
-        detrend=0,
-        filename_h5=""):
-    X = numpy.outer(x, numpy.ones_like(y))
-    Y = numpy.outer(numpy.ones_like(x), y)
+        detrend=0):
 
-    s = q * numpy.cos(2 * theta)
-    z0 = q * numpy.sin(2 * theta)
-    c = p + q
-
-    # print("ken_diaboloid_segment_to_point: s: %f, z0: %f, c: %f" % (s, z0, c))
-
-    Z = z0 - numpy.sqrt(2 * p ** 2 + z0 ** 2 + 2 * p * q + 2 * (p + s) * Y - 2 * c * numpy.sqrt(X ** 2 + (Y + p) ** 2))
-
-    # print(Z.shape, Z.min(), Z.max())
-
-    if detrend == 0:
-        zfit = 0
-    elif detrend == 1:
-        zfit = theta * y #numpy.tan(theta) * y
-    elif detrend == 2:
-        zcentral = Z[Z.shape[0] // 2, :]
-        zcoeff = numpy.polyfit(y[(y.size // 2 - 10):(y.size // 2 + 10)],
-                               zcentral[(y.size // 2 - 10):(y.size // 2 + 10)], 1)
-        zfit = zcoeff[1] + y * zcoeff[0]
-        # print(zcoeff)
-        # from srxraylib.plot.gol import plot
-        # plot(y,zcentral,y,zfit)
-
-    for i in range(Z.shape[0]):
-        Z[i, :] = Z[i, :] - zfit
-
-    if filename_h5 != "":
-        write_surface_file(Z.T, x, y, filename_h5, overwrite=True)
-        print("HDF5 file %s written to disk." % filename_h5)
+    Z, X, Y = ken_diaboloid_point_to_segment(p=q, q=p, theta=theta, x=x, y=y,
+                                              detrend=detrend)
+    for i in range(x.size):
+        Z[i,:] = numpy.flip(Z[i,:])
 
     return Z, X, Y
+
+    # removed this section: it works, but it does not flip the Y coordinate therefore
+    # gives wrong results if a surface is later substracted
+    # X = numpy.outer(x, numpy.ones_like(y))
+    # Y = numpy.outer(numpy.ones_like(x), y)
+    #
+    # s = q * numpy.cos(2 * theta)
+    # z0 = q * numpy.sin(2 * theta)
+    # c = p + q
+    #
+    # # print("ken_diaboloid_segment_to_point: s: %f, z0: %f, c: %f" % (s, z0, c))
+    #
+    # Z = z0 - numpy.sqrt(2 * p ** 2 + z0 ** 2 + 2 * p * q + 2 * (p + s) * Y - 2 * c * numpy.sqrt(X ** 2 + (Y + p) ** 2))
+    #
+    # # print(Z.shape, Z.min(), Z.max())
+    #
+    # if detrend == 0:
+    #     zfit = 0
+    # elif detrend == 1:
+    #     zfit = theta * y #numpy.tan(theta) * y
+    # elif detrend == 2:
+    #     zcentral = Z[Z.shape[0] // 2, :]
+    #     zcoeff = numpy.polyfit(y[(y.size // 2 - 10):(y.size // 2 + 10)],
+    #                            zcentral[(y.size // 2 - 10):(y.size // 2 + 10)], 1)
+    #     zfit = zcoeff[1] + y * zcoeff[0]
+    #     # print(zcoeff)
+    #     # from srxraylib.plot.gol import plot
+    #     # plot(y,zcentral,y,zfit)
+    #
+    # for i in range(Z.shape[0]):
+    #     Z[i, :] = Z[i, :] - zfit
+    #
+    # return Z, X, Y
 
 
 def valeriy_diaboloid_point_to_segment(
@@ -450,8 +485,7 @@ def valeriy_diaboloid_point_to_segment(
         theta=4.5e-3,
         x=numpy.linspace(-0.01, 0.01, 101),
         y=numpy.linspace(-0.1, 0.1, 1001),
-        detrend=0,
-        filename_h5=""):
+        detrend=0):
     X = numpy.outer(x, numpy.ones_like(y))
     Y = numpy.outer(numpy.ones_like(x), y)
 
@@ -482,11 +516,6 @@ def valeriy_diaboloid_point_to_segment(
     for i in range(Z.shape[0]):
         Z[i, :] = Z[i, :] - zfit
 
-
-    if filename_h5 != "":
-        write_surface_file(Z.T, x, y, filename_h5, overwrite=True)
-        print("HDF5 file %s written to disk." % filename_h5)
-
     return Z, X, Y
 
 def valeriy_diaboloid_segment_to_point(
@@ -495,34 +524,31 @@ def valeriy_diaboloid_segment_to_point(
         theta=4.5e-3,
         x=numpy.linspace(-0.01, 0.01, 101),
         y=numpy.linspace(-0.1, 0.1, 1001),
-        detrend=0,
-        filename_h5=""):
+        detrend=0):
     Z, X, Y = valeriy_diaboloid_point_to_segment(p=q, q=p, theta=theta, x=x, y=y,
-                                              detrend=detrend, filename_h5=filename_h5)
+                                              detrend=detrend)
     for i in range(x.size):
         Z[i,:] = numpy.flip(Z[i,:])
 
-
     return Z, X, Y
 
-def toroid(configuration=4,
+def toroid_point_to_segment(
         p=29.3,
         q=19.53,
         theta=4.5e-3,
         x=numpy.linspace(-0.01, 0.01, 101),
-        y=numpy.linspace(-0.1, 0.1, 1001),
-        filename_h5=""):
+        y=numpy.linspace(-0.1, 0.1, 1001)):
 
-    if configuration == 4: # point to segment
-        Rt = 2.0 / numpy.sin(theta) / (1 / p)
-    elif configuration == 5: # segment to point
-        Rt = 2.0 / numpy.sin(theta) / (1 / q)
-    else:
-        raise Exception("Bad configuration flag")
+    # if configuration == 4: # point to segment
+    Rt = 2.0 / numpy.sin(theta) / (1 / p)
+    # elif configuration == 5: # segment to point
+    #     Rt = 2.0 / numpy.sin(theta) / (1 / q)
+    # else:
+    #     raise Exception("Bad configuration flag")
 
     Rs = 2.0 * numpy.sin(theta) / (1 / p + 1 / q)
 
-    print("Toroid Rt: %f6.3 m, Rs: %6.3f m" % (Rt, Rs))
+    print("Toroid Rt: %9.6f m, Rs: %9.6f m" % (Rt, Rs))
 
     height_tangential = Rt - numpy.sqrt(Rt ** 2 - y ** 2)
     height_sagittal = Rs - numpy.sqrt(Rs ** 2 - x ** 2)
@@ -535,10 +561,18 @@ def toroid(configuration=4,
     for i in range(y.size):
         Z[:,i] += height_sagittal
 
-    if filename_h5 != "":
-        write_surface_file(Z.T, x, y, filename_h5, overwrite=True)
-        print("HDF5 file %s written to disk." % filename_h5)
+    return Z
 
+def toroid_segment_to_point(
+        p=29.3,
+        q=19.53,
+        theta=4.5e-3,
+        x=numpy.linspace(-0.01, 0.01, 101),
+        y=numpy.linspace(-0.1, 0.1, 1001)):
+
+    Z = toroid_point_to_segment(p=q, q=p, theta=theta, x=x, y=y)
+    for i in range(x.size):
+        Z[i,:] = numpy.flip(Z[i,:])
     return Z
 
 def valeriy_parabolic_cone_point_to_segment(
@@ -546,8 +580,7 @@ def valeriy_parabolic_cone_point_to_segment(
         q=19.53,
         theta=4.5e-3,
         x=numpy.linspace(-0.01, 0.01, 101),
-        y=numpy.linspace(-0.1, 0.1, 1001),
-        filename_h5=""):
+        y=numpy.linspace(-0.1, 0.1, 1001)):
     X = numpy.outer(x, numpy.ones_like(y))
     Y = numpy.outer(numpy.ones_like(x), y)
 
@@ -562,14 +595,6 @@ def valeriy_parabolic_cone_point_to_segment(
         (p * q * c * s2 / pq + s2 * (q - 2 * p * c**2 ) / 2 / pq * Y)**2 - X**2) + \
         p * q * c * s2 / pq + s2 * (q - 2 * p * c**2) / 2 / pq * Y
 
-
-    # print(Z.shape, Z.min(), Z.max())
-
-
-    if filename_h5 != "":
-        write_surface_file(Z.T, x, y, filename_h5, overwrite=True)
-        print("HDF5 file %s written to disk." % filename_h5)
-
     return Z, X, Y
 
 def valeriy_parabolic_cone_segment_to_point(
@@ -577,14 +602,55 @@ def valeriy_parabolic_cone_segment_to_point(
         q=19.53,
         theta=4.5e-3,
         x=numpy.linspace(-0.01, 0.01, 101),
-        y=numpy.linspace(-0.1, 0.1, 1001),
-        filename_h5=""):
-    Z, X, Y = valeriy_parabolic_cone_point_to_segment(p=q, q=p, theta=theta, x=x, y=y,
-                                              filename_h5=filename_h5)
+        y=numpy.linspace(-0.1, 0.1, 1001)):
+    Z, X, Y = valeriy_parabolic_cone_point_to_segment(p=q, q=p, theta=theta, x=x, y=y)
     for i in range(x.size):
         Z[i,:] = numpy.flip(Z[i,:])
 
     return Z, X, Y
+
+
+def valeriy_parabolic_cone_linearized_point_to_segment(
+        p=29.3,
+        q=19.53,
+        theta=4.5e-3,
+        x=numpy.linspace(-0.01, 0.01, 101),
+        y=numpy.linspace(-0.1, 0.1, 1001)):
+    X = numpy.outer(x, numpy.ones_like(y))
+    Y = numpy.outer(numpy.ones_like(x), y)
+
+    c = numpy.cos(theta)
+    s = numpy.sin(theta)
+    c2 = numpy.cos(2 * theta)
+    s2 = numpy.sin(2 * theta)
+    pq = p + q
+
+    Z = Y * s / c - 2  * s / c**2 * numpy.sqrt(Y * p * c + p**2) + 2 * p * s / c**2 \
+        - numpy.sqrt( \
+        (p * q * c * s2 / pq + s2 * (q - 2 * p * c**2 ) / 2 / pq * Y)**2 - (X*0)**2) + \
+        p * q * c * s2 / pq + s2 * (q - 2 * p * c**2) / 2 / pq * Y
+
+    for j in range(y.size):
+        Rs = p * q * numpy.sin(2 * theta) / (p + q)
+        Rs += (q * numpy.tan(theta) - 2 * p * numpy.sin(theta) * numpy.cos(theta)) / (p + q) * y[j]
+        height_sagittal = Rs - numpy.sqrt(Rs ** 2 - x ** 2)
+        print("y=%f Rs=%f" % (y[j], Rs))
+        Z[:,j] += height_sagittal
+
+    return Z, X, Y
+
+def valeriy_parabolic_cone_linearized_segment_to_point(
+        p=29.3,
+        q=19.53,
+        theta=4.5e-3,
+        x=numpy.linspace(-0.01, 0.01, 101),
+        y=numpy.linspace(-0.1, 0.1, 1001)):
+    Z, X, Y = valeriy_parabolic_cone_linearized_point_to_segment(p=q, q=p, theta=theta, x=x, y=y)
+    for i in range(x.size):
+        Z[i,:] = numpy.flip(Z[i,:])
+
+    return Z, X, Y
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
