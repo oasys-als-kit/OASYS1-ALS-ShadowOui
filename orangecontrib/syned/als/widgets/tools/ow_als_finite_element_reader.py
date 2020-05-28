@@ -131,7 +131,7 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
         # parameters panel
         #
 
-        gui.button(tab_calc, self, "Calculate Interpolated File", callback=self.calculate, height=45)
+        gui.button(tab_calc, self, "Calculate Interpolated File", callback=self.calculate) #, height=45)
 
         # gui.separator(tab_calc, height=20)
 
@@ -157,15 +157,14 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
         oasysgui.lineEdit(data_file_box2, self, "file_in_skiprows", "Skip rows:", labelWidth=300, valueType=int,
                           orientation="horizontal")
 
-
-
-        data_file_expansion_box = oasysgui.widgetBox(data_file_box, "Expansion factor", addSpace=True,
+        data_file_expansion_box = oasysgui.widgetBox(data_file_box, "", addSpace=False,
                                                      orientation="horizontal")
-        oasysgui.lineEdit(data_file_expansion_box, self, "file_factor_x", "X:", labelWidth=10,
+        oasysgui.widgetLabel(data_file_expansion_box, label="Expansion factor")
+        oasysgui.lineEdit(data_file_expansion_box, self, "file_factor_x", "X", labelWidth=10, controlWidth=35,
                           valueType=float, orientation="horizontal")
-        oasysgui.lineEdit(data_file_expansion_box, self, "file_factor_y", "Y:", labelWidth=10,
+        oasysgui.lineEdit(data_file_expansion_box, self, "file_factor_y", "Y", labelWidth=10, controlWidth=35,
                           valueType=float, orientation="horizontal")
-        oasysgui.lineEdit(data_file_expansion_box, self, "file_factor_z", "Z:", labelWidth=10,
+        oasysgui.lineEdit(data_file_expansion_box, self, "file_factor_z", "Z", labelWidth=10, controlWidth=35,
                           valueType=float, orientation="horizontal")
 
 
@@ -180,10 +179,13 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
                                          orientation="vertical")
 
 
-        oasysgui.lineEdit(interpolation_box, self, "n_axis_0", "Number of interpolated pixels (axis 0))",
+        interpolation_box2 = oasysgui.widgetBox(interpolation_box, "", addSpace=False,
+                                         orientation="horizontal")
+
+        oasysgui.lineEdit(interpolation_box2, self, "n_axis_0", "Pixels (axis 0)",
                           labelWidth=260, valueType=int, orientation="horizontal")
 
-        oasysgui.lineEdit(interpolation_box, self, "n_axis_1", "Number of interpolated pixels in (axis 1))",
+        oasysgui.lineEdit(interpolation_box2, self, "n_axis_1", "pixels (axis 1)",
                           labelWidth=260, valueType=int, orientation="horizontal")
 
         gui.comboBox(interpolation_box, self, "remove_nan", label="Remove interp NaN", labelWidth=220,
@@ -222,15 +224,14 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
                      sendSelectedValue=False, orientation="horizontal",
                      callback=self.set_visible)
 
-        self.sigma_id = oasysgui.widgetBox(postprocess_box, "", addSpace=True,
-                                         orientation="vertical",)
+        self.sigma_id = oasysgui.widgetBox(postprocess_box, "", addSpace=True, orientation="horizontal",)
 
 
-        oasysgui.lineEdit(self.sigma_id, self, "sigma_axis0", "Gaussian sigma axis 0 [pixels]:", labelWidth=250,
-                          valueType=float, orientation="horizontal")
-
-        oasysgui.lineEdit(self.sigma_id, self, "sigma_axis1", "Gaussian sigma axis 1 [pixels]:", labelWidth=250,
-                          valueType=float, orientation="horizontal")
+        oasysgui.widgetLabel(self.sigma_id, label="Gaussian sigma [pixels] axis",labelWidth=350)
+        oasysgui.lineEdit(self.sigma_id, self, "sigma_axis0", "0:",
+                          labelWidth=0, controlWidth=50, valueType=float, orientation="horizontal")
+        oasysgui.lineEdit(self.sigma_id, self, "sigma_axis1", "1:",
+                          labelWidth=0, controlWidth=50, valueType=float, orientation="horizontal")
 
 
 

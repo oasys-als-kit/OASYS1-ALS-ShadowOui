@@ -590,10 +590,13 @@ def valeriy_parabolic_cone_point_to_segment(
     s2 = numpy.sin(2 * theta)
     pq = p + q
 
-    Z = Y * s / c - 2  * s / c**2 * numpy.sqrt(Y * p * c + p**2) + 2 * p * s / c**2 \
-        - numpy.sqrt( \
-        (p * q * c * s2 / pq + s2 * (q - 2 * p * c**2 ) / 2 / pq * Y)**2 - X**2) + \
-        p * q * c * s2 / pq + s2 * (q - 2 * p * c**2) / 2 / pq * Y
+    k1 = p * q * c * s2 / pq
+    k2 = s2 * (q - 2 * p * c**2 ) / 2 / pq
+    Z = Y * s / c - \
+        2  * s / c**2 * numpy.sqrt(Y * p * c + p**2) + \
+        2 * p * s / c**2 + \
+        k1 + k2 * Y \
+        - numpy.sqrt( (k1 + k2 * Y)**2 - X**2 )
 
     return Z, X, Y
 
