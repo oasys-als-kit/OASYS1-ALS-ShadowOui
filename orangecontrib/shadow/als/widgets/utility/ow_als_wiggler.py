@@ -58,7 +58,7 @@ class OWAlsWiggler(OWElectronBeam):
 
     workspace_units_to_cm = 1.0
 
-    shadowoui_neam = None
+    shadowoui_beam = None
 
     def __init__(self):
         super().__init__()
@@ -345,21 +345,16 @@ class OWAlsWiggler(OWElectronBeam):
                 tmp = oasysgui.QLabel() # TODO: is there a better way to clean this??????????????????????
                 self.tab[slot_index].layout().addWidget(tmp)
 
-
-        elif self.view_type == 1:
-            raise Exception(NotImplemented)
         else:
-            self.plot_xy(self.shadowoui_beam, 10, 1, 3, 0, "(X,Z)", "X", "Z",     xum="um", yum="um", is_footprint=False)
-            self.plot_xy(self.shadowoui_beam, 10, 4, 6, 1, "(X',Z')", "X'", "Z'", xum="urad", yum="urad", is_footprint=False)
-            self.plot_xy(self.shadowoui_beam, 10, 1, 4, 2, "(X,X')", "X", "X'",   xum="um", yum="urad", is_footprint=False)
-            self.plot_xy(self.shadowoui_beam, 10, 3, 6, 3, "(Z,Z')", "Z", "Z'",   xum="um", yum="urad", is_footprint=False)
-            self.plot_histo(self.shadowoui_beam,10,11,4,"Photon energy","Photon energy [eV]","Intensity [a.u.]",xum="eV")
+            if self.shadowoui_beam is not None:
+                self.plot_xy(self.shadowoui_beam, 10, 1, 3, 0, "(X,Z)", "X", "Z",     xum="um", yum="um", is_footprint=False)
+                self.plot_xy(self.shadowoui_beam, 10, 4, 6, 1, "(X',Z')", "X'", "Z'", xum="urad", yum="urad", is_footprint=False)
+                self.plot_xy(self.shadowoui_beam, 10, 1, 4, 2, "(X,X')", "X", "X'",   xum="um", yum="urad", is_footprint=False)
+                self.plot_xy(self.shadowoui_beam, 10, 3, 6, 3, "(Z,Z')", "Z", "Z'",   xum="um", yum="urad", is_footprint=False)
+                self.plot_histo(self.shadowoui_beam,10,11,4,"Photon energy","Photon energy [eV]","Intensity [a.u.]",xum="eV")
 
 
     def plot_widget_all(self,sourcewiggler=None,e=None,f=None,w=None):
-
-        print(">>>>>>>>>>> ",sourcewiggler)
-        import numpy
 
         if self.plot_wiggler_graph == 0:
             for wiggler_plot_slot_index in range(6):

@@ -9,8 +9,8 @@ from oasys.widgets import gui as oasysgui
 
 # from orangecontrib.shadow4.util.shadow_objects import ShadowBeam
 # from orangecontrib.shadow4.util.shadow_util import ShadowPlot, ShadowCongruence
-from orangecontrib.shadow4.widgets.gui.ow_automatic_element import AutomaticElement
-from orangecontrib.shadow4.util.python_script import PythonScript
+from orangecontrib.shadow.als.widgets.gui.shadow4_ow_automatic_element import AutomaticElement
+from orangecontrib.shadow.als.widgets.gui.shadow4_python_script import PythonScript
 
 
 from orangecontrib.shadow.util.shadow_util import ShadowPlot, ShadowCongruence

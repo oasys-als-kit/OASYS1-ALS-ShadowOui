@@ -1,6 +1,6 @@
 import sys
 
-from orangecontrib.shadow4.widgets.gui.ow_generic_element import GenericElement
+from orangecontrib.shadow.als.widgets.gui.shadow4_ow_generic_element import GenericElement
 from orangewidget.settings import Setting
 from PyQt5.QtGui import QPalette, QColor, QFont
 from PyQt5.QtWidgets import QMessageBox, QApplication
