@@ -2,8 +2,8 @@ import os, sys
 import numpy
 
 from PyQt5.QtCore import QRect, Qt
-from PyQt5.QtWidgets import QApplication, QMessageBox, QScrollArea, QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView, QWidget, QLabel, QSizePolicy
 from PyQt5.QtGui import QTextCursor,QFont, QPalette, QColor, QPainter, QBrush, QPen, QPixmap
+from PyQt5.QtWidgets import QLabel, QSizePolicy
 
 import orangecanvas.resources as resources
 
@@ -21,6 +21,10 @@ from silx.gui.plot import Plot2D
 
 from oasys.util.oasys_util import EmittingStream
 from PyQt5 import QtGui
+
+from orangecontrib.syned.als.util.fqs import single_quartic
+from orangecontrib.syned.als.util.fqs import quartic_roots
+# from orangecontrib.syned.als.util.FEA_File import FEA_File
 
 class OWALSDiaboloid(OWWidget):
     name = "Diaboloid"
@@ -56,7 +60,7 @@ class OWALSDiaboloid(OWWidget):
     # variable list
     #
 
-    configuration = Setting(1)
+    configuration = Setting(3)
     source_diaboloid = Setting(19.54)
     diaboloid_image = Setting(9.77)
     theta = Setting(4.5) # mrad
@@ -64,7 +68,7 @@ class OWALSDiaboloid(OWWidget):
     nx = Setting(101)
     semilength_x = Setting(0.015)
     semilength_y = Setting(0.25)
-    detrend = Setting(1)
+    detrend = Setting(1)  # not used anymore
     detrend_toroid = Setting(0)
     filename_h5 = Setting("diaboloid.h5")
 
@@ -110,8 +114,8 @@ class OWALSDiaboloid(OWWidget):
 
         # configiration = Setting(1)
         gui.comboBox(out_calc, self, "configuration", label="Focusing configuration", labelWidth=300,
-                     items=["Diaboloid: Point-to-segment K", "Diaboloid: Segment-to-point K",
-                            "Diaboloid: Point-to-segment V", "Diaboloid: Segment-to-point V",
+                     items=["Diaboloid: Point-to-segment K (approx)", "Diaboloid: Segment-to-point K (approx)",
+                            "Diaboloid: Point-to-segment V (exact)", "Diaboloid: Segment-to-point V (exact)",
                             "Toroid: point-to-segment","Toroid: segment-to-point",
                             "Parabolic-Cone: point-to-segment V","Parabolic-Cone: segment-to-point V",
                             "Parabolic-Cone(linearized): point-to-segment V",
@@ -128,11 +132,6 @@ class OWALSDiaboloid(OWWidget):
         oasysgui.lineEdit(out_calc, self, "theta", "grazing angle [mrad]",
                            labelWidth=300, valueType=float, orientation="horizontal")
 
-        # detrend = Setting(1)
-        box1 = gui.widgetBox(out_calc)
-        gui.comboBox(box1, self, "detrend", label="detrend", labelWidth=300,
-                     items=["No", "Yes (theta*y) [default]", "Yes (fit)"], sendSelectedValue=False, orientation="horizontal")
-        self.show_at("self.configuration < 6", box1)
 
         # detrend_toroid = Setting(0)
         gui.comboBox(out_calc, self, "detrend_toroid", label="substract surface", labelWidth=300,
@@ -257,26 +256,23 @@ class OWALSDiaboloid(OWWidget):
 
         self.check_fields()
 
-        # items = ["Point-to-segment K", "Segment-to-point K",
-        #          "Point-to-segment V", "Segment-to-point V"],
         x = numpy.linspace(-self.semilength_x, self.semilength_x, self.nx)
         y = numpy.linspace(-self.semilength_y, self.semilength_y, self.ny)
 
         p = self.source_diaboloid
         q = self.diaboloid_image
         theta = self.theta * 1e-3
-        detrend = self.detrend
         print("Inputs: p=%g m, q=%g m, theta=%g rad: " % (p, q, theta))
 
         mirror_txt = "Diaboloid"
         if self.configuration == 0: #
-            Z, X, Y = ken_diaboloid_point_to_segment(p=p, q=q, theta=theta, x=x, y=y, detrend=detrend)
+            Z, X, Y = ken_diaboloid_point_to_segment(p=p, q=q, theta=theta, x=x, y=y, detrend=1)
         elif self.configuration == 1:  #
-            Z, X, Y = ken_diaboloid_segment_to_point(p=p, q=q, theta=theta, x=x, y=y, detrend=detrend)
+            Z, X, Y = ken_diaboloid_segment_to_point(p=p, q=q, theta=theta, x=x, y=y, detrend=1)
         elif self.configuration == 2:  #
-            Z, X, Y = valeriy_diaboloid_point_to_segment(p=p, q=q, theta=theta, x=x, y=y, detrend=detrend)
+            Z, X, Y = valeriy_diaboloid_exact_point_to_segment(p=p, q=q, theta=theta, x=x, y=y)
         elif self.configuration == 3:  #
-            Z, X, Y = valeriy_diaboloid_segment_to_point(p=p, q=q, theta=theta, x=x, y=y, detrend=detrend)
+            Z, X, Y = valeriy_diaboloid_exact_segment_to_point(p=p, q=q, theta=theta, x=x, y=y)
         elif self.configuration == 4:  # point to segment
             Z = toroid_point_to_segment(p=p, q=q, theta=theta, x=x, y=y)
             mirror_txt = "Toroid"
@@ -310,32 +306,31 @@ class OWALSDiaboloid(OWWidget):
         elif self.detrend_toroid == 2: # detrend diaboloid
             mirror_txt += " (diaboloid removed)"
             if self.configuration == 0:  #
-                Ztor, Xtor, Ytor = ken_diaboloid_point_to_segment(p=p, q=q, theta=theta, x=x, y=y, detrend=detrend)
+                Ztor, Xtor, Ytor = ken_diaboloid_point_to_segment(p=p, q=q, theta=theta, x=x, y=y, detrend=1)
             elif self.configuration == 1:  #
-                Ztor, Xtor, Ytor = ken_diaboloid_segment_to_point(p=p, q=q, theta=theta, x=x, y=y, detrend=detrend)
+                Ztor, Xtor, Ytor = ken_diaboloid_segment_to_point(p=p, q=q, theta=theta, x=x, y=y, detrend=1)
             elif self.configuration == 2:  #
-                Ztor, Xtor, Ytor = valeriy_diaboloid_point_to_segment(p=p, q=q, theta=theta, x=x, y=y, detrend=detrend)
+                Ztor, Xtor, Ytor = valeriy_diaboloid_exact_point_to_segment(p=p, q=q, theta=theta, x=x, y=y)
             elif self.configuration == 3:  #
-                Ztor, Xtor, Ytor = valeriy_diaboloid_segment_to_point(p=p, q=q, theta=theta, x=x, y=y, detrend=detrend)
+                Ztor, Xtor, Ytor = valeriy_diaboloid_exact_segment_to_point(p=p, q=q, theta=theta, x=x, y=y,)
             elif self.configuration == 4:  # point to segment
-                Ztor, Xtor, Ytor = valeriy_diaboloid_point_to_segment(p=p, q=q, theta=theta, x=x, y=y, detrend=detrend)
+                Ztor, Xtor, Ytor = valeriy_diaboloid_exact_point_to_segment(p=p, q=q, theta=theta, x=x, y=y)
             elif self.configuration == 5:  #
-                Ztor, Xtor, Ytor = valeriy_diaboloid_segment_to_point(p=p, q=q, theta=theta, x=x, y=y, detrend=detrend)
+                Ztor, Xtor, Ytor = valeriy_diaboloid_exact_segment_to_point(p=p, q=q, theta=theta, x=x, y=y)
             elif self.configuration == 6:  #
-                Ztor, Xtor, Ytor = valeriy_diaboloid_point_to_segment(p=p, q=q, theta=theta, x=x, y=y, detrend=detrend)
+                Ztor, Xtor, Ytor = valeriy_diaboloid_exact_point_to_segment(p=p, q=q, theta=theta, x=x, y=y)
             elif self.configuration == 7:  #
-                Ztor, Xtor, Ytor = valeriy_diaboloid_segment_to_point(p=p, q=q, theta=theta, x=x, y=y, detrend=detrend)
+                Ztor, Xtor, Ytor = valeriy_diaboloid_exact_segment_to_point(p=p, q=q, theta=theta, x=x, y=y)
             elif self.configuration == 8:  #
-                Ztor, Xtor, Ytor = valeriy_diaboloid_point_to_segment(p=p, q=q, theta=theta, x=x, y=y, detrend=detrend)
+                Ztor, Xtor, Ytor = valeriy_diaboloid_exact_point_to_segment(p=p, q=q, theta=theta, x=x, y=y)
             elif self.configuration == 9:  #
-                Ztor, Xtor, Ytor = valeriy_diaboloid_segment_to_point(p=p, q=q, theta=theta, x=x, y=y, detrend=detrend)
+                Ztor, Xtor, Ytor = valeriy_diaboloid_exact_segment_to_point(p=p, q=q, theta=theta, x=x, y=y)
 
             else:
                 raise Exception("Not implemented")
 
 
         Z -= Ztor
-
 
         self.plot_data2D(Z, x, y, self.tab[0],
                          title="%s p:%6.3f m, q:%6.3f %6.3f mrad" %
@@ -387,7 +382,6 @@ class OWALSDiaboloid(OWWidget):
         tmp.setGraphYLabel(ytitle)
         tmp.setGraphTitle(title)
 
-        # self.tab[tabs_canvas_index].layout().addWidget(tmp)
         canvas_widget_id.layout().addWidget(tmp)
 
 def ken_diaboloid_point_to_segment(
@@ -404,25 +398,18 @@ def ken_diaboloid_point_to_segment(
     z0 = p * numpy.sin(2 * theta)
     c = p + q
 
-    # print("ken_diaboloid_point_to_segment: s: %f, z0: %f, c: %f" % (s, z0, c))
-
     Z = - numpy.sqrt(c ** 2 + q ** 2 - s ** 2 - 2 * Y * (s + q) - 2 * c * numpy.sqrt(X ** 2 + (q - Y) ** 2))
-
     Z += z0
-    # print(Z.shape, Z.min(), Z.max())
 
     if detrend == 0:
         zfit = 0
     elif detrend == 1:
-        zfit = -theta * y # -numpy.tan(theta) * y
+        zfit = -theta * y
     elif detrend == 2:
         zcentral = Z[Z.shape[0] // 2, :]
         zcoeff = numpy.polyfit(y[(y.size // 2 - 10):(y.size // 2 + 10)],
                                zcentral[(y.size // 2 - 10):(y.size // 2 + 10)], 1)
         zfit = zcoeff[1] + y * zcoeff[0]
-        # print(zcoeff)
-        # from srxraylib.plot.gol import plot
-        # plot(y,zcentral,y,zfit)
 
     for i in range(Z.shape[0]):
         Z[i, :] = Z[i, :] - zfit
@@ -445,93 +432,6 @@ def ken_diaboloid_segment_to_point(
 
     return Z, X, Y
 
-    # removed this section: it works, but it does not flip the Y coordinate therefore
-    # gives wrong results if a surface is later substracted
-    # X = numpy.outer(x, numpy.ones_like(y))
-    # Y = numpy.outer(numpy.ones_like(x), y)
-    #
-    # s = q * numpy.cos(2 * theta)
-    # z0 = q * numpy.sin(2 * theta)
-    # c = p + q
-    #
-    # # print("ken_diaboloid_segment_to_point: s: %f, z0: %f, c: %f" % (s, z0, c))
-    #
-    # Z = z0 - numpy.sqrt(2 * p ** 2 + z0 ** 2 + 2 * p * q + 2 * (p + s) * Y - 2 * c * numpy.sqrt(X ** 2 + (Y + p) ** 2))
-    #
-    # # print(Z.shape, Z.min(), Z.max())
-    #
-    # if detrend == 0:
-    #     zfit = 0
-    # elif detrend == 1:
-    #     zfit = theta * y #numpy.tan(theta) * y
-    # elif detrend == 2:
-    #     zcentral = Z[Z.shape[0] // 2, :]
-    #     zcoeff = numpy.polyfit(y[(y.size // 2 - 10):(y.size // 2 + 10)],
-    #                            zcentral[(y.size // 2 - 10):(y.size // 2 + 10)], 1)
-    #     zfit = zcoeff[1] + y * zcoeff[0]
-    #     # print(zcoeff)
-    #     # from srxraylib.plot.gol import plot
-    #     # plot(y,zcentral,y,zfit)
-    #
-    # for i in range(Z.shape[0]):
-    #     Z[i, :] = Z[i, :] - zfit
-    #
-    # return Z, X, Y
-
-
-def valeriy_diaboloid_point_to_segment(
-        p=29.3,
-        q=19.53,
-        theta=4.5e-3,
-        x=numpy.linspace(-0.01, 0.01, 101),
-        y=numpy.linspace(-0.1, 0.1, 1001),
-        detrend=0):
-    X = numpy.outer(x, numpy.ones_like(y))
-    Y = numpy.outer(numpy.ones_like(x), y)
-
-    c = numpy.cos(2 * theta)
-    s = numpy.sin(2 * theta)
-
-    Z = p * s - numpy.sqrt( \
-        4 * p ** 2 * (numpy.sin(theta)) ** 4 - \
-        2 * (p * c + q) * (Y + p * c) + \
-        2 * (p + q) * (p * c + q - numpy.sqrt(X ** 2 + (q - Y) ** 2)) \
-        )
-
-    # print(Z.shape, Z.min(), Z.max())
-
-    if detrend == 0:
-        zfit = 0
-    elif detrend == 1:
-        zfit = -theta * y #-numpy.tan(theta) * y
-    elif detrend == 2:
-        zcentral = Z[Z.shape[0] // 2, :]
-        zcoeff = numpy.polyfit(y[(y.size // 2 - 10):(y.size // 2 + 10)],
-                               zcentral[(y.size // 2 - 10):(y.size // 2 + 10)], 1)
-        zfit = zcoeff[1] + y * zcoeff[0]
-        # print(zcoeff)
-        # from srxraylib.plot.gol import plot
-        # plot(y,zcentral,y,zfit)
-
-    for i in range(Z.shape[0]):
-        Z[i, :] = Z[i, :] - zfit
-
-    return Z, X, Y
-
-def valeriy_diaboloid_segment_to_point(
-        p=29.3,
-        q=19.53,
-        theta=4.5e-3,
-        x=numpy.linspace(-0.01, 0.01, 101),
-        y=numpy.linspace(-0.1, 0.1, 1001),
-        detrend=0):
-    Z, X, Y = valeriy_diaboloid_point_to_segment(p=q, q=p, theta=theta, x=x, y=y,
-                                              detrend=detrend)
-    for i in range(x.size):
-        Z[i,:] = numpy.flip(Z[i,:])
-
-    return Z, X, Y
-
 def toroid_point_to_segment(
         p=29.3,
         q=19.53,
@@ -539,12 +439,7 @@ def toroid_point_to_segment(
         x=numpy.linspace(-0.01, 0.01, 101),
         y=numpy.linspace(-0.1, 0.1, 1001)):
 
-    # if configuration == 4: # point to segment
     Rt = 2.0 / numpy.sin(theta) / (1 / p)
-    # elif configuration == 5: # segment to point
-    #     Rt = 2.0 / numpy.sin(theta) / (1 / q)
-    # else:
-    #     raise Exception("Bad configuration flag")
 
     Rs = 2.0 * numpy.sin(theta) / (1 / p + 1 / q)
 
@@ -654,19 +549,114 @@ def valeriy_parabolic_cone_linearized_segment_to_point(
 
     return Z, X, Y
 
+def valeriy_diaboloid_exact_point_to_segment(
+        p=29.3,
+        q=19.53,
+        theta=4.5e-3,
+        x=numpy.linspace(-0.01, 0.01, 101),
+        y=numpy.linspace(-0.1, 0.1, 1001),
+        ):
+
+    X = numpy.outer(x, numpy.ones_like(y))
+    Y = numpy.outer(numpy.ones_like(x), y)
+
+    c = numpy.cos(theta)
+    s = numpy.sin(theta)
+
+    c2 = numpy.cos(2 * theta)
+    s2 = numpy.sin(2 * theta)
+
+    # A = −Cos[θ] 4 .
+    # B = 4(r1 − r2)Cos[θ] 2 Sin[θ] + 4Cos[θ] 3 Sin[θ]z;
+    # C = 4r2((r1 + r2)Cos[θ] 2 + 4r1Sin[θ] 2 ) + 2Cos[θ](−3r1 + r2 + (r1 − 3r2)Cos[2θ])z − 6(Cos[θ] 2 Sin[θ] 2 )z 2 ;
+    # D = −16r1r2(r1 + r2)Sin[θ] + 4(r1 + r2)(2r1 − r2)Sin[2θ]z + 2(3r1 + r2 + (r1 + 3r2)Cos[2θ])Sin[θ]z 2 + 4Cos[θ]Sin[θ] 3 z 3 ;
+    # E = 4(r1 + r2) 2 x 2 + 4r2(r1 + r2)Sin[θ] 2 z 2 − 4((r1 + r2)Cos[θ]Sin[θ] 2 )z 3 − Sin[θ] 4 z 4 ;
+
+    A = -c**4 * numpy.ones_like(X)
+    B = 4 * (p - q) * c**2 * s \
+                + 4 * c**3 * s * Y
+    C = 4 * q * ( (p + q) * c**2 + 4 * p * s**2 ) \
+                + 2 * c * (q - 3 * p + (p - 3 * q) * c2) * Y \
+                - 6 * c**2 * s**2 * Y**2
+    D = -16 * p * q * (p + q) * s \
+                + 4 * (p + q) * (2 * p - q) * s2 * Y \
+                + 2 * (3 * p + q + (3 * q + p) * c2) * s * Y**2 \
+                + 4 * c * s**3 * Y**3
+    E = 4 * (p + q)**2 * X**2 \
+            + 4 * q * (p + q) * s**2 * Y**2 \
+            - 4 * (p + q) * c * s**2 * Y**3 \
+            - s**4 * Y**4
+
+    # get good solution: the one that is zero at (0,0)
+    ix = x.size // 2
+    iy = y.size // 2
+    solutions = single_quartic(A[ix, iy], B[ix, iy], C[ix, iy], D[ix, iy], E[ix, iy])
+    aa = []
+    for sol in solutions:
+        if numpy.abs(sol.imag) < 1e-15:
+            aa.append(numpy.abs(sol.real))
+        else:
+            aa.append(1e10)
+    isel = numpy.argmin(aa)
+
+
+    # calculate solutions array
+    P = numpy.zeros((A.size, 5))
+    P[:, 0] = A.flatten()
+    P[:, 1] = B.flatten()
+    P[:, 2] = C.flatten()
+    P[:, 3] = D.flatten()
+    P[:, 4] = E.flatten()
+    SOLUTION = quartic_roots(P)
+
+    # return result
+    SOLUTION_GOOD = (SOLUTION[:,isel]).flatten()
+    SOLUTION_GOOD.shape = A.shape
+    Z = SOLUTION_GOOD.real
+    return Z, X, Y
+
+def valeriy_diaboloid_exact_segment_to_point(
+        p=29.3,
+        q=19.53,
+        theta=4.5e-3,
+        x=numpy.linspace(-0.01, 0.01, 101),
+        y=numpy.linspace(-0.1, 0.1, 1001),
+        ):
+    Z, X, Y = valeriy_diaboloid_exact_point_to_segment(p=q, q=p, theta=theta, x=x, y=y)
+    for i in range(x.size):
+        Z[i,:] = numpy.flip(Z[i,:])
+
+    return Z, X, Y
 
 if __name__ == "__main__":
+    from PyQt5.QtWidgets import QApplication
+
     app = QApplication(sys.argv)
     w = OWALSDiaboloid()
     w.show()
     app.exec()
     w.saveSettings()
 
-    # # Z = toroid_point_to_segment()
-    # # print(Z.shape)
-    # import orangecanvas.resources as resources
-    # import os
-    # # usage_path = os.path.join(resources.package_dirname("orangecontrib.syned"), "als", "widgets", "tools", "misc", "diaboloid_usage.png")
+
+    # x = numpy.linspace(-10e-3, 10e-3, 101)
+    # y = numpy.linspace(-100e-3, 100e-3, 1001)
     #
-    # usage_path = os.path.join(resources.package_dirname("orangecontrib.syned.als.widgets.tools") , "misc", "diaboloid_usage.png")
-    # print(">>>>", usage_path)
+    # Z, X, Y =  valeriy_diaboloid_exact_point_to_segment(p=29.3,q=19.53,theta=4.5e-3,x=x,y=y,)
+    # Z0, X, Y = ken_diaboloid_point_to_segment(p=29.3, q=19.53, theta=4.5e-3, x=x, y=y, detrend=1)
+    #
+    # from srxraylib.plot.gol import plot_image, plot
+    # plot_image((Z0) * 1e-6, x * 1e-3, y * 1e-3, xtitle="X/mm", ytitle="Y/mm", title="Z (approximated)/um", aspect="auto")
+    # plot_image((Z) * 1e-6, x * 1e-3, y * 1e-3, xtitle="X/mm", ytitle="Y/mm", title="Z (exact)/um", aspect="auto")
+    # plot_image((Z-Z0) * 1e-6, x * 1e-3, y * 1e-3, xtitle="X/mm", ytitle="Y/mm", title="Z (exact)-Z(approximated)/um", aspect="auto")
+    #
+    # ZZ0 = Z0[:, y.size//2]
+    # ZZ  = Z[:, y.size//2]
+    # plot(x, ZZ0 - ZZ0.min(),
+    #      x,  ZZ - ZZ.min(),
+    #      xtitle="X", ytitle="Z", legend=["Z (approximated)","Z (exact)"])
+    #
+    # ZZ0 = Z0[x.size//2, :]
+    # ZZ  = Z[x.size//2, :]
+    # plot(y,  ZZ0 - ZZ0.min(),
+    #      y,   ZZ - ZZ.min(),
+    #      xtitle="Y", ytitle="Z", legend=["Z (approximated)","Z (exact)"])
