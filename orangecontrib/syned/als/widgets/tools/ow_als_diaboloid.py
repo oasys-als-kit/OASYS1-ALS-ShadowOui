@@ -2,8 +2,10 @@ import os, sys
 import numpy
 
 from PyQt5.QtCore import QRect, Qt
+from PyQt5.QtWidgets import QApplication, QMessageBox, QScrollArea, QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView, QWidget, QLabel, QSizePolicy
 from PyQt5.QtGui import QTextCursor,QFont, QPalette, QColor, QPainter, QBrush, QPen, QPixmap
 from PyQt5.QtWidgets import QLabel, QSizePolicy
+from PyQt5.QtWidgets import QApplication
 
 import orangecanvas.resources as resources
 
@@ -629,7 +631,7 @@ def valeriy_diaboloid_exact_segment_to_point(
     return Z, X, Y
 
 if __name__ == "__main__":
-    from PyQt5.QtWidgets import QApplication
+
 
     app = QApplication(sys.argv)
     w = OWALSDiaboloid()
