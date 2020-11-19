@@ -74,6 +74,8 @@ class OWALSDiaboloid(OWWidget):
     detrend_toroid = Setting(0)
     filename_h5 = Setting("diaboloid.h5")
 
+    cylindrize = Setting(0)
+
     #
     #
     #
@@ -156,6 +158,11 @@ class OWALSDiaboloid(OWWidget):
         oasysgui.lineEdit(out_calc, self, "semilength_x", "Half length X [m]",
                            labelWidth=300, valueType=float, orientation="horizontal")
 
+        #
+        gui.comboBox(out_calc, self, "cylindrize", label="Replicate central sagittal profile", labelWidth=300,
+                     items=["No [default]", "Yes"], sendSelectedValue=False,
+                     orientation="horizontal")
+
         gui.separator(out_calc)
         #
         # --------------- FILE
@@ -164,7 +171,6 @@ class OWALSDiaboloid(OWWidget):
 
         oasysgui.lineEdit(out_file , self, "filename_h5", "Output filename *.h5",
                            labelWidth=150, valueType=str, orientation="horizontal")
-
 
         gui.separator(out_file)
 
@@ -307,32 +313,49 @@ class OWALSDiaboloid(OWWidget):
                 Ztor = toroid_segment_to_point(p=p, q=q, theta=theta, x=x, y=y)
         elif self.detrend_toroid == 2: # detrend diaboloid
             mirror_txt += " (diaboloid removed)"
-            if self.configuration == 0:  #
-                Ztor, Xtor, Ytor = ken_diaboloid_point_to_segment(p=p, q=q, theta=theta, x=x, y=y, detrend=1)
-            elif self.configuration == 1:  #
-                Ztor, Xtor, Ytor = ken_diaboloid_segment_to_point(p=p, q=q, theta=theta, x=x, y=y, detrend=1)
-            elif self.configuration == 2:  #
+            if self.configuration in [0, 2, 4, 6, 8]:  # point to segment
                 Ztor, Xtor, Ytor = valeriy_diaboloid_exact_point_to_segment(p=p, q=q, theta=theta, x=x, y=y)
-            elif self.configuration == 3:  #
+            elif self.configuration in [1, 3, 5, 7, 9]:  # segment-to-point
                 Ztor, Xtor, Ytor = valeriy_diaboloid_exact_segment_to_point(p=p, q=q, theta=theta, x=x, y=y,)
-            elif self.configuration == 4:  # point to segment
-                Ztor, Xtor, Ytor = valeriy_diaboloid_exact_point_to_segment(p=p, q=q, theta=theta, x=x, y=y)
-            elif self.configuration == 5:  #
-                Ztor, Xtor, Ytor = valeriy_diaboloid_exact_segment_to_point(p=p, q=q, theta=theta, x=x, y=y)
-            elif self.configuration == 6:  #
-                Ztor, Xtor, Ytor = valeriy_diaboloid_exact_point_to_segment(p=p, q=q, theta=theta, x=x, y=y)
-            elif self.configuration == 7:  #
-                Ztor, Xtor, Ytor = valeriy_diaboloid_exact_segment_to_point(p=p, q=q, theta=theta, x=x, y=y)
-            elif self.configuration == 8:  #
-                Ztor, Xtor, Ytor = valeriy_diaboloid_exact_point_to_segment(p=p, q=q, theta=theta, x=x, y=y)
-            elif self.configuration == 9:  #
-                Ztor, Xtor, Ytor = valeriy_diaboloid_exact_segment_to_point(p=p, q=q, theta=theta, x=x, y=y)
+
+            #
+            #
+            # if self.configuration == 0:  #
+            #     Ztor, Xtor, Ytor = ken_diaboloid_point_to_segment(p=p, q=q, theta=theta, x=x, y=y, detrend=1)
+            # elif self.configuration == 1:  #
+            #     Ztor, Xtor, Ytor = ken_diaboloid_segment_to_point(p=p, q=q, theta=theta, x=x, y=y, detrend=1)
+            # elif self.configuration == 2:  #
+            #     Ztor, Xtor, Ytor = valeriy_diaboloid_exact_point_to_segment(p=p, q=q, theta=theta, x=x, y=y)
+            # elif self.configuration == 3:  #
+            #     Ztor, Xtor, Ytor = valeriy_diaboloid_exact_segment_to_point(p=p, q=q, theta=theta, x=x, y=y,)
+            # elif self.configuration == 4:  # point to segment
+            #     Ztor, Xtor, Ytor = valeriy_diaboloid_exact_point_to_segment(p=p, q=q, theta=theta, x=x, y=y)
+            # elif self.configuration == 5:  #
+            #     Ztor, Xtor, Ytor = valeriy_diaboloid_exact_segment_to_point(p=p, q=q, theta=theta, x=x, y=y)
+            # elif self.configuration == 6:  #
+            #     Ztor, Xtor, Ytor = valeriy_diaboloid_exact_point_to_segment(p=p, q=q, theta=theta, x=x, y=y)
+            # elif self.configuration == 7:  #
+            #     Ztor, Xtor, Ytor = valeriy_diaboloid_exact_segment_to_point(p=p, q=q, theta=theta, x=x, y=y)
+            # elif self.configuration == 8:  #
+            #     Ztor, Xtor, Ytor = valeriy_diaboloid_exact_point_to_segment(p=p, q=q, theta=theta, x=x, y=y)
+            # elif self.configuration == 9:  #
+            #     Ztor, Xtor, Ytor = valeriy_diaboloid_exact_segment_to_point(p=p, q=q, theta=theta, x=x, y=y)
 
             else:
                 raise Exception("Not implemented")
 
+        #
+        # shape modifications
+        #
+        nx, ny = Z.shape
+        if self.cylindrize == 1:
+            sagittal_central_profile = Z[:,ny//2] - Z[nx//2,ny//2]
+            for i in range(ny):
+                Z[:,i] = Z[nx//2,i] + sagittal_central_profile
 
         Z -= Ztor
+        
+
 
         self.plot_data2D(Z, x, y, self.tab[0],
                          title="%s p:%6.3f m, q:%6.3f %6.3f mrad" %
