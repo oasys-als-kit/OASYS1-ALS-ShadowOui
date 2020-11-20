@@ -15,7 +15,7 @@ from oasys.util.oasys_util import TriggerIn, EmittingStream
 
 from orangecontrib.wofry.util.wofry_objects import WofryData
 from orangecontrib.wofry.widgets.gui.ow_wofry_widget import WofryWidget
-from orangecontrib.xoppy.util.python_script import PythonScript  # TODO: change import from wofry!!!
+from orangecontrib.wofry.widgets.gui.python_script import PythonScript
 
 from syned.widget.widget_decorator import WidgetDecorator
 
