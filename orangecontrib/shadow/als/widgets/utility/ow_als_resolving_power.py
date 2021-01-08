@@ -13,6 +13,7 @@ from srxraylib.plot.gol import plot_scatter
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 
+import matplotlib.pylab as plt
 
 import numpy
 
@@ -340,12 +341,12 @@ class ALSResolvingPower(ow_automatic_element.AutomaticElement):
         f[2].tick_params(axis='y', labelsize=self.labelsize)
         f[3].tick_params(axis='x', labelsize=self.labelsize)
 
-        figure_canvas = FigureCanvasQTAgg(f[0])
-        toolbar = NavigationToolbar(figure_canvas, self)
+        figure_canvas1 = FigureCanvasQTAgg(f[0])
+        toolbar = NavigationToolbar(figure_canvas1, self)
         self.detrended_id.layout().removeItem(self.detrended_id.layout().itemAt(1))
         self.detrended_id.layout().removeItem(self.detrended_id.layout().itemAt(0))
         self.detrended_id.layout().addWidget(toolbar)
-        self.detrended_id.layout().addWidget(figure_canvas)
+        self.detrended_id.layout().addWidget(figure_canvas1)
 
 
         #
@@ -373,12 +374,13 @@ class ALSResolvingPower(ow_automatic_element.AutomaticElement):
         g[2].tick_params(axis='y', labelsize=self.labelsize)
         g[3].tick_params(axis='x', labelsize=self.labelsize)
 
-        figure_canvas = FigureCanvasQTAgg(g[0])
-        toolbar = NavigationToolbar(figure_canvas, self)
+        self.figure_canvas2 = FigureCanvasQTAgg(g[0])
+        self.figure_canvas2.setParent(self)
+        toolbar = NavigationToolbar(self.figure_canvas2, self)
         self.dispersion_id.layout().removeItem(self.dispersion_id.layout().itemAt(1))
         self.dispersion_id.layout().removeItem(self.dispersion_id.layout().itemAt(0))
         self.dispersion_id.layout().addWidget(toolbar)
-        self.dispersion_id.layout().addWidget(figure_canvas)
+        self.dispersion_id.layout().addWidget(self,figure_canvas2)
 
 
 
@@ -394,7 +396,7 @@ if __name__ == "__main__":
     class MyBeam():
         pass
     beam_to_analize = Shadow.Beam()
-    beam_to_analize.load("/home/manuel/Oasys/tmp.dat") #star.02")
+    beam_to_analize.load("/home/srio/Oasys/ID32/tmp.dat") #star.02")
     my_beam = MyBeam()
     my_beam._beam = beam_to_analize
 
@@ -403,4 +405,6 @@ if __name__ == "__main__":
     ow.setBeam1(my_beam)
     ow.show()
     a.exec_()
+
+    plt.show()
     ow.saveSettings()

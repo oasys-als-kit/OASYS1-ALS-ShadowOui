@@ -1,7 +1,7 @@
 import sys, os, platform
 import numpy
 from PyQt5.QtWidgets import QApplication, QSizePolicy
-from PyQt5.QtGui import QDoubleValidator
+
 from PyQt5 import QtGui, QtWidgets
 
 from orangewidget import gui
@@ -211,7 +211,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
         box1 = gui.widgetBox(box)
         self.id_RING_ENERGY = oasysgui.lineEdit(box1, self, "RING_ENERGY",
                      label=self.unitLabels()[idx], addSpace=False,
-                    valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
+                    valueType=float, orientation="horizontal", labelWidth=250)
         self.show_at(self.unitFlags()[idx], box1)
 
         ########
@@ -219,7 +219,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
         box1 = gui.widgetBox(box)
         self.id_RING_CURRENT = oasysgui.lineEdit(box1, self, "RING_CURRENT",
                      label=self.unitLabels()[idx], addSpace=False,
-                    valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
+                    valueType=float, orientation="horizontal", labelWidth=250)
         self.show_at(self.unitFlags()[idx], box1)
 
         ########
@@ -227,7 +227,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
         box1 = gui.widgetBox(box)
         self.id_KY = oasysgui.lineEdit(box1, self, "KY",
                      label=self.unitLabels()[idx], addSpace=False,
-                    valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
+                    valueType=float, orientation="horizontal", labelWidth=250)
         self.show_at(self.unitFlags()[idx], box1)
 
         ########
@@ -235,7 +235,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
         box1 = gui.widgetBox(box)
         self.id_KX = oasysgui.lineEdit(box1, self, "KX",
                      label=self.unitLabels()[idx], addSpace=False,
-                    valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
+                    valueType=float, orientation="horizontal", labelWidth=250)
         self.show_at(self.unitFlags()[idx], box1)
 
         ########
@@ -243,7 +243,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
         box1 = gui.widgetBox(box)
         self.id_NUMBER_OF_PERIODS = oasysgui.lineEdit(box1, self, "NUMBER_OF_PERIODS",
                      label=self.unitLabels()[idx], addSpace=False,
-                    valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
+                    valueType=float, orientation="horizontal", labelWidth=250)
         self.show_at(self.unitFlags()[idx], box1)
 
         ########
@@ -251,7 +251,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
         box1 = gui.widgetBox(box)
         self.id_PERIOD_LENGTH = oasysgui.lineEdit(box1, self, "PERIOD_LENGTH",
                      label=self.unitLabels()[idx], addSpace=False,
-                    valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
+                    valueType=float, orientation="horizontal", labelWidth=250)
         self.show_at(self.unitFlags()[idx], box1)
 
         ########
@@ -259,7 +259,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
         box1 = gui.widgetBox(box)
         self.id_SIGMAX = oasysgui.lineEdit(box1, self, "SIGMAX",
                      label=self.unitLabels()[idx], addSpace=False,
-                    valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
+                    valueType=float, orientation="horizontal", labelWidth=250)
         self.show_at(self.unitFlags()[idx], box1)
 
         ########
@@ -267,7 +267,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
         box1 = gui.widgetBox(box)
         self.id_SIGMAXP = oasysgui.lineEdit(box1, self, "SIGMAXP",
                      label=self.unitLabels()[idx], addSpace=False,
-                    valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
+                    valueType=float, orientation="horizontal", labelWidth=250)
         self.show_at(self.unitFlags()[idx], box1)
 
         ########
@@ -275,7 +275,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
         box1 = gui.widgetBox(box)
         self.id_SIGMAY = oasysgui.lineEdit(box1, self, "SIGMAY",
                      label=self.unitLabels()[idx], addSpace=False,
-                    valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
+                    valueType=float, orientation="horizontal", labelWidth=250)
         self.show_at(self.unitFlags()[idx], box1)
 
         ########
@@ -283,7 +283,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
         box1 = gui.widgetBox(box)
         self.id_SIGMAYP = oasysgui.lineEdit(box1, self, "SIGMAYP",
                      label=self.unitLabels()[idx], addSpace=False,
-                    valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
+                    valueType=float, orientation="horizontal", labelWidth=250)
         self.show_at(self.unitFlags()[idx], box1)
 
 
@@ -298,7 +298,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
         box1 = gui.widgetBox(box, orientation="horizontal")
         oasysgui.lineEdit(box1, self, "NUMBER_OF_HARMONICS",
                      label=self.unitLabels()[idx], addSpace=False,
-                    valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=150)
+                    valueType=float, orientation="horizontal", labelWidth=150)
         self.show_at(self.unitFlags()[idx], box1)
 
         gui.button(box1 , self, "Guess", callback=self.guess_number_of_harmonics, height=25)
@@ -308,7 +308,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
         box1 = gui.widgetBox(box)
         oasysgui.lineEdit(box1, self, "SOURCE_SCREEN_DISTANCE",
                      label=self.unitLabels()[idx], addSpace=False,
-                    valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250,
+                    valueType=float, orientation="horizontal", labelWidth=250,
                           callback=self.setdistance)
         self.show_at(self.unitFlags()[idx], box1)
 
@@ -317,7 +317,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
         box1 = gui.widgetBox(box)
         oasysgui.lineEdit(box1, self, "HORIZONTAL_ACCEPTANCE",
                      label=self.unitLabels()[idx], addSpace=False,
-                    valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
+                    valueType=float, orientation="horizontal", labelWidth=250)
         self.show_at(self.unitFlags()[idx], box1)
 
         ########
@@ -325,7 +325,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
         box1 = gui.widgetBox(box)
         oasysgui.lineEdit(box1, self, "VERTICAL_ACCEPTANCE",
                      label=self.unitLabels()[idx], addSpace=False,
-                    valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
+                    valueType=float, orientation="horizontal", labelWidth=250)
         self.show_at(self.unitFlags()[idx], box1)
 
 
@@ -334,7 +334,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
         box1 = gui.widgetBox(box)
         oasysgui.lineEdit(box1, self, "NUMBER_OF_POINTS_H",
                      label=self.unitLabels()[idx], addSpace=False,
-                    valueType=int, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
+                    valueType=int, orientation="horizontal", labelWidth=250)
         self.show_at(self.unitFlags()[idx], box1)
 
         ########
@@ -342,7 +342,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
         box1 = gui.widgetBox(box)
         oasysgui.lineEdit(box1, self, "NUMBER_OF_POINTS_V",
                      label=self.unitLabels()[idx], addSpace=False,
-                    valueType=int, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
+                    valueType=int, orientation="horizontal", labelWidth=250)
         self.show_at(self.unitFlags()[idx], box1)
 
         ########
@@ -350,7 +350,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
         box1 = gui.widgetBox(box)
         oasysgui.lineEdit(box1, self, "ELECTRON_SIGMAS",
                      label=self.unitLabels()[idx], addSpace=False,
-                    valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
+                    valueType=float, orientation="horizontal", labelWidth=250)
         self.show_at(self.unitFlags()[idx], box1)
 
 
@@ -416,7 +416,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
             box1 = gui.widgetBox(self.tab_el[element_index])
             oasysgui.lineEdit(box1, self, "EL%d_P_POSITION"%element_index,
                          label=self.unitLabels()[idx], addSpace=False,
-                        valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=300)
+                        valueType=float, orientation="horizontal", labelWidth=300)
             self.show_at(self.unitFlags()[idx], box1)
 
 
@@ -429,7 +429,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
             box1 = gui.widgetBox(self.tab_el[element_index])
             oasysgui.lineEdit(box1, self, "EL%d_Q_POSITION"%element_index,
                          label=self.unitLabels()[idx], addSpace=False,
-                        valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=300)
+                        valueType=float, orientation="horizontal", labelWidth=300)
             self.show_at(self.unitFlags()[idx], box1)
 
 
@@ -438,7 +438,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
             box1 = gui.widgetBox(self.tab_el[element_index])
             oasysgui.lineEdit(box1, self, "EL%d_P_FOCUS"%element_index,
                          label=self.unitLabels()[idx], addSpace=False,
-                        valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
+                        valueType=float, orientation="horizontal", labelWidth=250)
             self.show_at(self.unitFlags()[idx], box1)
 
             #widget index xx
@@ -446,7 +446,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
             box1 = gui.widgetBox(self.tab_el[element_index])
             oasysgui.lineEdit(box1, self, "EL%d_Q_FOCUS"%element_index,
                          label=self.unitLabels()[idx], addSpace=False,
-                        valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
+                        valueType=float, orientation="horizontal", labelWidth=250)
             self.show_at(self.unitFlags()[idx], box1)
 
             #widget index xx
@@ -454,7 +454,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
             box1 = gui.widgetBox(self.tab_el[element_index])
             oasysgui.lineEdit(box1, self, "EL%d_ANG"%element_index,
                          label=self.unitLabels()[idx], addSpace=False,
-                        valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
+                        valueType=float, orientation="horizontal", labelWidth=250)
             self.show_at(self.unitFlags()[idx], box1)
 
             #widget index xx
@@ -462,7 +462,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
             box1 = gui.widgetBox(self.tab_el[element_index])
             oasysgui.lineEdit(box1, self, "EL%d_THICKNESS"%element_index,
                          label=self.unitLabels()[idx], addSpace=False,
-                        valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
+                        valueType=float, orientation="horizontal", labelWidth=250)
             self.show_at(self.unitFlags()[idx], box1)
 
             #widget index xx
@@ -503,7 +503,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
         gui.separator(box1, height=7)
         oasysgui.lineEdit(box1, self, "RAY_TRACING_RUNS",
                           label=self.unitLabels()[idx], addSpace=False,
-                          valueType=int, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
+                          valueType=int, orientation="horizontal", labelWidth=250)
         self.show_at(self.unitFlags()[idx], box1)
 
         # widget index xx
@@ -512,7 +512,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
         gui.separator(box1, height=7)
         oasysgui.lineEdit(box1, self, "RAY_TRACING_SEED",
                           label=self.unitLabels()[idx], addSpace=False,
-                          valueType=int, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
+                          valueType=int, orientation="horizontal", labelWidth=250)
         self.show_at(self.unitFlags()[idx], box1)
 
         #
@@ -633,7 +633,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
         gui.separator(box1, height=7)
         oasysgui.lineEdit(box1, self, "RATIO_PIXELS_0",
                           label=self.unitLabels()[idx], addSpace=False,
-                          valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
+                          valueType=float, orientation="horizontal", labelWidth=250)
         self.show_at(self.unitFlags()[idx], box1)
 
         # widget index xx
@@ -642,7 +642,7 @@ class OWsrcalc_idpower(XoppyWidget, WidgetDecorator):
         gui.separator(box1, height=7)
         oasysgui.lineEdit(box1, self, "RATIO_PIXELS_1",
                           label=self.unitLabels()[idx], addSpace=False,
-                          valueType=float, validator=QDoubleValidator(), orientation="horizontal", labelWidth=250)
+                          valueType=float, orientation="horizontal", labelWidth=250)
         self.show_at(self.unitFlags()[idx], box1)
 
         box = gui.widgetBox(box0,"Debug")
