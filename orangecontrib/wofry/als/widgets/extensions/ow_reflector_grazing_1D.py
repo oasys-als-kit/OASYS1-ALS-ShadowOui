@@ -21,7 +21,7 @@ from syned.widget.widget_decorator import WidgetDecorator
 
 from wofry.propagator.wavefront1D.generic_wavefront import GenericWavefront1D
 
-from shadow4.optical_surfaces.conic import Conic
+from shadow4.optical_surfaces.s4_conic import S4Conic
 
 from numba import jit, prange
 
@@ -386,17 +386,17 @@ class OWReflectorGrazing1D(WofryWidget):
         if shape == 0:
             pass
         elif shape == 1:
-            ccc = Conic.initialize_as_sphere_from_focal_distances(p_focus, q_focus, grazing_angle_in)
+            ccc = S4Conic.initialize_as_sphere_from_focal_distances(p_focus, q_focus, grazing_angle_in)
             height = ccc.height(x2_oe)
             print(ccc.info())
             y2_oe += height
         elif shape == 2:
-            ccc = Conic.initialize_as_ellipsoid_from_focal_distances(p_focus, q_focus, grazing_angle_in)
+            ccc = S4Conic.initialize_as_ellipsoid_from_focal_distances(p_focus, q_focus, grazing_angle_in)
             height = ccc.height(x2_oe)
             print(ccc.info())
             y2_oe += height
         elif shape == 3:
-            ccc = Conic.initialize_as_paraboloid_from_focal_distances(p_focus, q_focus, grazing_angle_in)
+            ccc = S4Conic.initialize_as_paraboloid_from_focal_distances(p_focus, q_focus, grazing_angle_in)
             height = ccc.height(x2_oe)
             print(ccc.info())
             y2_oe += height
@@ -425,7 +425,7 @@ class OWReflectorGrazing1D(WofryWidget):
 """
 
 import numpy
-from shadow4.optical_surfaces.conic import Conic
+from shadow4.optical_surfaces.s4_conic import S4Conic
 from numba import jit, prange
 
 @jit(nopython=True, parallel=True)
@@ -502,17 +502,17 @@ def calculate_output_wavefront_after_grazing_reflector1D(input_wavefront,shape=1
     if shape == 0:
         pass
     elif shape == 1:
-        ccc = Conic.initialize_as_sphere_from_focal_distances(p_focus, q_focus, grazing_angle_in)
+        ccc = S4Conic.initialize_as_sphere_from_focal_distances(p_focus, q_focus, grazing_angle_in)
         height = ccc.height(x2_oe)
         print(ccc.info())
         y2_oe += height
     elif shape == 2:
-        ccc = Conic.initialize_as_ellipsoid_from_focal_distances(p_focus, q_focus, grazing_angle_in)
+        ccc = S4Conic.initialize_as_ellipsoid_from_focal_distances(p_focus, q_focus, grazing_angle_in)
         height = ccc.height(x2_oe)
         print(ccc.info())
         y2_oe += height
     elif shape == 3:
-        ccc = Conic.initialize_as_paraboloid_from_focal_distances(p_focus, q_focus, grazing_angle_in)
+        ccc = S4Conic.initialize_as_paraboloid_from_focal_distances(p_focus, q_focus, grazing_angle_in)
         height = ccc.height(x2_oe)
         print(ccc.info())
         y2_oe += height
