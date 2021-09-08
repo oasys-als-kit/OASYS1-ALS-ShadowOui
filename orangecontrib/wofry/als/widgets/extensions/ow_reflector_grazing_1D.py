@@ -384,7 +384,7 @@ class OWReflectorGrazing1D(WofryWidget):
 
 
         if shape == 0:
-            pass
+            height = numpy.zeros_like(x2_oe)
         elif shape == 1:
             ccc = S4Conic.initialize_as_sphere_from_focal_distances(p_focus, q_focus, grazing_angle_in)
             height = ccc.height(x2_oe)
