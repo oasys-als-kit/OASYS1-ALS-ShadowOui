@@ -394,7 +394,13 @@ class ALSFiniteElementReader(OWWidget): #ow_automatic_element.AutomaticElement):
         elif self.reset_height_method == 2:
             self.fea_file_object.reset_height_to_central_value()
 
-        self.file_out = os.path.splitext(self.file_in)[0] + '.h5'
+        file_out = os.path.splitext(self.file_in)[0] + '.h5'
+        if (file_out[0:3] == "htt") or (file_out[0:3] == "ftp"):
+            from pathlib import Path
+            self.file_out = Path(file_out).parts[-1]
+        else:
+            self.file_out = file_out
+
         self.fea_file_object.write_h5_surface(filename=self.file_out, invert_axes_names=self.invert_axes_names)
 
         print("File %s written to disk.\n" % self.file_out)

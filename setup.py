@@ -7,14 +7,14 @@ import subprocess
 
 NAME = 'OASYS1-ALS-ShadowOui'
 
-VERSION = '0.0.59'
+VERSION = '0.0.60'
 ISRELEASED = False
 
 DESCRIPTION = 'WIDGETS DEVELOPED FOR ALS TO EXTEND OASYS FUNCTIONALITIES'
 README_FILE = os.path.join(os.path.dirname(__file__), 'README.txt')
 LONG_DESCRIPTION = open(README_FILE).read()
 AUTHOR = 'Luca Rebuffi and Antoine Wojdyla and Manuel Sanchez del Rio'
-AUTHOR_EMAIL = 'awojdyla@lbl.gov, srio@lbl.gov'
+AUTHOR_EMAIL = 'awojdyla@lbl.gov, srio@esrf.eu'
 URL = 'https://github.com/oasys-als-kit/OASYS1-ALS-ShadowOui'
 DOWNLOAD_URL = 'https://github.com/oasys-als-kit/OASYS1-ALS-ShadowOui'
 LICENSE = 'MIT'
